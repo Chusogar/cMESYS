@@ -5,6 +5,7 @@ cmake_policy(SET CMP0009 NEW)
 # ZX_SOURCES at CMakeLists.txt:13 (file)
 file(GLOB_RECURSE NEW_GLOB LIST_DIRECTORIES false "/workspace/src/*.cpp")
 set(OLD_GLOB
+  "/workspace/src/dsk.cpp"
   "/workspace/src/keyboard.cpp"
   "/workspace/src/main.cpp"
   "/workspace/src/tape.cpp"

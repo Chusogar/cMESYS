@@ -1,5 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/zx48k.dir/link.d"
+  "CMakeFiles/zx48k.dir/src/dsk.cpp.o"
+  "CMakeFiles/zx48k.dir/src/dsk.cpp.o.d"
   "CMakeFiles/zx48k.dir/src/keyboard.cpp.o"
   "CMakeFiles/zx48k.dir/src/keyboard.cpp.o.d"
   "CMakeFiles/zx48k.dir/src/main.cpp.o"

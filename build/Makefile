@@ -175,6 +175,30 @@ zx48k/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/build
 .PHONY : zx48k/fast
 
+src/dsk.o: src/dsk.cpp.o
+.PHONY : src/dsk.o
+
+# target to build an object file
+src/dsk.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/dsk.cpp.o
+.PHONY : src/dsk.cpp.o
+
+src/dsk.i: src/dsk.cpp.i
+.PHONY : src/dsk.i
+
+# target to preprocess a source file
+src/dsk.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/dsk.cpp.i
+.PHONY : src/dsk.cpp.i
+
+src/dsk.s: src/dsk.cpp.s
+.PHONY : src/dsk.s
+
+# target to generate assembly for a file
+src/dsk.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/dsk.cpp.s
+.PHONY : src/dsk.cpp.s
+
 src/keyboard.o: src/keyboard.cpp.o
 .PHONY : src/keyboard.o
 
@@ -308,6 +332,9 @@ help:
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
 	@echo "... zx48k"
+	@echo "... src/dsk.o"
+	@echo "... src/dsk.i"
+	@echo "... src/dsk.s"
 	@echo "... src/keyboard.o"
 	@echo "... src/keyboard.i"
 	@echo "... src/keyboard.s"

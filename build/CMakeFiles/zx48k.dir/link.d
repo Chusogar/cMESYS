@@ -2,6 +2,7 @@ bin/zx48k: \
   /lib/x86_64-linux-gnu/Scrt1.o \
   /lib/x86_64-linux-gnu/crti.o \
   /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o \
+  CMakeFiles/zx48k.dir/src/dsk.cpp.o \
   CMakeFiles/zx48k.dir/src/keyboard.cpp.o \
   CMakeFiles/zx48k.dir/src/main.cpp.o \
   CMakeFiles/zx48k.dir/src/tape.cpp.o \
@@ -40,6 +41,8 @@ bin/zx48k: \
 /lib/x86_64-linux-gnu/crti.o:
 
 /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o:
+
+CMakeFiles/zx48k.dir/src/dsk.cpp.o:
 
 CMakeFiles/zx48k.dir/src/keyboard.cpp.o:
 

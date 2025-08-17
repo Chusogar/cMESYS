@@ -72,10 +72,24 @@ include CMakeFiles/zx48k.dir/flags.make
 CMakeFiles/zx48k.dir/codegen:
 .PHONY : CMakeFiles/zx48k.dir/codegen
 
+CMakeFiles/zx48k.dir/src/dsk.cpp.o: CMakeFiles/zx48k.dir/flags.make
+CMakeFiles/zx48k.dir/src/dsk.cpp.o: /workspace/src/dsk.cpp
+CMakeFiles/zx48k.dir/src/dsk.cpp.o: CMakeFiles/zx48k.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/zx48k.dir/src/dsk.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/zx48k.dir/src/dsk.cpp.o -MF CMakeFiles/zx48k.dir/src/dsk.cpp.o.d -o CMakeFiles/zx48k.dir/src/dsk.cpp.o -c /workspace/src/dsk.cpp
+
+CMakeFiles/zx48k.dir/src/dsk.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/zx48k.dir/src/dsk.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /workspace/src/dsk.cpp > CMakeFiles/zx48k.dir/src/dsk.cpp.i
+
+CMakeFiles/zx48k.dir/src/dsk.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/zx48k.dir/src/dsk.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /workspace/src/dsk.cpp -o CMakeFiles/zx48k.dir/src/dsk.cpp.s
+
 CMakeFiles/zx48k.dir/src/keyboard.cpp.o: CMakeFiles/zx48k.dir/flags.make
 CMakeFiles/zx48k.dir/src/keyboard.cpp.o: /workspace/src/keyboard.cpp
 CMakeFiles/zx48k.dir/src/keyboard.cpp.o: CMakeFiles/zx48k.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/zx48k.dir/src/keyboard.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/zx48k.dir/src/keyboard.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/zx48k.dir/src/keyboard.cpp.o -MF CMakeFiles/zx48k.dir/src/keyboard.cpp.o.d -o CMakeFiles/zx48k.dir/src/keyboard.cpp.o -c /workspace/src/keyboard.cpp
 
 CMakeFiles/zx48k.dir/src/keyboard.cpp.i: cmake_force
@@ -89,7 +103,7 @@ CMakeFiles/zx48k.dir/src/keyboard.cpp.s: cmake_force
 CMakeFiles/zx48k.dir/src/main.cpp.o: CMakeFiles/zx48k.dir/flags.make
 CMakeFiles/zx48k.dir/src/main.cpp.o: /workspace/src/main.cpp
 CMakeFiles/zx48k.dir/src/main.cpp.o: CMakeFiles/zx48k.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/zx48k.dir/src/main.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/zx48k.dir/src/main.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/zx48k.dir/src/main.cpp.o -MF CMakeFiles/zx48k.dir/src/main.cpp.o.d -o CMakeFiles/zx48k.dir/src/main.cpp.o -c /workspace/src/main.cpp
 
 CMakeFiles/zx48k.dir/src/main.cpp.i: cmake_force
@@ -103,7 +117,7 @@ CMakeFiles/zx48k.dir/src/main.cpp.s: cmake_force
 CMakeFiles/zx48k.dir/src/tape.cpp.o: CMakeFiles/zx48k.dir/flags.make
 CMakeFiles/zx48k.dir/src/tape.cpp.o: /workspace/src/tape.cpp
 CMakeFiles/zx48k.dir/src/tape.cpp.o: CMakeFiles/zx48k.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/zx48k.dir/src/tape.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/zx48k.dir/src/tape.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/zx48k.dir/src/tape.cpp.o -MF CMakeFiles/zx48k.dir/src/tape.cpp.o.d -o CMakeFiles/zx48k.dir/src/tape.cpp.o -c /workspace/src/tape.cpp
 
 CMakeFiles/zx48k.dir/src/tape.cpp.i: cmake_force
@@ -117,7 +131,7 @@ CMakeFiles/zx48k.dir/src/tape.cpp.s: cmake_force
 CMakeFiles/zx48k.dir/src/ula.cpp.o: CMakeFiles/zx48k.dir/flags.make
 CMakeFiles/zx48k.dir/src/ula.cpp.o: /workspace/src/ula.cpp
 CMakeFiles/zx48k.dir/src/ula.cpp.o: CMakeFiles/zx48k.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/zx48k.dir/src/ula.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/zx48k.dir/src/ula.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/zx48k.dir/src/ula.cpp.o -MF CMakeFiles/zx48k.dir/src/ula.cpp.o.d -o CMakeFiles/zx48k.dir/src/ula.cpp.o -c /workspace/src/ula.cpp
 
 CMakeFiles/zx48k.dir/src/ula.cpp.i: cmake_force
@@ -131,7 +145,7 @@ CMakeFiles/zx48k.dir/src/ula.cpp.s: cmake_force
 CMakeFiles/zx48k.dir/src/z80.cpp.o: CMakeFiles/zx48k.dir/flags.make
 CMakeFiles/zx48k.dir/src/z80.cpp.o: /workspace/src/z80.cpp
 CMakeFiles/zx48k.dir/src/z80.cpp.o: CMakeFiles/zx48k.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/zx48k.dir/src/z80.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/zx48k.dir/src/z80.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/zx48k.dir/src/z80.cpp.o -MF CMakeFiles/zx48k.dir/src/z80.cpp.o.d -o CMakeFiles/zx48k.dir/src/z80.cpp.o -c /workspace/src/z80.cpp
 
 CMakeFiles/zx48k.dir/src/z80.cpp.i: cmake_force
@@ -144,6 +158,7 @@ CMakeFiles/zx48k.dir/src/z80.cpp.s: cmake_force
 
 # Object files for target zx48k
 zx48k_OBJECTS = \
+"CMakeFiles/zx48k.dir/src/dsk.cpp.o" \
 "CMakeFiles/zx48k.dir/src/keyboard.cpp.o" \
 "CMakeFiles/zx48k.dir/src/main.cpp.o" \
 "CMakeFiles/zx48k.dir/src/tape.cpp.o" \
@@ -153,6 +168,7 @@ zx48k_OBJECTS = \
 # External object files for target zx48k
 zx48k_EXTERNAL_OBJECTS =
 
+bin/zx48k: CMakeFiles/zx48k.dir/src/dsk.cpp.o
 bin/zx48k: CMakeFiles/zx48k.dir/src/keyboard.cpp.o
 bin/zx48k: CMakeFiles/zx48k.dir/src/main.cpp.o
 bin/zx48k: CMakeFiles/zx48k.dir/src/tape.cpp.o
@@ -161,7 +177,7 @@ bin/zx48k: CMakeFiles/zx48k.dir/src/z80.cpp.o
 bin/zx48k: CMakeFiles/zx48k.dir/build.make
 bin/zx48k: CMakeFiles/zx48k.dir/compiler_depend.ts
 bin/zx48k: CMakeFiles/zx48k.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable bin/zx48k"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/workspace/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable bin/zx48k"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/zx48k.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

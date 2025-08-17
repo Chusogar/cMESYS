@@ -8,6 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/workspace/src/dsk.cpp" "CMakeFiles/zx48k.dir/src/dsk.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/dsk.cpp.o.d"
   "/workspace/src/keyboard.cpp" "CMakeFiles/zx48k.dir/src/keyboard.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/keyboard.cpp.o.d"
   "/workspace/src/main.cpp" "CMakeFiles/zx48k.dir/src/main.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/main.cpp.o.d"
   "/workspace/src/tape.cpp" "CMakeFiles/zx48k.dir/src/tape.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/tape.cpp.o.d"

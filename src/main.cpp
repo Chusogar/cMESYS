@@ -18,6 +18,8 @@
 #include "snapshot_sna.h"
 #include "tape.h"
 #include "ay.h"
+#include "dsk.h"
+#include "fdc.h"
 
 static bool load_file_to_buffer(const std::string &path, std::vector<uint8_t> &out) {
 	FILE *f = std::fopen(path.c_str(), "rb");
@@ -40,6 +42,9 @@ struct ZXMachine {
 	Beeper beeper{};
 	Tape tape{};
 	AY38912 ay{};
+	DskImage dsk{};
+	Plus3FDC fdc{};
+	bool fdcEnabled{false};
 	uint64_t tstate_counter{0};
 
 	bool init(const std::string &romPath) {
@@ -68,9 +73,11 @@ struct ZXMachine {
 		ula.reset();
 		ula.connectMemory(&memory);
 		keyboard.reset();
-		beeper.reset(44100); // default; will be updated by actual audio rate
+		beeper.reset(44100);
 		tape.reset(3500000);
 		ay.reset(1750000, 44100);
+		fdc.reset();
+		fdcEnabled = (memory.model == Memory::Model::ZXPlus3);
 
 		return true;
 	}
@@ -82,11 +89,18 @@ struct ZXMachine {
 			uint8_t earMic = tape.earBit() ? 0x40 : 0x00; // EAR bit 6
 			return (k & 0x1F) | earMic | (ula.borderColour() & 0x07) << 0;
 		}
+		if (fdcEnabled) {
+			// Very simplified +3 mapping: 0x3FFD status/command, 0x2FFD data
+			if ((port & 0xFFFF) == 0x3FFD) return fdc.readStatus();
+			if ((port & 0xFFFF) == 0x2FFD) {
+				if (fdc.hasDataByte()) return fdc.readDataByte();
+				return fdc.readData();
+			}
+		}
 		// AY register read via 0xFFFD (common)
 		if ((port & 0xFFFF) == 0xFFFD) {
 			return ay.readData();
 		}
-		// IN A,(n) and IN r,(C) fall back
 		return 0xFF; // floating bus
 	}
 
@@ -99,6 +113,10 @@ struct ZXMachine {
 		// 128/+3 paging
 		if ((port & 0xFFFF) == 0x7FFD) { memory.out7FFD(value); return; }
 		if ((port & 0xFFFF) == 0x1FFD) { memory.out1FFD(value); return; }
+		if (fdcEnabled) {
+			if ((port & 0xFFFF) == 0x3FFD) { fdc.writeCommand(value); return; }
+			if ((port & 0xFFFF) == 0x2FFD) { fdc.writeData(value); return; }
+		}
 		// AY ports
 		if ((port & 0xFFFF) == 0xFFFD) { ay.setIndex(value); return; }
 		if ((port & 0xFFFF) == 0xBFFD) { ay.writeData(value); return; }
@@ -117,7 +135,7 @@ struct ZXMachine {
 #ifndef ZX_WITH_SDL
 int main(int argc, char **argv) {
 	if (argc < 2) {
-		std::fprintf(stderr, "Usage: %s <rom_48k|rom_128k|rom_plus3> [snapshot.sna|tape.tap|tape.tzx]\n", argv[0]);
+		std::fprintf(stderr, "Usage: %s <rom_48k|rom_128k|rom_plus3> [snapshot.sna|tape.tap|tape.tzx|disk.dsk]\n", argv[0]);
 		return 1;
 	}
 	ZXMachine zx;
@@ -131,15 +149,15 @@ int main(int argc, char **argv) {
 			} else {
 				std::fprintf(stderr, "Warning: failed to load snapshot: %s\n", argv[2]);
 			}
+		} else if (arg2.size() >= 4 && (arg2.rfind(".dsk") == arg2.size()-4 || arg2.rfind(".DSK") == arg2.size()-4)) {
+			if (zx.dsk.load(arg2)) { zx.fdc.attachImage(&zx.dsk); std::fprintf(stderr, "Mounted DSK: %s\n", arg2.c_str()); }
 		} else {
 			if (zx.tape.load(arg2)) {
 				std::fprintf(stderr, "Loaded tape: %s\nPress PLAY (F9) when ready.\n", arg2.c_str());
 			}
 		}
 	}
-	for (;;) {
-		zx.stepInstruction();
-	}
+	for (;;) { zx.stepInstruction(); }
 	return 0;
 }
 #else
@@ -170,7 +188,7 @@ static void audio_callback(void *userdata, Uint8 *stream, int len) {
 
 int main(int argc, char **argv) {
 	if (argc < 2) {
-		std::fprintf(stderr, "Usage: %s <rom_48k|rom_128k|rom_plus3> [snapshot.sna|tape.tap|tape.tzx]\n", argv[0]);
+		std::fprintf(stderr, "Usage: %s <rom_48k|rom_128k|rom_plus3> [snapshot.sna|tape.tap|tape.tzx|disk.dsk]\n", argv[0]);
 		return 1;
 	}
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS | SDL_INIT_TIMER) != 0) {
@@ -190,6 +208,8 @@ int main(int argc, char **argv) {
 			} else {
 				std::fprintf(stderr, "Warning: failed to load snapshot: %s\n", argv[2]);
 			}
+		} else if (arg2.size() >= 4 && (arg2.rfind(".dsk") == arg2.size()-4 || arg2.rfind(".DSK") == arg2.size()-4)) {
+			if (zx.dsk.load(arg2)) { zx.fdc.attachImage(&zx.dsk); std::fprintf(stderr, "Mounted DSK: %s\n", arg2.c_str()); }
 		} else {
 			if (zx.tape.load(arg2)) {
 				std::fprintf(stderr, "Loaded tape: %s\nPress F9 to Play/Pause, F10 to Rewind.\n", arg2.c_str());
