@@ -9,6 +9,7 @@ struct Memory {
 	// ROMs
 	std::vector<std::vector<uint8_t>> roms; // each 16KB
 	std::vector<uint8_t> trdosRom; // 16KB TR-DOS ROM if present
+	std::vector<uint8_t> if1Rom;   // 8K or 16K IF1 ROM (we overlay 16K window)
 	// 48K RAM for ZX48 compatibility
 	uint8_t ram[48 * 1024];
 	// 128K banks (8 x 16KB)
@@ -20,15 +21,18 @@ struct Memory {
 	uint8_t reg1FFD{0};
 	bool pagingLocked{false};
 	bool romcs{false}; // TR-DOS ROMCS
+	bool if1Active{false};
+	bool turboMode{false};
 
 	void reset() {
 		roms.clear();
 		roms.resize(1); roms[0].assign(16*1024, 0xFF);
 		trdosRom.clear();
+		if1Rom.clear();
 		std::memset(ram, 0x00, sizeof(ram));
 		for (int b=0;b<8;++b) std::memset(ramBank[b], 0x00, sizeof(ramBank[b]));
 		model = Model::ZX48;
-		reg7FFD = 0; reg1FFD = 0; pagingLocked = false; romcs = false;
+		reg7FFD = 0; reg1FFD = 0; pagingLocked = false; romcs = false; if1Active = false; turboMode=false;
 	}
 
 	void load_rom(const uint8_t *data, size_t size) {
@@ -50,8 +54,9 @@ struct Memory {
 		}
 	}
 
-	void load_trdos_rom(const uint8_t *data, size_t size) {
-		trdosRom.assign(data, data + (size<16384?size:16384));
+	void load_trdos_rom(const uint8_t *data, size_t size) { trdosRom.assign(data, data + (size<16384?size:16384)); }
+	void load_if1_rom(const uint8_t *data, size_t size) {
+		if1Rom.assign(data, data + (size<16384?size:16384));
 	}
 
 	inline uint8_t currentRomIndex() const {
@@ -69,6 +74,8 @@ struct Memory {
 	inline bool specialPaging() const { return (reg1FFD & 0x01) != 0; }
 
 	inline uint8_t read(uint16_t addr) const {
+		// Interface 1 ROM overlay highest priority if active
+		if (if1Active && addr < 0x4000 && !if1Rom.empty()) return if1Rom[addr];
 		// TR-DOS ROM overlay if ROMCS and present
 		if (romcs && addr < 0x4000 && !trdosRom.empty()) return trdosRom[addr];
 		switch (model) {
@@ -129,6 +136,6 @@ struct Memory {
 		if (value & 0x20) pagingLocked = true;
 	}
 	void out1FFD(uint8_t value) { reg1FFD = value; }
-
 	void setRomcs(bool on) { romcs = on; }
+	void setIf1(bool on) { if1Active = on; }
 };

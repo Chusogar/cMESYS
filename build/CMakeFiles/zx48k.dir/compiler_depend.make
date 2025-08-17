@@ -396,6 +396,7 @@ CMakeFiles/zx48k.dir/src/main.cpp.o: /workspace/src/main.cpp \
   /workspace/src/fdc.h \
   /workspace/src/keyboard.h \
   /workspace/src/memory.h \
+  /workspace/src/microdrive.h \
   /workspace/src/snapshot_sna.h \
   /workspace/src/tape.h \
   /workspace/src/trd.h \
@@ -1127,6 +1128,7 @@ bin/zx48k: /lib/x86_64-linux-gnu/Scrt1.o \
   CMakeFiles/zx48k.dir/src/dsk.cpp.o \
   CMakeFiles/zx48k.dir/src/keyboard.cpp.o \
   CMakeFiles/zx48k.dir/src/main.cpp.o \
+  CMakeFiles/zx48k.dir/src/microdrive.cpp.o \
   CMakeFiles/zx48k.dir/src/tape.cpp.o \
   CMakeFiles/zx48k.dir/src/trd.cpp.o \
   CMakeFiles/zx48k.dir/src/ula.cpp.o \
@@ -1310,6 +1312,8 @@ CMakeFiles/zx48k.dir/src/keyboard.cpp.o:
 /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h:
 
 /usr/include/c++/14/bits/allocator.h:
+
+CMakeFiles/zx48k.dir/src/microdrive.cpp.o:
 
 /usr/include/c++/14/compare:
 
