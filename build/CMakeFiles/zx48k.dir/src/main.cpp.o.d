@@ -176,4 +176,4 @@ CMakeFiles/zx48k.dir/src/main.cpp.o: /workspace/src/main.cpp \
   /usr/lib/gcc/x86_64-linux-gnu/14/../../../../include/c++/14/compare \
   /workspace/src/memory.h /workspace/src/ula.h /workspace/src/keyboard.h \
   /workspace/src/beeper.h /workspace/src/snapshot_sna.h \
-  /workspace/src/tape.h
+  /workspace/src/tape.h /workspace/src/ay.h
