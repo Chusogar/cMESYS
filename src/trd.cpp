@@ -32,6 +32,20 @@ bool TrdImage::load(const std::string &path) {
 	return true;
 }
 
+bool TrdImage::loadRaw(const std::vector<uint8_t> &raw) {
+	if (raw.empty()) return false;
+	size_t perGeom = geom.sectorSize * geom.sectorsPerTrack * geom.heads;
+	// Try default 80x2x16x256
+	geom.heads = 2; geom.tracks = 80;
+	size_t expect = size_t(geom.tracks) * geom.heads * geom.sectorsPerTrack * geom.sectorSize;
+	if (raw.size() != expect) {
+		// try single head
+		geom.heads = 1; expect = size_t(geom.tracks) * geom.heads * geom.sectorsPerTrack * geom.sectorSize;
+		if (raw.size() != expect) return false;
+	}
+	data = raw; return true;
+}
+
 size_t TrdImage::indexOf(uint8_t cyl, uint8_t head, uint8_t sec) const {
 	// TR-DOS sectors numbered 1..16 typically
 	if (sec == 0 || sec > geom.sectorsPerTrack) return (size_t)-1;

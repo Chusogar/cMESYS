@@ -9,6 +9,7 @@ set(OLD_GLOB
   "/workspace/src/keyboard.cpp"
   "/workspace/src/main.cpp"
   "/workspace/src/microdrive.cpp"
+  "/workspace/src/scl.cpp"
   "/workspace/src/tape.cpp"
   "/workspace/src/trd.cpp"
   "/workspace/src/ula.cpp"

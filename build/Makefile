@@ -271,6 +271,30 @@ src/microdrive.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/microdrive.cpp.s
 .PHONY : src/microdrive.cpp.s
 
+src/scl.o: src/scl.cpp.o
+.PHONY : src/scl.o
+
+# target to build an object file
+src/scl.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/scl.cpp.o
+.PHONY : src/scl.cpp.o
+
+src/scl.i: src/scl.cpp.i
+.PHONY : src/scl.i
+
+# target to preprocess a source file
+src/scl.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/scl.cpp.i
+.PHONY : src/scl.cpp.i
+
+src/scl.s: src/scl.cpp.s
+.PHONY : src/scl.s
+
+# target to generate assembly for a file
+src/scl.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/scl.cpp.s
+.PHONY : src/scl.cpp.s
+
 src/tape.o: src/tape.cpp.o
 .PHONY : src/tape.o
 
@@ -392,6 +416,9 @@ help:
 	@echo "... src/microdrive.o"
 	@echo "... src/microdrive.i"
 	@echo "... src/microdrive.s"
+	@echo "... src/scl.o"
+	@echo "... src/scl.i"
+	@echo "... src/scl.s"
 	@echo "... src/tape.o"
 	@echo "... src/tape.i"
 	@echo "... src/tape.s"

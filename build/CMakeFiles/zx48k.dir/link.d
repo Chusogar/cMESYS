@@ -6,6 +6,7 @@ bin/zx48k: \
   CMakeFiles/zx48k.dir/src/keyboard.cpp.o \
   CMakeFiles/zx48k.dir/src/main.cpp.o \
   CMakeFiles/zx48k.dir/src/microdrive.cpp.o \
+  CMakeFiles/zx48k.dir/src/scl.cpp.o \
   CMakeFiles/zx48k.dir/src/tape.cpp.o \
   CMakeFiles/zx48k.dir/src/trd.cpp.o \
   CMakeFiles/zx48k.dir/src/ula.cpp.o \
@@ -51,6 +52,8 @@ CMakeFiles/zx48k.dir/src/keyboard.cpp.o:
 CMakeFiles/zx48k.dir/src/main.cpp.o:
 
 CMakeFiles/zx48k.dir/src/microdrive.cpp.o:
+
+CMakeFiles/zx48k.dir/src/scl.cpp.o:
 
 CMakeFiles/zx48k.dir/src/tape.cpp.o:
 

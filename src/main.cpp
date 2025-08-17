@@ -23,6 +23,7 @@
 #include "betadisk.h"
 #include "trd.h"
 #include "microdrive.h"
+#include "scl.h"
 
 static bool load_file_to_buffer(const std::string &path, std::vector<uint8_t> &out) {
 	FILE *f = std::fopen(path.c_str(), "rb");
@@ -168,6 +169,9 @@ int main(int argc, char **argv) {
 		else if (path.size() >= 4 && (path.rfind(".dsk") == path.size()-4 || path.rfind(".DSK") == path.size()-4)) { if (zx.dsk.load(path)) { zx.fdc.attachImage(&zx.dsk); std::fprintf(stderr, "Mounted DSK: %s\n", path.c_str()); } }
 		else if (path.size() >= 4 && (path.rfind(".trd") == path.size()-4 || path.rfind(".TRD") == path.size()-4)) { if (zx.trd.load(path)) { zx.beta.attachImage(&zx.trd); std::fprintf(stderr, "Mounted TRD: %s\n", path.c_str()); } }
 		else if (path.size() >= 4 && (path.rfind(".mdr") == path.size()-4 || path.rfind(".MDR") == path.size()-4)) { if (zx.mdr.load(path)) { zx.if1.mount(&zx.mdr); std::fprintf(stderr, "Mounted MDR: %s\n", path.c_str()); } }
+		else if (path.size() >= 4 && (path.rfind(".scl") == path.size()-4 || path.rfind(".SCL") == path.size()-4)) {
+			SclImage scl; if (scl.load(path)) { std::vector<uint8_t> trdRaw; int trk, hd; if (scl.toTrd(trdRaw, trk, hd)) { TrdImage tmp; if (tmp.loadRaw(trdRaw)) { zx.beta.attachImage(&tmp); std::fprintf(stderr, "Mounted SCL as TRD\n"); } } }
+		}
 		else { if (zx.tape.load(path)) { std::fprintf(stderr, "Loaded tape: %s\nPress PLAY (F9) when ready.\n", path.c_str()); } }
 	}
 	for(;;) zx.stepInstruction();
