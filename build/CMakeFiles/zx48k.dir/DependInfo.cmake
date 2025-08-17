@@ -12,6 +12,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/workspace/src/keyboard.cpp" "CMakeFiles/zx48k.dir/src/keyboard.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/keyboard.cpp.o.d"
   "/workspace/src/main.cpp" "CMakeFiles/zx48k.dir/src/main.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/main.cpp.o.d"
   "/workspace/src/microdrive.cpp" "CMakeFiles/zx48k.dir/src/microdrive.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/microdrive.cpp.o.d"
+  "/workspace/src/minivadr_main.cpp" "CMakeFiles/zx48k.dir/src/minivadr_main.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/minivadr_main.cpp.o.d"
   "/workspace/src/scl.cpp" "CMakeFiles/zx48k.dir/src/scl.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/scl.cpp.o.d"
   "/workspace/src/tape.cpp" "CMakeFiles/zx48k.dir/src/tape.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/tape.cpp.o.d"
   "/workspace/src/trd.cpp" "CMakeFiles/zx48k.dir/src/trd.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/trd.cpp.o.d"

@@ -1,0 +1,1 @@
+/usr/bin/c++ -Xlinker --dependency-file=CMakeFiles/minivadr.dir/link.d CMakeFiles/minivadr.dir/src/minivadr_main.cpp.o -o bin/minivadr

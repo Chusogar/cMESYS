@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <vector>
+#include <array>
 #include "z80.h"
 
 class MiniVadr {
@@ -25,7 +26,6 @@ public:
 		fb.resize(256*256);
 		for (int y=0;y<256;++y) {
 			for (int x=0;x<256;++x) {
-				// 1bpp VRAM: assume at 0x4000 size 0x2000
 				uint32_t idx = y*256 + x;
 				uint32_t off = y*32 + (x>>3);
 				uint8_t b = vram[(off) & 0x1FFF];
@@ -34,6 +34,7 @@ public:
 			}
 		}
 	}
+	void setInputs(uint8_t v) { inputs = v; }
 private:
 	Z80Cpu cpu{};
 	std::array<uint8_t, 0x2000> rom{};   // 8KB

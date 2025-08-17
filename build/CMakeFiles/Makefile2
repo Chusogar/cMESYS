@@ -64,10 +64,12 @@ CMAKE_BINARY_DIR = /workspace/build
 
 # The main recursive "all" target.
 all: CMakeFiles/zx48k.dir/all
+all: CMakeFiles/minivadr.dir/all
 .PHONY : all
 
 # The main recursive "codegen" target.
 codegen: CMakeFiles/zx48k.dir/codegen
+codegen: CMakeFiles/minivadr.dir/codegen
 .PHONY : codegen
 
 # The main recursive "preinstall" target.
@@ -76,6 +78,7 @@ preinstall:
 
 # The main recursive "clean" target.
 clean: CMakeFiles/zx48k.dir/clean
+clean: CMakeFiles/minivadr.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -85,12 +88,12 @@ clean: CMakeFiles/zx48k.dir/clean
 CMakeFiles/zx48k.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspace/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10 "Built target zx48k"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspace/build/CMakeFiles --progress-num=3,4,5,6,7,8,9,10,11,12,13 "Built target zx48k"
 .PHONY : CMakeFiles/zx48k.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/zx48k.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /workspace/build/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspace/build/CMakeFiles 11
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/zx48k.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /workspace/build/CMakeFiles 0
 .PHONY : CMakeFiles/zx48k.dir/rule
@@ -102,13 +105,45 @@ zx48k: CMakeFiles/zx48k.dir/rule
 # codegen rule for target.
 CMakeFiles/zx48k.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspace/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10 "Finished codegen for target zx48k"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspace/build/CMakeFiles --progress-num=3,4,5,6,7,8,9,10,11,12,13 "Finished codegen for target zx48k"
 .PHONY : CMakeFiles/zx48k.dir/codegen
 
 # clean rule for target.
 CMakeFiles/zx48k.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/clean
 .PHONY : CMakeFiles/zx48k.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/minivadr.dir
+
+# All Build rule for target.
+CMakeFiles/minivadr.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/minivadr.dir/build.make CMakeFiles/minivadr.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/minivadr.dir/build.make CMakeFiles/minivadr.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspace/build/CMakeFiles --progress-num=1,2 "Built target minivadr"
+.PHONY : CMakeFiles/minivadr.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/minivadr.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspace/build/CMakeFiles 2
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/minivadr.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspace/build/CMakeFiles 0
+.PHONY : CMakeFiles/minivadr.dir/rule
+
+# Convenience name for target.
+minivadr: CMakeFiles/minivadr.dir/rule
+.PHONY : minivadr
+
+# codegen rule for target.
+CMakeFiles/minivadr.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/minivadr.dir/build.make CMakeFiles/minivadr.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspace/build/CMakeFiles --progress-num=1,2 "Finished codegen for target minivadr"
+.PHONY : CMakeFiles/minivadr.dir/codegen
+
+# clean rule for target.
+CMakeFiles/minivadr.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/minivadr.dir/build.make CMakeFiles/minivadr.dir/clean
+.PHONY : CMakeFiles/minivadr.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.
