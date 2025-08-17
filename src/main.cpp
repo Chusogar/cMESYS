@@ -117,7 +117,7 @@ struct ZXMachine {
 	uint8_t io_read(uint16_t port) {
 		if ((port & 0x0001) == 0) {
 			uint8_t k = keyboard.readRow(static_cast<uint8_t>((port >> 8) & 0xFF));
-			uint8_t earMic = tape.earBit() ? 0x40 : 0x00;
+			uint8_t earMic = ((tape.earBit() || (if1Enabled && if1.earActive())) ? 0x40 : 0x00);
 			return (k & 0x1F) | earMic | (ula.borderColour() & 0x07) << 0;
 		}
 		if (fdcEnabled) {
@@ -154,7 +154,7 @@ struct ZXMachine {
 		if ((port & 0xFFFF) == 0xFFFD) { ay.setIndex(value); return; }
 		if ((port & 0xFFFF) == 0xBFFD) { ay.writeData(value); return; }
 	}
-	int stepInstruction() { int t = cpu.step(); tstate_counter += (uint64_t)t; ula.tick((uint32_t)t); tape.tick((uint32_t)t); ay.tickTstates((uint32_t)t); return t; }
+	int stepInstruction() { int t = cpu.step(); tstate_counter += (uint64_t)t; ula.tick((uint32_t)t); tape.tick((uint32_t)t); if1.tick((uint32_t)t); ay.tickTstates((uint32_t)t); return t; }
 };
 
 #ifndef ZX_WITH_SDL
