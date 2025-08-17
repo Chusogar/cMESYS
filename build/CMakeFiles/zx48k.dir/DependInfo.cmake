@@ -10,6 +10,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/workspace/src/keyboard.cpp" "CMakeFiles/zx48k.dir/src/keyboard.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/keyboard.cpp.o.d"
   "/workspace/src/main.cpp" "CMakeFiles/zx48k.dir/src/main.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/main.cpp.o.d"
+  "/workspace/src/tape.cpp" "CMakeFiles/zx48k.dir/src/tape.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/tape.cpp.o.d"
   "/workspace/src/ula.cpp" "CMakeFiles/zx48k.dir/src/ula.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/ula.cpp.o.d"
   "/workspace/src/z80.cpp" "CMakeFiles/zx48k.dir/src/z80.cpp.o" "gcc" "CMakeFiles/zx48k.dir/src/z80.cpp.o.d"
   "" "bin/zx48k" "gcc" "CMakeFiles/zx48k.dir/link.d"

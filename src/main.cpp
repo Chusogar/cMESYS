@@ -16,6 +16,7 @@
 #include "keyboard.h"
 #include "beeper.h"
 #include "snapshot_sna.h"
+#include "tape.h"
 
 static bool load_file_to_buffer(const std::string &path, std::vector<uint8_t> &out) {
 	FILE *f = std::fopen(path.c_str(), "rb");
@@ -36,6 +37,7 @@ struct ZXMachine {
 	ULA ula{};
 	Keyboard keyboard{};
 	Beeper beeper{};
+	Tape tape{};
 	uint64_t tstate_counter{0};
 
 	bool init(const std::string &romPath) {
@@ -65,6 +67,7 @@ struct ZXMachine {
 		ula.connectMemory(&memory);
 		keyboard.reset();
 		beeper.reset(44100); // default; will be updated by actual audio rate
+		tape.reset(3500000);
 
 		return true;
 	}
@@ -73,7 +76,7 @@ struct ZXMachine {
 		// 0xFE is keyboard/ear/ULA
 		if ((port & 0x0001) == 0) {
 			uint8_t k = keyboard.readRow(static_cast<uint8_t>((port >> 8) & 0xFF));
-			uint8_t earMic = 0x40; // EAR bit 6: floating high if no tape
+			uint8_t earMic = tape.earBit() ? 0x40 : 0x00; // EAR bit 6
 			return (k & 0x1F) | earMic | (ula.borderColour() & 0x07) << 0; // lower bits ignored on read in real HW
 		}
 		return 0xFF; // floating bus default
@@ -90,6 +93,7 @@ struct ZXMachine {
 		int t = cpu.step();
 		tstate_counter += static_cast<uint64_t>(t);
 		ula.tick(static_cast<uint32_t>(t));
+		tape.tick(static_cast<uint32_t>(t));
 		return t;
 	}
 };
@@ -97,17 +101,24 @@ struct ZXMachine {
 #ifndef ZX_WITH_SDL
 int main(int argc, char **argv) {
 	if (argc < 2) {
-		std::fprintf(stderr, "Usage: %s <48k_rom_file> [snapshot.sna]\n", argv[0]);
+		std::fprintf(stderr, "Usage: %s <48k_rom_file> [snapshot.sna|tape.tap|tape.tzx]\n", argv[0]);
 		return 1;
 	}
 	ZXMachine zx;
 	if (!zx.init(argv[1])) return 1;
 	if (argc >= 3) {
-		std::vector<uint8_t> buf;
-		if (load_file_to_buffer(argv[2], buf)) {
-			loadSNA48(buf, zx.cpu, zx.memory);
+		std::string arg2 = argv[2];
+		if (arg2.size() >= 4 && (arg2.rfind(".sna") == arg2.size()-4 || arg2.rfind(".SNA") == arg2.size()-4)) {
+			std::vector<uint8_t> buf;
+			if (load_file_to_buffer(argv[2], buf)) {
+				loadSNA48(buf, zx.cpu, zx.memory);
+			} else {
+				std::fprintf(stderr, "Warning: failed to load snapshot: %s\n", argv[2]);
+			}
 		} else {
-			std::fprintf(stderr, "Warning: failed to load snapshot: %s\n", argv[2]);
+			if (zx.tape.load(arg2)) {
+				std::fprintf(stderr, "Loaded tape: %s\nPress PLAY (F9) when ready.\n", arg2.c_str());
+			}
 		}
 	}
 	for (;;) {
@@ -141,7 +152,7 @@ static void audio_callback(void *userdata, Uint8 *stream, int len) {
 
 int main(int argc, char **argv) {
 	if (argc < 2) {
-		std::fprintf(stderr, "Usage: %s <48k_rom_file> [snapshot.sna]\n", argv[0]);
+		std::fprintf(stderr, "Usage: %s <48k_rom_file> [snapshot.sna|tape.tap|tape.tzx]\n", argv[0]);
 		return 1;
 	}
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS | SDL_INIT_TIMER) != 0) {
@@ -153,11 +164,18 @@ int main(int argc, char **argv) {
 	if (!zx.init(argv[1])) return 1;
 
 	if (argc >= 3) {
-		std::vector<uint8_t> buf;
-		if (load_file_to_buffer(argv[2], buf)) {
-			loadSNA48(buf, zx.cpu, zx.memory);
+		std::string arg2 = argv[2];
+		if (arg2.size() >= 4 && (arg2.rfind(".sna") == arg2.size()-4 || arg2.rfind(".SNA") == arg2.size()-4)) {
+			std::vector<uint8_t> buf;
+			if (load_file_to_buffer(argv[2], buf)) {
+				loadSNA48(buf, zx.cpu, zx.memory);
+			} else {
+				std::fprintf(stderr, "Warning: failed to load snapshot: %s\n", argv[2]);
+			}
 		} else {
-			std::fprintf(stderr, "Warning: failed to load snapshot: %s\n", argv[2]);
+			if (zx.tape.load(arg2)) {
+				std::fprintf(stderr, "Loaded tape: %s\nPress F9 to Play/Pause, F10 to Rewind.\n", arg2.c_str());
+			}
 		}
 	}
 
@@ -183,6 +201,14 @@ int main(int argc, char **argv) {
 			if (e.type == SDL_QUIT) running = false;
 			if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
 				bool down = (e.type == SDL_KEYDOWN);
+				if (down) {
+					if (e.key.keysym.sym == SDLK_F9) {
+						if (zx.tape.isPlaying()) zx.tape.stop(); else zx.tape.play();
+					}
+					if (e.key.keysym.sym == SDLK_F10) {
+						zx.tape.rewind();
+					}
+				}
 				zx.keyboard.handleHostKey(e.key.keysym.sym, down);
 			}
 		}

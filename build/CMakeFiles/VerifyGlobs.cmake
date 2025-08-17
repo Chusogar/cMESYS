@@ -7,6 +7,7 @@ file(GLOB_RECURSE NEW_GLOB LIST_DIRECTORIES false "/workspace/src/*.cpp")
 set(OLD_GLOB
   "/workspace/src/keyboard.cpp"
   "/workspace/src/main.cpp"
+  "/workspace/src/tape.cpp"
   "/workspace/src/ula.cpp"
   "/workspace/src/z80.cpp"
   )

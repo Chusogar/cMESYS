@@ -223,6 +223,30 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
+src/tape.o: src/tape.cpp.o
+.PHONY : src/tape.o
+
+# target to build an object file
+src/tape.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/tape.cpp.o
+.PHONY : src/tape.cpp.o
+
+src/tape.i: src/tape.cpp.i
+.PHONY : src/tape.i
+
+# target to preprocess a source file
+src/tape.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/tape.cpp.i
+.PHONY : src/tape.cpp.i
+
+src/tape.s: src/tape.cpp.s
+.PHONY : src/tape.s
+
+# target to generate assembly for a file
+src/tape.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/tape.cpp.s
+.PHONY : src/tape.cpp.s
+
 src/ula.o: src/ula.cpp.o
 .PHONY : src/ula.o
 
@@ -290,6 +314,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/tape.o"
+	@echo "... src/tape.i"
+	@echo "... src/tape.s"
 	@echo "... src/ula.o"
 	@echo "... src/ula.i"
 	@echo "... src/ula.s"
