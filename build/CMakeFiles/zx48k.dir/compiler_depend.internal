@@ -782,6 +782,7 @@ bin/zx48k
  /usr/lib/gcc/x86_64-linux-gnu/14/libgcc_s.so
  /usr/lib/gcc/x86_64-linux-gnu/14/libstdc++.so
  /usr/lib/x86_64-linux-gnu/libc_nonshared.a
+ /workspace/build/CMakeFiles/zx48k.dir/src/dsk.cpp.o
  /workspace/build/CMakeFiles/zx48k.dir/src/keyboard.cpp.o
  /workspace/build/CMakeFiles/zx48k.dir/src/main.cpp.o
  /workspace/build/CMakeFiles/zx48k.dir/src/tape.cpp.o

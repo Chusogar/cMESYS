@@ -775,6 +775,7 @@ bin/zx48k: /lib/x86_64-linux-gnu/Scrt1.o \
   /usr/lib/gcc/x86_64-linux-gnu/14/libgcc_s.so \
   /usr/lib/gcc/x86_64-linux-gnu/14/libstdc++.so \
   /usr/lib/x86_64-linux-gnu/libc_nonshared.a \
+  CMakeFiles/zx48k.dir/src/dsk.cpp.o \
   CMakeFiles/zx48k.dir/src/keyboard.cpp.o \
   CMakeFiles/zx48k.dir/src/main.cpp.o \
   CMakeFiles/zx48k.dir/src/tape.cpp.o \
@@ -1033,6 +1034,8 @@ CMakeFiles/zx48k.dir/src/main.cpp.o:
 /usr/include/c++/14/bits/functional_hash.h:
 
 /usr/include/features-time64.h:
+
+CMakeFiles/zx48k.dir/src/dsk.cpp.o:
 
 /usr/include/c++/14/bits/cxxabi_forced.h:
 

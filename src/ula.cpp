@@ -14,15 +14,25 @@ static inline uint32_t zx_palette(bool bright, uint8_t color) {
 }
 
 void ULA::renderFrame(uint32_t *outArgb, int w, int h) {
-	// Render 256x192 bitmap from RAM: pixel data at 0x4000..0x57FF, attributes at 0x5800..0x5AFF
+	// Expect a 320x240 output. Center 256x192 active area with 32px border left/right and 24px top/bottom.
 	if (!mem) return;
+	int outW = w, outH = h;
+	// Fill border
+	uint32_t borderColor = zx_palette(false, border);
+	for (int y = 0; y < outH; ++y) {
+		for (int x = 0; x < outW; ++x) {
+			outArgb[y * outW + x] = borderColor;
+		}
+	}
+
+	// Render 256x192 bitmap from RAM into center
 	const uint16_t screen_base = 0x4000;
 	const uint16_t attr_base = 0x5800;
+	bool flashPhase = ((frameCount / 16) & 1) != 0;
 
-	bool flashPhase = ((frameCount / 16) & 1) != 0; // approx 1.56Hz; close enough
-
+	int offX = (outW - 256) / 2;
+	int offY = (outH - 192) / 2;
 	for (int y = 0; y < 192; ++y) {
-		// Spectrum line addressing is split into thirds
 		int y7 = (y & 0x07);
 		int y38 = (y & 0x38) >> 3;
 		int yC0 = (y & 0xC0) >> 6;
@@ -41,8 +51,10 @@ void ULA::renderFrame(uint32_t *outArgb, int w, int h) {
 			uint32_t colPaper = zx_palette(bright, invert ? ink : paper);
 			for (int bit = 7; bit >= 0; --bit) {
 				bool on = (pix & (1 << bit)) != 0;
-				int px = xbyte * 8 + (7 - bit);
-				outArgb[y * w + px] = on ? colInk : colPaper;
+				int px = offX + xbyte * 8 + (7 - bit);
+				int py = offY + y;
+				if (px >= 0 && px < outW && py >= 0 && py < outH)
+					outArgb[py * outW + px] = on ? colInk : colPaper;
 			}
 		}
 	}

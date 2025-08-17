@@ -168,8 +168,8 @@ struct SdlContext {
 	SDL_Texture *tex{nullptr};
 	SDL_AudioDeviceID audioDev{0};
 	int scale{3};
-	int texW{256};
-	int texH{192};
+	int texW{320};
+	int texH{240};
 	std::vector<uint32_t> framebuffer; // ARGB8888
 };
 
