@@ -30,8 +30,8 @@ void ULA::renderFrame(uint32_t *outArgb, int w, int h) {
 		uint16_t addr = screen_base + line_off;
 		int attr_row = y >> 3;
 		for (int xbyte = 0; xbyte < 32; ++xbyte) {
-			uint8_t pix = mem->read(addr + xbyte);
-			uint8_t attr = mem->read(attr_base + attr_row * 32 + xbyte);
+			uint8_t pix = mem->read_screen(addr + xbyte);
+			uint8_t attr = mem->read_screen(attr_base + attr_row * 32 + xbyte);
 			bool bright = (attr & 0x40) != 0;
 			bool flash = (attr & 0x80) != 0;
 			uint8_t ink = attr & 0x07;

@@ -1,30 +1,125 @@
 #pragma once
 #include <cstdint>
 #include <cstring>
+#include <vector>
 
 struct Memory {
-	// 16KB ROM + 48KB RAM
-	uint8_t rom[16 * 1024];
+	enum class Model { ZX48, ZX128, ZXPlus3 };
+
+	// ROMs
+	std::vector<std::vector<uint8_t>> roms; // each 16KB
+	// 48K RAM for ZX48 compatibility
 	uint8_t ram[48 * 1024];
+	// 128K banks (8 x 16KB)
+	uint8_t ramBank[8][16 * 1024];
+
+	// Paging registers/state
+	Model model{Model::ZX48};
+	uint8_t reg7FFD{0};
+	uint8_t reg1FFD{0};
+	bool pagingLocked{false};
 
 	void reset() {
-		std::memset(rom, 0xFF, sizeof(rom));
+		roms.clear();
+		roms.resize(1); roms[0].assign(16*1024, 0xFF);
 		std::memset(ram, 0x00, sizeof(ram));
+		for (int b=0;b<8;++b) std::memset(ramBank[b], 0x00, sizeof(ramBank[b]));
+		model = Model::ZX48;
+		reg7FFD = 0; reg1FFD = 0; pagingLocked = false;
 	}
 
 	void load_rom(const uint8_t *data, size_t size) {
-		if (size > sizeof(rom)) size = sizeof(rom);
-		std::memcpy(rom, data, size);
+		if (size == 16384) {
+			model = Model::ZX48;
+			roms.resize(1); roms[0].assign(data, data + size);
+		} else if (size == 32768) {
+			model = Model::ZX128;
+			roms.resize(2);
+			roms[0].assign(data, data + 16384);
+			roms[1].assign(data + 16384, data + 32768);
+		} else if (size == 65536) {
+			model = Model::ZXPlus3;
+			roms.resize(4);
+			for (int i=0;i<4;++i) roms[i].assign(data + i*16384, data + (i+1)*16384);
+		} else {
+			// default best-effort
+			model = Model::ZX48;
+			roms.resize(1); roms[0].assign(data, data + (size<16384?size:16384));
+		}
 	}
+
+	inline uint8_t currentRomIndex() const {
+		if (model == Model::ZX48) return 0;
+		uint8_t low = (reg7FFD >> 4) & 1;
+		if (model == Model::ZX128) return low & 1;
+		// +3: 2-bit ROM select: bit0 from 7FFD.4, bit1 from 1FFD.1
+		uint8_t hi = (reg1FFD >> 1) & 1;
+		uint8_t idx = (hi<<1) | low;
+		if (idx >= roms.size()) idx = idx % roms.size();
+		return idx;
+	}
+
+	inline uint8_t bankAtC000() const { return reg7FFD & 0x07; }
+	inline bool shadowScreenEnabled() const { return (reg7FFD & 0x08) != 0; }
+	inline bool specialPaging() const { return (reg1FFD & 0x01) != 0; }
 
 	inline uint8_t read(uint16_t addr) const {
-		if (addr < 0x4000) return rom[addr];
-		return ram[addr - 0x4000];
+		switch (model) {
+			case Model::ZX48:
+				if (addr < 0x4000) return roms[0][addr];
+				return ram[addr - 0x4000];
+			case Model::ZX128:
+			case Model::ZXPlus3: {
+				// We ignore special paging (1FFD bit0) for now and use normal map
+				if (addr < 0x4000) {
+					uint8_t romIdx = currentRomIndex();
+					return roms[romIdx][addr];
+				} else if (addr < 0x8000) {
+					return ramBank[5][addr - 0x4000];
+				} else if (addr < 0xC000) {
+					return ramBank[2][addr - 0x8000];
+				} else {
+					return ramBank[bankAtC000()][addr - 0xC000];
+				}
+			}
+		}
+		return 0xFF;
 	}
 	inline void write(uint16_t addr, uint8_t v) {
-		if (addr < 0x4000) return; // ROM
-		ram[addr - 0x4000] = v;
+		switch (model) {
+			case Model::ZX48:
+				if (addr >= 0x4000) ram[addr - 0x4000] = v; /* ROM ignored */
+				break;
+			case Model::ZX128:
+			case Model::ZXPlus3: {
+				if (addr < 0x4000) {
+					// ROM ignored
+				} else if (addr < 0x8000) {
+					ramBank[5][addr - 0x4000] = v;
+				} else if (addr < 0xC000) {
+					ramBank[2][addr - 0x8000] = v;
+				} else {
+					ramBank[bankAtC000()][addr - 0xC000] = v;
+				}
+				break;
+			}
+		}
 	}
 
-	inline uint8_t *ramPtr(uint16_t addr) { return &ram[addr - 0x4000]; }
+	inline uint8_t read_screen(uint16_t addr) const {
+		// addr is 0x4000..0x5AFF or attributes in same 16KB space
+		if (model == Model::ZX48) return read(addr);
+		uint8_t bank = shadowScreenEnabled() ? 7 : 5;
+		return ramBank[bank][addr - 0x4000];
+	}
+
+	// IO paging
+	void out7FFD(uint8_t value) {
+		if (pagingLocked) return;
+		reg7FFD = value;
+		if (value & 0x20) pagingLocked = true;
+	}
+	void out1FFD(uint8_t value) {
+		reg1FFD = value;
+	}
 };
