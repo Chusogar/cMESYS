@@ -6,6 +6,7 @@ bin/zx48k: \
   CMakeFiles/zx48k.dir/src/keyboard.cpp.o \
   CMakeFiles/zx48k.dir/src/main.cpp.o \
   CMakeFiles/zx48k.dir/src/tape.cpp.o \
+  CMakeFiles/zx48k.dir/src/trd.cpp.o \
   CMakeFiles/zx48k.dir/src/ula.cpp.o \
   CMakeFiles/zx48k.dir/src/z80.cpp.o \
   /usr/lib/gcc/x86_64-linux-gnu/14/libstdc++.so \
@@ -49,6 +50,8 @@ CMakeFiles/zx48k.dir/src/keyboard.cpp.o:
 CMakeFiles/zx48k.dir/src/main.cpp.o:
 
 CMakeFiles/zx48k.dir/src/tape.cpp.o:
+
+CMakeFiles/zx48k.dir/src/trd.cpp.o:
 
 CMakeFiles/zx48k.dir/src/ula.cpp.o:
 

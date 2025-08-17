@@ -20,6 +20,8 @@
 #include "ay.h"
 #include "dsk.h"
 #include "fdc.h"
+#include "betadisk.h"
+#include "trd.h"
 
 static bool load_file_to_buffer(const std::string &path, std::vector<uint8_t> &out) {
 	FILE *f = std::fopen(path.c_str(), "rb");
@@ -46,6 +48,9 @@ struct ZXMachine {
 	Plus3FDC fdc{};
 	bool fdcEnabled{false};
 	uint64_t tstate_counter{0};
+	TrdImage trd{};
+	BetaDisk beta{};
+	bool betaEnabled{false};
 
 	bool init(const std::string &romPath) {
 		std::vector<uint8_t> rom;
@@ -78,6 +83,8 @@ struct ZXMachine {
 		ay.reset(1750000, 44100);
 		fdc.reset();
 		fdcEnabled = (memory.model == Memory::Model::ZXPlus3);
+		beta.reset();
+		betaEnabled = (memory.model == Memory::Model::Pentagon || memory.model == Memory::Model::Scorpion || memory.model == Memory::Model::ZX128);
 
 		return true;
 	}
@@ -95,6 +102,12 @@ struct ZXMachine {
 			if ((port & 0xFFFF) == 0x2FFD) {
 				if (fdc.hasDataByte()) return fdc.readDataByte();
 				return fdc.readData();
+			}
+		}
+		if (betaEnabled) {
+			uint16_t low = port & 0xFF;
+			if ((low & 0x1F) == 0x1F || (low & 0x1F) == 0x3F || (low & 0x1F) == 0x5F || (low & 0x1F) == 0x7F || low == 0x3D) {
+				return beta.in(port);
 			}
 		}
 		// AY register read via 0xFFFD (common)
@@ -116,6 +129,14 @@ struct ZXMachine {
 		if (fdcEnabled) {
 			if ((port & 0xFFFF) == 0x3FFD) { fdc.writeCommand(value); return; }
 			if ((port & 0xFFFF) == 0x2FFD) { fdc.writeData(value); return; }
+		}
+		if (betaEnabled) {
+			uint16_t low = port & 0xFF;
+			if ((low & 0x1F) == 0x1F || (low & 0x1F) == 0x3F || (low & 0x1F) == 0x5F || (low & 0x1F) == 0x7F || low == 0x3D) {
+				beta.out(port, value);
+				memory.setRomcs(beta.trdosRomActive());
+				return;
+			}
 		}
 		// AY ports
 		if ((port & 0xFFFF) == 0xFFFD) { ay.setIndex(value); return; }
@@ -151,6 +172,8 @@ int main(int argc, char **argv) {
 			}
 		} else if (arg2.size() >= 4 && (arg2.rfind(".dsk") == arg2.size()-4 || arg2.rfind(".DSK") == arg2.size()-4)) {
 			if (zx.dsk.load(arg2)) { zx.fdc.attachImage(&zx.dsk); std::fprintf(stderr, "Mounted DSK: %s\n", arg2.c_str()); }
+		} else if (arg2.size() >= 4 && (arg2.rfind(".trd") == arg2.size()-4 || arg2.rfind(".TRD") == arg2.size()-4)) {
+			if (zx.trd.load(arg2)) { zx.beta.attachImage(&zx.trd); std::fprintf(stderr, "Mounted TRD: %s\n", arg2.c_str()); }
 		} else {
 			if (zx.tape.load(arg2)) {
 				std::fprintf(stderr, "Loaded tape: %s\nPress PLAY (F9) when ready.\n", arg2.c_str());
@@ -210,6 +233,8 @@ int main(int argc, char **argv) {
 			}
 		} else if (arg2.size() >= 4 && (arg2.rfind(".dsk") == arg2.size()-4 || arg2.rfind(".DSK") == arg2.size()-4)) {
 			if (zx.dsk.load(arg2)) { zx.fdc.attachImage(&zx.dsk); std::fprintf(stderr, "Mounted DSK: %s\n", arg2.c_str()); }
+		} else if (arg2.size() >= 4 && (arg2.rfind(".trd") == arg2.size()-4 || arg2.rfind(".TRD") == arg2.size()-4)) {
+			if (zx.trd.load(arg2)) { zx.beta.attachImage(&zx.trd); std::fprintf(stderr, "Mounted TRD: %s\n", arg2.c_str()); }
 		} else {
 			if (zx.tape.load(arg2)) {
 				std::fprintf(stderr, "Loaded tape: %s\nPress F9 to Play/Pause, F10 to Rewind.\n", arg2.c_str());
