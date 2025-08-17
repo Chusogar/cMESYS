@@ -22,6 +22,7 @@
 #include "fdc.h"
 #include "betadisk.h"
 #include "trd.h"
+#include "microdrive.h"
 
 static bool load_file_to_buffer(const std::string &path, std::vector<uint8_t> &out) {
 	FILE *f = std::fopen(path.c_str(), "rb");
@@ -34,6 +35,15 @@ static bool load_file_to_buffer(const std::string &path, std::vector<uint8_t> &o
 	size_t rd = std::fread(out.data(), 1, out.size(), f);
 	std::fclose(f);
 	return rd == out.size();
+}
+
+static bool parse_model_arg(int argc, char **argv, std::string &modelOut, int &firstNonFlag) {
+	modelOut = ""; firstNonFlag = 1;
+	for (int i=1; i<argc; ++i) {
+		if (std::strncmp(argv[i], "--model=", 8) == 0) { modelOut = std::string(argv[i]+8); }
+		else { firstNonFlag = i; break; }
+	}
+	return true;
 }
 
 struct ZXMachine {
@@ -51,7 +61,18 @@ struct ZXMachine {
 	TrdImage trd{};
 	BetaDisk beta{};
 	bool betaEnabled{false};
+	Interface1 if1{};
+	MicrodriveCart mdr{};
+	bool if1Enabled{false};
 
+	bool init_with_model(const std::string &romPath, const std::string &modelName) {
+		if (modelName == "48" || modelName == "48k") memory.model = Memory::Model::ZX48;
+		else if (modelName == "128" || modelName == "128k") memory.model = Memory::Model::ZX128;
+		else if (modelName == "+3" || modelName == "plus3") memory.model = Memory::Model::ZXPlus3;
+		else if (modelName == "pentagon") memory.model = Memory::Model::Pentagon;
+		else if (modelName == "scorpion") memory.model = Memory::Model::Scorpion;
+		return init(romPath);
+	}
 	bool init(const std::string &romPath) {
 		std::vector<uint8_t> rom;
 		if (!load_file_to_buffer(romPath, rom)) {
@@ -85,6 +106,8 @@ struct ZXMachine {
 		fdcEnabled = (memory.model == Memory::Model::ZXPlus3);
 		beta.reset();
 		betaEnabled = (memory.model == Memory::Model::Pentagon || memory.model == Memory::Model::Scorpion || memory.model == Memory::Model::ZX128);
+		if1.reset();
+		if1Enabled = true; // allow always; IF1 ROM not yet mapped
 
 		return true;
 	}
@@ -109,6 +132,10 @@ struct ZXMachine {
 			if ((low & 0x1F) == 0x1F || (low & 0x1F) == 0x3F || (low & 0x1F) == 0x5F || (low & 0x1F) == 0x7F || low == 0x3D) {
 				return beta.in(port);
 			}
+		}
+		if (if1Enabled) {
+			uint8_t low = uint8_t(port & 0xFF);
+			if (low == 0xE7 || low == 0xEF) return if1.in(port);
 		}
 		// AY register read via 0xFFFD (common)
 		if ((port & 0xFFFF) == 0xFFFD) {
@@ -138,6 +165,10 @@ struct ZXMachine {
 				return;
 			}
 		}
+		if (if1Enabled) {
+			uint8_t low = uint8_t(port & 0xFF);
+			if (low == 0xEB) { if1.out(port, value); return; }
+		}
 		// AY ports
 		if ((port & 0xFFFF) == 0xFFFD) { ay.setIndex(value); return; }
 		if ((port & 0xFFFF) == 0xBFFD) { ay.writeData(value); return; }
@@ -155,28 +186,31 @@ struct ZXMachine {
 
 #ifndef ZX_WITH_SDL
 int main(int argc, char **argv) {
-	if (argc < 2) {
-		std::fprintf(stderr, "Usage: %s <rom_48k|rom_128k|rom_plus3> [snapshot.sna|tape.tap|tape.tzx|disk.dsk]\n", argv[0]);
+	std::string model; int argi=1; parse_model_arg(argc, argv, model, argi);
+	if (argc - argi < 1) {
+		std::fprintf(stderr, "Usage: %s [--model=48|128|plus3|pentagon|scorpion] <rom> [file.sna|.tap|.tzx|.dsk|.trd|.mdr]\n", argv[0]);
 		return 1;
 	}
 	ZXMachine zx;
-	if (!zx.init(argv[1])) return 1;
-	if (argc >= 3) {
-		std::string arg2 = argv[2];
-		if (arg2.size() >= 4 && (arg2.rfind(".sna") == arg2.size()-4 || arg2.rfind(".SNA") == arg2.size()-4)) {
+	if (!zx.init_with_model(argv[argi], model)) return 1;
+	if (argc - argi >= 2) {
+		std::string path = argv[argi+1];
+		if (path.size() >= 4 && (path.rfind(".sna") == path.size()-4 || path.rfind(".SNA") == path.size()-4)) {
 			std::vector<uint8_t> buf;
-			if (load_file_to_buffer(argv[2], buf)) {
+			if (load_file_to_buffer(path, buf)) {
 				loadSNA48(buf, zx.cpu, zx.memory);
 			} else {
-				std::fprintf(stderr, "Warning: failed to load snapshot: %s\n", argv[2]);
+				std::fprintf(stderr, "Warning: failed to load snapshot: %s\n", path.c_str());
 			}
-		} else if (arg2.size() >= 4 && (arg2.rfind(".dsk") == arg2.size()-4 || arg2.rfind(".DSK") == arg2.size()-4)) {
-			if (zx.dsk.load(arg2)) { zx.fdc.attachImage(&zx.dsk); std::fprintf(stderr, "Mounted DSK: %s\n", arg2.c_str()); }
-		} else if (arg2.size() >= 4 && (arg2.rfind(".trd") == arg2.size()-4 || arg2.rfind(".TRD") == arg2.size()-4)) {
-			if (zx.trd.load(arg2)) { zx.beta.attachImage(&zx.trd); std::fprintf(stderr, "Mounted TRD: %s\n", arg2.c_str()); }
+		} else if (path.size() >= 4 && (path.rfind(".dsk") == path.size()-4 || path.rfind(".DSK") == path.size()-4)) {
+			if (zx.dsk.load(path)) { zx.fdc.attachImage(&zx.dsk); std::fprintf(stderr, "Mounted DSK: %s\n", path.c_str()); }
+		} else if (path.size() >= 4 && (path.rfind(".trd") == path.size()-4 || path.rfind(".TRD") == path.size()-4)) {
+			if (zx.trd.load(path)) { zx.beta.attachImage(&zx.trd); std::fprintf(stderr, "Mounted TRD: %s\n", path.c_str()); }
+		} else if (path.size() >= 4 && (path.rfind(".mdr") == path.size()-4 || path.rfind(".MDR") == path.size()-4)) {
+			if (zx.mdr.load(path)) { zx.if1.mount(&zx.mdr); std::fprintf(stderr, "Mounted MDR: %s\n", path.c_str()); }
 		} else {
-			if (zx.tape.load(arg2)) {
-				std::fprintf(stderr, "Loaded tape: %s\nPress PLAY (F9) when ready.\n", arg2.c_str());
+			if (zx.tape.load(path)) {
+				std::fprintf(stderr, "Loaded tape: %s\nPress PLAY (F9) when ready.\n", path.c_str());
 			}
 		}
 	}

@@ -6,6 +6,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/zx48k.dir/src/keyboard.cpp.o.d"
   "CMakeFiles/zx48k.dir/src/main.cpp.o"
   "CMakeFiles/zx48k.dir/src/main.cpp.o.d"
+  "CMakeFiles/zx48k.dir/src/microdrive.cpp.o"
+  "CMakeFiles/zx48k.dir/src/microdrive.cpp.o.d"
   "CMakeFiles/zx48k.dir/src/tape.cpp.o"
   "CMakeFiles/zx48k.dir/src/tape.cpp.o.d"
   "CMakeFiles/zx48k.dir/src/trd.cpp.o"

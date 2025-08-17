@@ -178,4 +178,4 @@ CMakeFiles/zx48k.dir/src/main.cpp.o: /workspace/src/main.cpp \
   /workspace/src/beeper.h /workspace/src/snapshot_sna.h \
   /workspace/src/tape.h /workspace/src/ay.h /workspace/src/dsk.h \
   /workspace/src/fdc.h /workspace/src/betadisk.h /workspace/src/wd1793.h \
-  /workspace/src/trd.h
+  /workspace/src/trd.h /workspace/src/microdrive.h
