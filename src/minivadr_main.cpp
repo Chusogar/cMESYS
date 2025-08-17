@@ -1,3 +1,4 @@
+#ifdef BUILD_MINIVADR_MAIN
 #include <cstdio>
 #include <vector>
 #include <string>
@@ -28,3 +29,4 @@ int main(int argc, char **argv) {
 	}
 	SDL_DestroyTexture(tex); SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit(); return 0;
 }
+#endif

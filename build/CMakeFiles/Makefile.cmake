@@ -52,5 +52,4 @@ set(CMAKE_MAKEFILE_PRODUCTS
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/zx48k.dir/DependInfo.cmake"
-  "CMakeFiles/minivadr.dir/DependInfo.cmake"
   )

@@ -175,19 +175,6 @@ zx48k/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/build
 .PHONY : zx48k/fast
 
-#=============================================================================
-# Target rules for targets named minivadr
-
-# Build rule for target.
-minivadr: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 minivadr
-.PHONY : minivadr
-
-# fast build rule for target.
-minivadr/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/minivadr.dir/build.make CMakeFiles/minivadr.dir/build
-.PHONY : minivadr/fast
-
 src/dsk.o: src/dsk.cpp.o
 .PHONY : src/dsk.o
 
@@ -283,33 +270,6 @@ src/microdrive.s: src/microdrive.cpp.s
 src/microdrive.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/microdrive.cpp.s
 .PHONY : src/microdrive.cpp.s
-
-src/minivadr_main.o: src/minivadr_main.cpp.o
-.PHONY : src/minivadr_main.o
-
-# target to build an object file
-src/minivadr_main.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/minivadr_main.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/minivadr.dir/build.make CMakeFiles/minivadr.dir/src/minivadr_main.cpp.o
-.PHONY : src/minivadr_main.cpp.o
-
-src/minivadr_main.i: src/minivadr_main.cpp.i
-.PHONY : src/minivadr_main.i
-
-# target to preprocess a source file
-src/minivadr_main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/minivadr_main.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/minivadr.dir/build.make CMakeFiles/minivadr.dir/src/minivadr_main.cpp.i
-.PHONY : src/minivadr_main.cpp.i
-
-src/minivadr_main.s: src/minivadr_main.cpp.s
-.PHONY : src/minivadr_main.s
-
-# target to generate assembly for a file
-src/minivadr_main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/zx48k.dir/build.make CMakeFiles/zx48k.dir/src/minivadr_main.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/minivadr.dir/build.make CMakeFiles/minivadr.dir/src/minivadr_main.cpp.s
-.PHONY : src/minivadr_main.cpp.s
 
 src/scl.o: src/scl.cpp.o
 .PHONY : src/scl.o
@@ -443,7 +403,6 @@ help:
 	@echo "... install/strip"
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
-	@echo "... minivadr"
 	@echo "... zx48k"
 	@echo "... src/dsk.o"
 	@echo "... src/dsk.i"
@@ -457,9 +416,6 @@ help:
 	@echo "... src/microdrive.o"
 	@echo "... src/microdrive.i"
 	@echo "... src/microdrive.s"
-	@echo "... src/minivadr_main.o"
-	@echo "... src/minivadr_main.i"
-	@echo "... src/minivadr_main.s"
 	@echo "... src/scl.o"
 	@echo "... src/scl.i"
 	@echo "... src/scl.s"
