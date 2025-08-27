@@ -7,7 +7,7 @@
 #include <chrono>
 
 #ifndef ZX_HEADLESS
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #endif
 
 #include "z80.h"

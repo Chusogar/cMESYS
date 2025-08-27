@@ -24,6 +24,29 @@ cmake --build build -j
 
 Binary will be at `build/bin/zx48k`.
 
+### Windows (MSYS2/MinGW) via Makefile
+
+Optionally, you can build with the provided Makefile which is friendly to Windows environments:
+
+1. Install MSYS2 and MinGW toolchain, then install SDL2:
+```bash
+pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-SDL2 make
+```
+2. Open an MSYS2 MinGW64 shell and run:
+```bash
+mingw32-make
+```
+
+If `pkg-config` is not available, set `SDL2DIR` to your SDL2 install prefix:
+```bash
+mingw32-make SDL2DIR="C:/msys64/mingw64"
+```
+
+Artifacts will be in `build/bin/`:
+- `zx48k` main emulator
+- `minivadr` MiniVadr sample (requires `minivadr_main.cpp`)
+- `scrview` simple `.scr` viewer
+
 ## Run
 
 You need a 48K Spectrum ROM (16KB). Place it somewhere and pass the path. Optionally pass a 48K `.sna` snapshot to start directly into a program.
