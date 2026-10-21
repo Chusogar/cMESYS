@@ -44,10 +44,18 @@ mkdir -p out && ./platforms/SDL2/build/cmesys_host_test 3000
 
 ## Compilar ESP32 CYD
 
-ESP-IDF v5.3.x (con `idf.py` en el PATH):
+Hace falta **ESP-IDF v5.3.x**. Si al ejecutar el build ves `idf.py not found` / `ESP-IDF no encontrado`, instálalo una vez:
 
 ```bash
-. $IDF_PATH/export.sh
+./scripts/setup_esp_idf.sh          # clona v5.3.2 en ~/esp/esp-idf e instala tools
+./scripts/build_cyd.sh              # carga IDF solo si hace falta y compila
+```
+
+Si ya tienes ESP-IDF en otra ruta:
+
+```bash
+export IDF_PATH=/ruta/a/esp-idf
+. "$IDF_PATH/export.sh"             # opcional: build_cyd.sh también lo busca
 ./scripts/build_cyd.sh
 idf.py -B platforms/ESP32_CYD/build -p /dev/ttyUSB0 flash monitor
 ```
