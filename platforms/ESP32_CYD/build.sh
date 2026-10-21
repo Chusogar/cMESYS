@@ -54,7 +54,11 @@ EOF
 fi
 
 cd "$PLAT"
-idf.py -B "$BUILD_DIR" set-target esp32
+# set-target only when needed; drop a half-written build dir (idf refuses to clean it)
+if [[ ! -f "$BUILD_DIR/CMakeCache.txt" ]]; then
+  rm -rf "$BUILD_DIR"
+  idf.py -B "$BUILD_DIR" set-target esp32
+fi
 idf.py -B "$BUILD_DIR" build "$@"
 
 echo
