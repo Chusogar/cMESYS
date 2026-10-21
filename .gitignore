@@ -1,0 +1,21 @@
+# Platform build trees
+platforms/SDL2/build/
+platforms/ESP32_CYD/build/
+platforms/ESP32_CYD/build80/
+**/sdkconfig
+**/sdkconfig.old
+**/dependencies.lock
+managed_components/
+
+# Host test / tools output
+out/
+gen_roms
+*.o
+*.raw
+*.ppm
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.user

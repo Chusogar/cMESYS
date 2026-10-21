@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "../main/tf_core.h"
+#include <sys/stat.h>
+#include "../common/tf_core.h"
 
 static uint8_t fb[TF_W * TF_H];
 static uint8_t pal[32][3];
@@ -23,7 +24,9 @@ int main(int argc, char **argv)
     tf_palette_rgb(pal);
     static tf_video_t v;
     static int16_t audio[TF_SAMPLES_FRAME];
+    mkdir("out", 0755);
     FILE *raw = fopen("out/audio.raw", "wb");
+    if (!raw) { perror("out/audio.raw"); return 1; }
     clock_t t0 = clock();
     int faults = 0;
     for (int f = 0; f < frames; f++) {

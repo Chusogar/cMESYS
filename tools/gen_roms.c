@@ -1,7 +1,7 @@
 // gen_roms.c - Host tool: loads the Track & Field ROM set exactly like
-// zxm/trackfld.c, decodes graphics with the same code and writes main/rom_data.c.
+// zxm/trackfld.c, decodes graphics with the same code and writes common/rom_data.c.
 //
-//   cc -O2 -o gen_roms tools/gen_roms.c && ./gen_roms roms main/rom_data.c
+//   cc -O2 -o gen_roms tools/gen_roms.c && ./gen_roms roms common/rom_data.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,7 +66,8 @@ static void decode_sprites(void)
 
 static void emit(FILE *o, const char *name, const uint8_t *d, size_t n)
 {
-    fprintf(o, "const uint8_t %s[%zu] __attribute__((aligned(4))) = {\n", name, n);
+    // 16-byte align: clang -O2 may vectorize PROM/gfx reads with movdqa.
+    fprintf(o, "const uint8_t %s[%zu] __attribute__((aligned(16))) = {\n", name, n);
     for (size_t i = 0; i < n; i++)
         fprintf(o, "%s0x%02x,%s", (i % 16) ? "" : "  ", d[i], (i % 16 == 15) ? "\n" : "");
     fprintf(o, "};\n\n");
