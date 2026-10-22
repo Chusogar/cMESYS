@@ -1,8 +1,8 @@
 # Desktop (SDL2) builds of the arcade drivers, from the same sources as the
 # ESP32 CYD firmware.
 #
-#   make GAME=indytemp        (indytemp | snowbros | trackfld)  -> build/sdl/<game>
-#   make all                  the three
+#   make GAME=indytemp        (indytemp | snowbros | trackfld | pbobble)  -> build/sdl/<game>
+#   make all                  all of them
 #   make clean
 #
 # The firmware is built with ESP-IDF instead:  idf.py -DGAME=<game> build
@@ -37,8 +37,12 @@ else ifeq ($(GAME),trackfld)
   SRC  := $(D)/trackfld_sdl.c $(D)/tf_core.c $(D)/rom_data.c $(M)/cpu/mc6809/mc6809.c $(M)/cpu/z80/z80.c \
           $(M)/sound/sn76489.c $(M)/sound/vlm5030.c
   DEFS := -DMC6809_NO_SETJMP
+else ifeq ($(GAME),pbobble)
+  SRC  := $(D)/pbobble_sdl.c $(D)/pb_core.c $(D)/rom_data.c $(M68K) $(M)/cpu/z80/z80.c \
+          $(M)/sound/ym2610.c $(M)/machine/tc0140syt.c $(M)/machine/eeprom93c46.c $(M)/video/tc0180vcu.c
+  DEFS :=
 else
-  $(error GAME must be indytemp, snowbros or trackfld)
+  $(error GAME must be indytemp, snowbros, trackfld or pbobble)
 endif
 
 $(OUT)/$(GAME): $(SRC) $(PORT) $(wildcard $(D)/*.h) Makefile
@@ -49,6 +53,7 @@ all:
 	$(MAKE) GAME=indytemp
 	$(MAKE) GAME=snowbros
 	$(MAKE) GAME=trackfld
+	$(MAKE) GAME=pbobble
 
 clean:
 	rm -rf $(OUT)
