@@ -1,10 +1,11 @@
 # Arcades para ESP32 CYD (ST7789) y escritorio (SDL2)
 
-Cuatro máquinas en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI) o como programa de escritorio con SDL2:
+Cinco máquinas en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI) o como programa de escritorio con SDL2:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
-| Indiana Jones and the Temple of Doom (Atari System 1, 1985) | `indytemp` | 68010 + 6502 | YM2151, POKEY, TMS5220 | dsp-cpp `atari_system1.cpp` → `zxtiny/zxm/indytemp_core.c` |
+| Indiana Jones and the Temple of Doom (Atari System 1, 1985) | `indytemp` | 68010 + 6502 | YM2151, POKEY, TMS5220 | dsp-cpp `atari_system1.cpp` → `atarisy1/atarisy1_core.c` |
+| Road Runner (Atari System 1, 1985) | `roadrunn` | 68010 + 6502 | YM2151, POKEY, TMS5220 | dsp-cpp `atari_system1.cpp` → `atarisy1/atarisy1_core.c` (el mismo núcleo que Indy) |
 | Snow Bros (Toaplan, 1990) | `snowbros` | 68000 + Z80 | YM3812 | `zxtiny/zxm/snowbros.c` |
 | Track & Field (Konami, 1983) | `trackfld` | Konami-1 (6809) + Z80 | SN76489, VLM5030, DAC | `zxtiny/zxm/trackfld.c` |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
@@ -16,7 +17,7 @@ Cada firmware lleva un solo juego. Las ROMs van dentro y cada juego configura el
 ```
 CMakeLists.txt            proyecto ESP-IDF (idf.py -DGAME=<juego> build)
 Makefile                  escritorio SDL2 (make GAME=<juego>)
-build_all.sh              los 8 firmwares (4 juegos x SPI 40/80 MHz) -> dist/, y los 4 de escritorio
+build_all.sh              los 10 firmwares (5 juegos x SPI 40/80 MHz) -> dist/, y los 5 de escritorio
 partitions.csv, sdkconfig.defaults
 main/
   CMakeLists.txt          elige las fuentes del juego
@@ -30,9 +31,12 @@ main/
   machine/                via6522, slapstic, tc0140syt (buzón Taito 68000 <-> Z80), eeprom93c46
   video/                  atari_mo (objetos móviles Atari), tc0180vcu (vídeo del Taito B System)
   drivers/arcades/
-    indytemp/             indytemp_core.c/.h (máquina), indytemp_cyd.c (frontend CYD),
-                          indytemp_sdl.c (frontend SDL2), indytemp_roms.c (carga desde directorios),
+    atarisy1/             núcleo Atari System 1 compartido por indytemp y roadrunn:
+                          atarisy1_core.c/.h (máquina), atarisy1_roms.c/.h (carga desde directorios)
+    indytemp/             indytemp_cyd.c (frontend CYD), indytemp_sdl.c (frontend SDL2),
                           rom_data.c (ROMs), m68k_game_conf.h, m68k_tables.c, indytemp.lf (IRAM)
+    roadrunn/             roadrunn_cyd.c, roadrunn_sdl.c, rom_data.c, m68k_game_conf.h,
+                          m68k_tables.c, roadrunn.lf
     snowbros/             sb_core.c/.h, snowbros_cyd.c, snowbros_sdl.c, rom_data.c,
                           m68k_game_conf.h, m68k_tables.c, snowbros.lf
     trackfld/             tf_core.c/.h, trackfld_cyd.c, trackfld_sdl.c, rom_data.c, trackfld.lf
@@ -46,7 +50,7 @@ main/
 tools/
   regen.sh <juego>        regenera rom_data.c y m68k_tables.c del juego
   gen_roms_*.{c,py}, gen_m68k_tables.c, m68k_stub.c
-roms/                     indytemp, atarisy1 (BIOS de Indy), snowbros, trackfld, pbobble (descomprimidas)
+roms/                     indytemp, roadrunn, atarisy1 (BIOS de Indy y Road Runner), snowbros, trackfld, pbobble (descomprimidas)
 ```
 
 Los núcleos de los juegos (`*_core.c`) no dependen de la plataforma. El frontend CYD y el SDL2 de cada juego usan exactamente el mismo núcleo.
@@ -88,6 +92,20 @@ Táctil en 3x3 zonas sobre la imagen (se muestran 2,5 s al empezar):
 - Serie: `a d w s` mover, `j` látigo, `k` salto, `5` moneda, `1` start.
 - En SELECT: botón derecho = 3 vidas, botón izquierdo = 7 vidas (cuesta un crédito más).
 - Las puntuaciones se guardan en NVS.
+
+### Controles: Road Runner
+
+Táctil en 3x3 zonas sobre la imagen (se muestran 2,5 s al empezar):
+
+| | | |
+|---|---|---|
+| MONEDA + START | ARRIBA | SALTO |
+| IZQUIERDA | SALTO | DERECHA |
+| SALTO | ABAJO | SALTO |
+
+- El joystick del juego es analógico: el táctil y las teclas serie dan la desviación máxima; el **Nunchuk** da la posición real del stick (velocidad variable). Z y C = salto (los dos botones saltan; el izquierdo es también START).
+- Serie: `a d w s` mover, `j` / `k` salto, `5` moneda, `1` start.
+- Las puntuaciones (EEPROM) se guardan en NVS.
 
 ### Controles: Snow Bros
 
@@ -141,7 +159,7 @@ ESP-IDF 5.3:
 
 ```
 . $IDF_PATH/export.sh
-idf.py -B build/indytemp -DGAME=indytemp build       # o snowbros / trackfld / pbobble
+idf.py -B build/indytemp -DGAME=indytemp build       # o roadrunn / snowbros / trackfld / pbobble
 LCD_SPI_MHZ=80 idf.py -B build/indytemp-80 -DGAME=indytemp build
 ./build_all.sh                                       # todo -> dist/
 ```
@@ -151,12 +169,14 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o snowbros / trackfld / pbobble; "make all" para todos -> build/sdl/<juego>
+make GAME=indytemp        # o roadrunn / snowbros / trackfld / pbobble; "make all" para todos -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
+./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ```
 
 Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset, P pausa, ESC salir.
 - **Indy**: Z látigo, X salto. La EEPROM se guarda en `indytemp.eep`.
+- **Road Runner**: cursores = joystick (desviación máxima), Z / X salto. La EEPROM se guarda en `roadrunn.eep`.
 - **Snow Bros**: Z disparo, X salto.
 - **Track & Field**: C = RUN 1, Z = RUN 2 (altérnalos), X = salto.
 - **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
@@ -165,9 +185,22 @@ Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 
 
 ## ROMs
 
-Para regenerar las ROMs compiladas (`rom_data.c`) a partir de `roms/`: `tools/regen.sh <juego>`. En Indy, Snow Bros y Puzzle Bobble también regenera las tablas de Musashi.
+Para regenerar las ROMs compiladas (`rom_data.c`) a partir de `roms/`: `tools/regen.sh <juego>`. En Indy, Road Runner, Snow Bros y Puzzle Bobble también regenera las tablas de Musashi.
+
+Road Runner usa el set de MAME `roadrunn` (rev 2: `136040-228.11c` ... `136040-231.13a` y el resto de `136040-*`) en `roms/roadrunn/` y la BIOS `atarisy1` en `roms/atarisy1/`, como Indy.
 
 Puzzle Bobble usa el set de MAME `pbobble` (Taito B System, versión japonesa): `pb-ic18.ic18`, `pb-ic2.ic2`, `pb-ic27.ic27`, `pb-ic14.ic14`, `pb-ic9.ic9`, `pb-ic15.ic15` en `roms/pbobble/` (el script comprueba tamaños y CRC). No sirve el Puzzle Bobble de Neo Geo.
+
+## Atari System 1: Indy y Road Runner
+
+Los dos juegos usan el mismo núcleo (`drivers/arcades/atarisy1/`, port en C del `atari_system1.cpp` de dsp-cpp, elegido el juego con el `game` de sus ROMs). Lo propio de Road Runner, como en dsp-cpp y MAME:
+
+- Programa en sus posiciones absolutas ($10000-$7FFFF), SLAPSTIC 108, 3 MB de gráficos (bancos 1-6).
+- **INT3**: la interrupción de línea marcada por los objetos móviles con 0xFFFF (lista enlazada del banco actual), que el juego usa para reutilizar sprites a media pantalla. Igual que las actualizaciones parciales de MAME, los objetos de cada franja de líneas se toman de la RAM tal como está cuando esa franja se termina (cambios de banco, de prioridad o de un objeto del banco activo, este último con el +2 de MAME).
+- Joystick analógico en los canales 6/7 del ADC (X invertido).
+- Atajos con el mismo resultado (imagen y audio bit a bit con y sin ellos): el bucle de espera del 68010 en `$1482C` (avanza la semilla aleatoria en `$400C5E`) y el bucle de sondeo del 6502 en `$80EC` (el mismo código que el de Indy en `$40F1`).
+- Paleta IRGB como el `palette_device::IRGB_4444` de MAME (en dsp-cpp, con una tabla de intensidad antigua, los colores de poca intensidad salían demasiado claros: el interior de los túneles se veía gris). También cambia, para bien, algunos tonos oscuros de Indy.
+- Verificado contra MAME en la demo: imagen idéntica con un frame de desfase (el mismo que en Indy) salvo el parpadeo de un texto; audio con las mismas notas. En QEMU el firmware da las mismas huellas de imagen que el PC.
 
 ## Puzzle Bobble: cómo funciona
 

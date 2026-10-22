@@ -1,6 +1,6 @@
-// indytemp_core.c - Indiana Jones and the Temple of Doom (Atari System 1).
-// C port of dsp-cpp's drivers/arcade/atari_system1.cpp (Indy only).
-#include "indytemp_core.h"
+// atarisy1_core.c - Atari System 1: Indiana Jones and the Temple of Doom,
+// Road Runner. C port of dsp-cpp's drivers/arcade/atari_system1.cpp.
+#include "atarisy1_core.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -8,28 +8,28 @@
 
 #include "m68k/m68k.h"
 
-#ifndef INDY_HOT
+#ifndef AS1_HOT
 #ifdef ESP_PLATFORM
 #include "esp_attr.h"
-#define INDY_HOT IRAM_ATTR   /* hot code out of the flash cache */
+#define AS1_HOT IRAM_ATTR   /* hot code out of the flash cache */
 #else
-#define INDY_HOT
+#define AS1_HOT
 #endif
 #endif
 
-static indy_core *g_core;   // Musashi has one global CPU
+static as1_core *g_core;   // Musashi has one global CPU
 
 // An interrupt line changed inside the 68000: applied before the next
 // instruction (global: the ESP32 build's Musashi tests it inline).
-bool indy_ipl_dirty;
+bool as1_ipl_dirty;
 
-static inline void flush_via_tms(indy_core *c);
+static inline void flush_via_tms(as1_core *c);
 
 // ---------------------------------------------------------------------------
 // Graphics set-up (convert_background / decode_bank of the C++ driver)
 // ---------------------------------------------------------------------------
 
-bool indy_pack_bank(const uint8_t *(*chunk)(void *u, int index), void *u, int bank, uint32_t *out)
+bool as1_pack_bank(const uint8_t *(*chunk)(void *u, int index), void *u, int bank, uint32_t *out)
 {
     const uint32_t offset = 0x80000u * (uint32_t)(bank - 1);
     bool any = false;
@@ -41,7 +41,7 @@ bool indy_pack_bank(const uint8_t *(*chunk)(void *u, int index), void *u, int ba
             if (planes[k][half]) any = true;
         }
     if (!any) return false;
-    for (unsigned at = 0; at < INDY_TILES_PER_BANK * 8; at++) {
+    for (unsigned at = 0; at < AS1_TILES_PER_BANK * 8; at++) {
         uint32_t row = 0;
         for (int k = 0; k < 4; k++) {
             const uint8_t *p = planes[k][at >> 14];
@@ -53,7 +53,7 @@ bool indy_pack_bank(const uint8_t *(*chunk)(void *u, int index), void *u, int ba
     return true;
 }
 
-static uint8_t decode_bank(indy_gfx *g, uint8_t prom1, uint8_t prom2, int bpp)
+static uint8_t decode_bank(as1_gfx *g, uint8_t prom1, uint8_t prom2, int bpp)
 {
     int bank_index;
     if ((prom1 & 0x10) == 0) bank_index = 1;
@@ -65,8 +65,8 @@ static uint8_t decode_bank(indy_gfx *g, uint8_t prom1, uint8_t prom2, int bpp)
     else return 0;
 
     if (g->bank_gfx[bpp - 4][bank_index] != 0) return g->bank_gfx[bpp - 4][bank_index];
-    // The Indy set has 2 MB of graphics image (banks 1-4).
-    if (0x80000u * (uint32_t)(bank_index - 1) >= 0x200000u) return 0;
+    // Indy has 2 MB of graphics image (banks 1-4), Road Runner 3 MB (1-6).
+    if (0x80000u * (uint32_t)(bank_index - 1) >= as1_gfx_bytes(g->roms->game)) return 0;
     uint8_t idx = g->next_gfx_index++;
     if (idx >= 16) return 0;
     g->gfx_bank[idx] = (uint8_t)bank_index;
@@ -76,7 +76,7 @@ static uint8_t decode_bank(indy_gfx *g, uint8_t prom1, uint8_t prom2, int bpp)
     return idx;
 }
 
-static void convert_background(indy_gfx *g, const uint8_t *proms)
+static void convert_background(as1_gfx *g, const uint8_t *proms)
 {
     memset(g->bank_gfx, 0, sizeof g->bank_gfx);
     g->next_gfx_index = 1;
@@ -110,7 +110,7 @@ static void convert_background(indy_gfx *g, const uint8_t *proms)
         }
 }
 
-static inline bool gfx_valid(const indy_gfx *g, int gfx)
+static inline bool gfx_valid(const as1_gfx *g, int gfx)
 {
     return gfx == 0 || (gfx < g->next_gfx_index && g->gfx_bank[gfx] != 0);
 }
@@ -129,7 +129,7 @@ static void make_char_pens(void)
 }
 
 // The 4bpp row of a tile, pixel x in bits 4x..4x+3.
-static inline uint32_t tile_row4(const indy_gfx *g, int gfx, int code, int row)
+static inline uint32_t tile_row4(const as1_gfx *g, int gfx, int code, int row)
 {
     const uint32_t *t = g->roms->tiles[g->gfx_bank[gfx] & 7];
     return t ? t[(unsigned)(code & 0xfff) * 8 + (unsigned)row] : 0;
@@ -139,7 +139,7 @@ static inline uint32_t tile_row4(const indy_gfx *g, int gfx, int code, int row)
 // Interrupts of the 68010
 // ---------------------------------------------------------------------------
 
-static void apply_ipl(indy_core *c)
+static void apply_ipl(as1_core *c)
 {
     int level = 0;
     for (int l = 7; l >= 1; --l)
@@ -147,27 +147,27 @@ static void apply_ipl(indy_core *c)
     m68k_set_irq((unsigned)level);
 }
 
-static void main_irq(indy_core *c, int level, uint8_t state)
+static void main_irq(as1_core *c, int level, uint8_t state)
 {
     if (c->irq[level] == state) return;
     c->irq[level] = state;
     // Inside the 68000 (a memory handler) Musashi would take the interrupt in
     // the middle of the instruction: apply it before the next one instead.
-    if (c->in_main) indy_ipl_dirty = true;
+    if (c->in_main) as1_ipl_dirty = true;
     else apply_ipl(c);
 }
 
 int cpu_irq_ack(int level)
 {
-    indy_core *c = g_core;
+    as1_core *c = g_core;
     if (c && level >= 1 && level <= 7 && c->irq[level] == LINE_HOLD) {
         c->irq[level] = LINE_CLEAR;
-        indy_ipl_dirty = true;
+        as1_ipl_dirty = true;
     }
     return M68K_INT_ACK_AUTOVECTOR;
 }
 
-#ifdef INDY_PROFILE
+#ifdef AS1_PROFILE
 extern void prof_hook(unsigned pc);
 #endif
 
@@ -178,11 +178,12 @@ extern void prof_hook(unsigned pc);
 //   $02D8A4  tst.w (A2) / bne / ... jsr $10B02   (wait for vblank,   seed at
 //            stirring the random seed every pass)                      $400F8E
 // The cycles of one iteration are measured from two hits in one slice.
-static void INDY_HOT idle_check(indy_core *c, uint32_t pc)
+static void AS1_HOT idle_check(as1_core *c, uint32_t pc)
 {
     int k;
-    if (pc == 0x2d8a4) k = 1;
-    else if (pc == 0x5290) k = 0;
+    if (pc == 0x2d8a4 && c->game == AS1_INDYTEMP) k = 1;
+    else if (pc == 0x1482c && c->game == AS1_ROADRUNN) k = 2;
+    else if (pc == 0x5290) k = 0;       // (in the BIOS: every game)
     else return;
     int rem = m68k_cycles_remaining();
     if (c->site[k].slice == c->slice && c->site[k].cost == 0) c->site[k].cost = c->site[k].rem - rem;
@@ -192,7 +193,22 @@ static void INDY_HOT idle_check(indy_core *c, uint32_t pc)
     if (cost <= 0) return;
     uint32_t n = (uint32_t)((rem - 1) / cost);
     if (n == 0) return;
-    if (k == 0) {
+    if (k == 2) {
+        // Road Runner, $1482C: tst.w (A2) / bne / move.l D2,-(A7) /
+        // jsr $10556 (seed at $400C5E = seed * $3619 + $5D35, D0 = a random
+        // number below D2 + 1) / jsr $1CA22 (sound queue, empty: $4015CA < 0)
+        // / addq.l #4,A7 / bra. A pass leaves the seed, D0, D1 and A0.
+        if (m68k_get_reg(NULL, M68K_REG_A2) != 0x400c86 || c->ram[0xc86 >> 1] != 0) return;
+        if (!(c->ram[0x15ca >> 1] & 0x8000) || m68k_get_reg(NULL, M68K_REG_D2) != 0xff) return;
+        if (m68k_get_reg(NULL, M68K_REG_PPC) != 0x14840) return;   // after one real pass
+        uint16_t seed = c->ram[0xc5e >> 1];
+        for (uint32_t i = 0; i < n; i++) seed = (uint16_t)(seed * 0x3619u + 0x5d35u);
+        c->ram[0xc5e >> 1] = seed;
+        int32_t d0 = (int32_t)(int16_t)seed * 0x100 + 0x800000;   // muls D1 ; add.l ; swap ; ext.l
+        m68k_set_reg(M68K_REG_D0, (uint32_t)(int32_t)(int16_t)((uint32_t)d0 >> 16));
+        m68k_set_reg(M68K_REG_D1, 0x00800000);
+        m68k_set_reg(M68K_REG_A0, 0x400c5e);
+    } else if (k == 0) {
         uint32_t d0 = m68k_get_reg(NULL, M68K_REG_D0);
         if (d0 < 2) return;
         if (n > d0 - 1) n = d0 - 1;
@@ -213,22 +229,22 @@ static void INDY_HOT idle_check(indy_core *c, uint32_t pc)
 }
 
 // Before every instruction. (The ESP32 build's Musashi passes the PC.)
-#ifdef INDY_HOOK_PC
-void INDY_HOT cpu_instr_callback(unsigned int pc)
+#ifdef AS1_HOOK_PC
+void AS1_HOT cpu_instr_callback(unsigned int pc)
 #else
 void cpu_instr_callback(void)
 #endif
 {
-    indy_core *c = g_core;
-#ifndef INDY_HOOK_PC
+    as1_core *c = g_core;
+#ifndef AS1_HOOK_PC
     unsigned int pc = m68k_get_reg(NULL, M68K_REG_PC);
 #endif
-    if (indy_ipl_dirty) {
-        indy_ipl_dirty = false;
+    if (as1_ipl_dirty) {
+        as1_ipl_dirty = false;
         apply_ipl(c);
         pc = m68k_get_reg(NULL, M68K_REG_PC);   // an interrupt may have been taken
     }
-#ifdef INDY_PROFILE
+#ifdef AS1_PROFILE
     prof_hook(pc);
 #endif
     if (c->idle_skip) idle_check(c, pc);
@@ -241,20 +257,20 @@ void cpu_set_fc(int fc) { (void)fc; }
 // 68000 memory map
 // ---------------------------------------------------------------------------
 
-static inline uint16_t image_word(const indy_core *c, uint32_t off)
+static inline uint16_t image_word(const as1_core *c, uint32_t off)
 {
     const uint8_t *p = c->main_page[off >> 10] + (off & 0x3fe);
     return (uint16_t)((p[0] << 8) | p[1]);
 }
 
-static inline uint16_t rom_word(const indy_core *c, uint32_t a) { return image_word(c, a & 0x7fffe); }
+static inline uint16_t rom_word(const as1_core *c, uint32_t a) { return image_word(c, a & 0x7fffe); }
 
-static inline uint16_t slap_word(const indy_core *c, uint32_t a)
+static inline uint16_t slap_word(const as1_core *c, uint32_t a)
 {
     return image_word(c, 0x80000 + (uint32_t)(c->rom_bank & 3) * 0x2000 + (a & 0x1ffe));
 }
 
-static void set_sound_reset(indy_core *c, bool running)
+static void set_sound_reset(as1_core *c, bool running)
 {
     if (running == !c->sound_halted) return;
     if (running) {
@@ -272,7 +288,7 @@ static void set_sound_reset(indy_core *c, bool running)
     }
 }
 
-static void adc_start(indy_core *c, uint32_t address)
+static void adc_start(as1_core *c, uint32_t address)
 {
     int offset = (int)((address >> 1) & 0xf);
     c->adc_channel = (uint8_t)(offset & 7);
@@ -281,13 +297,18 @@ static void adc_start(indy_core *c, uint32_t address)
     main_irq(c, 2, LINE_CLEAR);
 }
 
-static uint8_t adc_channel_value(const indy_core *c, int ch)
+static uint8_t adc_channel_value(const as1_core *c, int ch)
 {
+    if (c->game == AS1_ROADRUNN) {
+        if (ch == 6) return c->analog_y;
+        if (ch == 7) return c->analog_x;
+        return 0x80;
+    }
     if (ch >= 0 && ch <= 3) return (c->joy_bits & (1 << (7 - ch))) ? 0xf0 : 0x00;
     return 0;
 }
 
-static void adc_complete(indy_core *c)
+static void adc_complete(as1_core *c)
 {
     if (!c->adc_busy) return;
     c->adc_busy = false;
@@ -295,7 +316,47 @@ static void adc_complete(indy_core *c)
     if (c->adc_irq_enable) main_irq(c, 2, LINE_HOLD);
 }
 
-static uint16_t INDY_HOT main_read(indy_core *c, uint32_t a)
+// Road Runner: the motion objects of the lines finished so far (up to `line`,
+// exclusive) are taken from the RAM before it changes (MAME's update_partial)
+static void mo_partial(as1_core *c, int line)
+{
+    if (!c->frame_mo) return;
+    if (line > AS1_SCREEN_H) line = AS1_SCREEN_H;
+    if (line <= c->mo_line) return;
+    as1_build_mo_band(&c->gfx, &c->v, c->frame_mo, c->mo_line, line);
+    c->mo_line = line;
+}
+
+// Road Runner: INT3 fires at the line of the next motion object whose second
+// word is 0xffff, following the link list of the current bank (as dsp-cpp).
+static void reschedule_int3(as1_core *c, int scanline)
+{
+    if (c->game != AS1_ROADRUNN) { c->int3_line = -1; return; }
+    const uint16_t *spr = &c->v.ram3[0x1000];
+    const int offset = (int)c->v.mo_bank * 256;
+    int link = 0, best = scanline;
+    bool found = false;
+    uint64_t visited = 0;
+    while (!(visited & (1ull << (link & 63)))) {
+        visited |= 1ull << (link & 63);
+        if (spr[offset + link + 0x40] == 0xffff) {
+            const uint16_t data = spr[offset + link];
+            const int vsize = (data & 15) + 1;
+            const int ypos = (256 - (data >> 5) - vsize * 8 - 1) & 0x1ff;
+            found = true;
+            if (best <= scanline) {
+                if ((ypos <= scanline && ypos < best) || ypos > scanline) best = ypos;
+            } else if (ypos < best) {
+                best = ypos;
+            }
+        }
+        link = spr[offset + link + 0xc0] & 0x3f;
+    }
+    if (!found || best >= AS1_SCANLINES) best = -1;
+    c->int3_line = best;
+}
+
+static uint16_t AS1_HOT main_read(as1_core *c, uint32_t a)
 {
     a &= 0xffffff;
     if (a <= 0x7ffff) return rom_word(c, a);
@@ -305,7 +366,7 @@ static uint16_t INDY_HOT main_read(indy_core *c, uint32_t a)
         c->rom_bank = slapstic_tweak(&c->slap, (uint16_t)((a & 0x7fff) >> 1));
         return v;
     }
-    if ((a & ~1u) == 0x2e0000) return 0;  // INT3 state (Road Runner only)
+    if ((a & ~1u) == 0x2e0000) return c->int3_state ? 0x0080 : 0;  // INT3 state (Road Runner)
     if (a >= 0x400000 && a <= 0x401fff) return c->ram[(a & 0x1fff) >> 1];
     if (a >= 0x900000 && a <= 0x9fffff) {
         const uint16_t *page = c->ram2[(a & 0xfffff) >> 12];
@@ -329,7 +390,7 @@ static uint16_t INDY_HOT main_read(indy_core *c, uint32_t a)
     return 0xffff;
 }
 
-static void INDY_HOT main_write(indy_core *c, uint32_t a, uint16_t value)
+static void AS1_HOT main_write(as1_core *c, uint32_t a, uint16_t value)
 {
     a &= 0xffffff;
     if ((a & 0xffe000) == 0x400000) { c->ram[(a & 0x1fff) >> 1] = value; return; }
@@ -345,13 +406,18 @@ static void INDY_HOT main_write(indy_core *c, uint32_t a, uint16_t value)
         c->scroll_y_latch = value;
         c->scroll_y = (c->line < 240) ? (uint16_t)(value - (c->line + 1)) : value;
         return;
-    case 0x840000: c->v.priority_pens = value; return;
+    case 0x840000:
+        if (value != c->v.priority_pens) mo_partial(c, c->line + 1);
+        c->v.priority_pens = value;
+        return;
     case 0x860000: {
         uint16_t diff = (uint16_t)(c->bankselect ^ value);
+        if (diff & 0x3c) mo_partial(c, c->line + 1);
         if (diff & 0x04) c->v.tile_bank = (uint8_t)((value >> 2) & 1);
         if (diff & 0x80) set_sound_reset(c, (value & 0x80) != 0);
         c->v.mo_bank = (uint8_t)((value >> 3) & 7);
         c->bankselect = value;
+        if (diff & 0x38) reschedule_int3(c, c->line);
         return;
     }
     case 0x880000: return;  // watchdog
@@ -365,7 +431,28 @@ static void INDY_HOT main_write(indy_core *c, uint32_t a, uint16_t value)
         if (*page) (*page)[(a & 0xfff) >> 1] = value;
         return;
     }
-    if (a >= 0xa00000 && a <= 0xa03fff) { c->v.ram3[(a & 0x3fff) >> 1] = value; return; }
+    if (a >= 0xa00000 && a <= 0xa03fff) {
+        uint16_t *p = &c->v.ram3[(a & 0x3fff) >> 1];
+        const uint16_t old = *p;
+        // Road Runner: a motion object of the current bank gaining or losing
+        // its INT3 mark moves the interrupt; any other change of the current
+        // bank first finishes the lines drawn so far (MAME: vpos + 2)
+        if (c->game == AS1_ROADRUNN && old != value && (a & 0x3000) == 0x2000) {
+            const int so = (int)((a & 0xfff) >> 1);
+            const uint16_t *spr = &c->v.ram3[0x1000];
+            if ((so >> 8) == (int)c->v.mo_bank) {
+                if (((so & 0xc0) == 0x00 && spr[so | 0x40] == 0xffff) ||
+                    ((so & 0xc0) == 0x40 && (value == 0xffff || old == 0xffff))) {
+                    *p = value;
+                    reschedule_int3(c, c->line);
+                } else {
+                    mo_partial(c, c->line + 3);
+                }
+            }
+        }
+        *p = value;
+        return;
+    }
     if (a >= 0xb00000 && a <= 0xb007ff) {
         int index = (int)((a & 0x7ff) >> 1);
         if (c->v.palette[index] != value) {
@@ -392,23 +479,23 @@ static void INDY_HOT main_write(indy_core *c, uint32_t a, uint16_t value)
     }
 }
 
-unsigned int INDY_HOT cpu_read_word(unsigned int a) { return main_read(g_core, a & ~1u); }
+unsigned int AS1_HOT cpu_read_word(unsigned int a) { return main_read(g_core, a & ~1u); }
 
-unsigned int INDY_HOT cpu_read_byte(unsigned int a)
+unsigned int AS1_HOT cpu_read_byte(unsigned int a)
 {
     uint16_t w = main_read(g_core, a & ~1u);
     return (a & 1) ? (w & 0xff) : (w >> 8);
 }
 
-unsigned int INDY_HOT cpu_read_long(unsigned int a)
+unsigned int AS1_HOT cpu_read_long(unsigned int a)
 {
     uint32_t hi = main_read(g_core, a & ~1u);
     return (hi << 16) | main_read(g_core, (a + 2) & ~1u);
 }
 
-void INDY_HOT cpu_write_word(unsigned int a, unsigned int d) { main_write(g_core, a & ~1u, (uint16_t)d); }
+void AS1_HOT cpu_write_word(unsigned int a, unsigned int d) { main_write(g_core, a & ~1u, (uint16_t)d); }
 
-void INDY_HOT cpu_write_byte(unsigned int a, unsigned int d)
+void AS1_HOT cpu_write_byte(unsigned int a, unsigned int d)
 {
     // As dsp-cpp's 68000 does it: read the word, merge, write it back.
     uint16_t old = main_read(g_core, a & ~1u);
@@ -416,7 +503,7 @@ void INDY_HOT cpu_write_byte(unsigned int a, unsigned int d)
     else main_write(g_core, a & ~1u, (uint16_t)((old & 0x00ff) | ((d & 0xff) << 8)));
 }
 
-void INDY_HOT cpu_write_long(unsigned int a, unsigned int d)
+void AS1_HOT cpu_write_long(unsigned int a, unsigned int d)
 {
     main_write(g_core, a & ~1u, (uint16_t)(d >> 16));
     main_write(g_core, (a + 2) & ~1u, (uint16_t)d);
@@ -425,9 +512,9 @@ void INDY_HOT cpu_write_long(unsigned int a, unsigned int d)
 void cpu_write_long_pd(unsigned int a, unsigned int d) { cpu_write_long(a, d); }
 
 // Opcode and extension word fetches: dsp-cpp's pc() is the fetch address.
-unsigned int INDY_HOT m68k_read_immediate_16(unsigned int a)
+unsigned int AS1_HOT m68k_read_immediate_16(unsigned int a)
 {
-    indy_core *c = g_core;
+    as1_core *c = g_core;
     if ((a & 0xffffff) <= 0x7ffff) return rom_word(c, a & 0x7fffe);      // no SLAPSTIC there
     c->fetching = true;
     c->fetch_pc = a;
@@ -436,9 +523,9 @@ unsigned int INDY_HOT m68k_read_immediate_16(unsigned int a)
     return v;
 }
 
-unsigned int INDY_HOT m68k_read_immediate_32(unsigned int a)
+unsigned int AS1_HOT m68k_read_immediate_32(unsigned int a)
 {
-    indy_core *c = g_core;
+    as1_core *c = g_core;
     if ((a & 0xffffff) <= 0x7fffc) return ((uint32_t)rom_word(c, a & 0x7fffe) << 16) | rom_word(c, (a + 2) & 0x7fffe);
     c->fetching = true;
     c->fetch_pc = a;
@@ -453,7 +540,7 @@ unsigned int m68k_read_pcrelative_8(unsigned int a) { return cpu_read_byte(a); }
 unsigned int m68k_read_pcrelative_16(unsigned int a) { return cpu_read_word(a); }
 unsigned int m68k_read_pcrelative_32(unsigned int a) { return cpu_read_long(a); }
 
-static uint16_t peek_word(const indy_core *c, uint32_t a)
+static uint16_t peek_word(const as1_core *c, uint32_t a)
 {
     a &= 0xfffffe;
     if (a <= 0x7ffff) return rom_word(c, a);
@@ -471,11 +558,11 @@ unsigned int cpu_read_long_dasm(unsigned int a)
 // SLAPSTIC alternate-bank kludge: the 68000 as dsp-cpp's core shows it.
 static uint32_t s_pc(void *u)
 {
-    indy_core *c = (indy_core *)u;
+    as1_core *c = (as1_core *)u;
     return c->fetching ? c->fetch_pc : m68k_get_reg(NULL, M68K_REG_PC);
 }
 static uint32_t s_ppc(void *u) { (void)u; return m68k_get_reg(NULL, M68K_REG_PPC); }
-static uint16_t s_peek(void *u, uint32_t a) { return peek_word((indy_core *)u, a); }
+static uint16_t s_peek(void *u, uint32_t a) { return peek_word((as1_core *)u, a); }
 static uint32_t s_areg(void *u, int n) { (void)u; return m68k_get_reg(NULL, (m68k_register_t)(M68K_REG_A0 + n)); }
 
 // ---------------------------------------------------------------------------
@@ -488,7 +575,7 @@ static inline bool via_selected(uint16_t a)
     return base >= 0x1000 && base <= 0x100f;
 }
 
-static void sync_pokey(indy_core *c)
+static void sync_pokey(as1_core *c)
 {
     if (c->pokey_pending > 0) {
         pokey_run(&c->pk, c->pokey_pending);
@@ -496,7 +583,7 @@ static void sync_pokey(indy_core *c)
     }
 }
 
-static inline void flush_via_tms(indy_core *c)
+static inline void flush_via_tms(as1_core *c)
 {
     if (c->via_pending) {
         via6522_tick(&c->via, c->via_pending);
@@ -508,7 +595,7 @@ static inline void flush_via_tms(indy_core *c)
     }
 }
 
-static inline void ym_recompute_due(indy_core *c)
+static inline void ym_recompute_due(as1_core *c)
 {
     int32_t d = INT32_MAX;
     if (c->ym.timer_a_enabled && c->ym.timer_a_counter < d) d = c->ym.timer_a_counter;
@@ -516,7 +603,7 @@ static inline void ym_recompute_due(indy_core *c)
     c->ym_due = d;
 }
 
-static inline void flush_ym(indy_core *c)
+static inline void flush_ym(as1_core *c)
 {
     if (c->ym_pending) {
         ym2151_run_timers(&c->ym, c->ym_pending);
@@ -525,9 +612,9 @@ static inline void flush_ym(indy_core *c)
     ym_recompute_due(c);
 }
 
-static inline uint8_t INDY_HOT sound_read(void *u, uint16_t a)
+static inline uint8_t AS1_HOT sound_read(void *u, uint16_t a)
 {
-    indy_core *c = (indy_core *)u;
+    as1_core *c = (as1_core *)u;
     if ((a & ~0x2000) <= 0x0fff) return c->sound_ram[a & 0x0fff];
     if (a >= 0x4000) return c->roms.sound[a - 0x4000];
     if (via_selected(a)) {
@@ -552,9 +639,9 @@ static inline uint8_t INDY_HOT sound_read(void *u, uint16_t a)
     return 0xff;
 }
 
-static inline void INDY_HOT sound_write(void *u, uint16_t a, uint8_t value)
+static inline void AS1_HOT sound_write(void *u, uint16_t a, uint8_t value)
 {
-    indy_core *c = (indy_core *)u;
+    as1_core *c = (as1_core *)u;
     if ((a & ~0x2000) <= 0x0fff) { c->sound_ram[a & 0x0fff] = value; return; }
     if (via_selected(a)) {
         flush_via_tms(c);
@@ -583,9 +670,9 @@ static inline void INDY_HOT sound_write(void *u, uint16_t a, uint8_t value)
     }
 }
 
-static inline void INDY_HOT on_sound_cycles(void *u, int cycles)
+static inline void AS1_HOT on_sound_cycles(void *u, int cycles)
 {
-    indy_core *c = (indy_core *)u;
+    as1_core *c = (as1_core *)u;
     c->ym_pending += cycles * 2;
     if (c->ym_pending >= c->ym_due) flush_ym(c);     // a timer expires on this instruction
     c->pokey_pending += cycles;
@@ -593,19 +680,19 @@ static inline void INDY_HOT on_sound_cycles(void *u, int cycles)
     if (c->tms.clock != c->tms_table_clock) {
         c->tms_table_clock = c->tms.clock;
         for (int n = 0; n < 16; ++n)
-            c->tms_clocks[n] = (uint16_t)(((uint64_t)n * c->tms_table_clock + (INDY_SOUND_CLOCK / 2)) / INDY_SOUND_CLOCK);
+            c->tms_clocks[n] = (uint16_t)(((uint64_t)n * c->tms_table_clock + (AS1_SOUND_CLOCK / 2)) / AS1_SOUND_CLOCK);
     }
     c->tms_pending += cycles < 16 ? c->tms_clocks[cycles]
-        : (int)(((int64_t)cycles * (int64_t)c->tms.clock + (INDY_SOUND_CLOCK / 2)) / INDY_SOUND_CLOCK);
+        : (int)(((int64_t)cycles * (int64_t)c->tms.clock + (AS1_SOUND_CLOCK / 2)) / AS1_SOUND_CLOCK);
     // While /READY is held after a strobe the chip is run instruction by instruction.
     if (c->tms.io_ready_delay > 0) flush_via_tms(c);
     if (!c->audio_enabled) return;
     c->audio_acc += cycles * (int32_t)c->sample_rate;
-    if (c->audio_acc < (int32_t)INDY_SOUND_CLOCK) return;
+    if (c->audio_acc < (int32_t)AS1_SOUND_CLOCK) return;
     sync_pokey(c);
     flush_via_tms(c);
-    while (c->audio_acc >= (int32_t)INDY_SOUND_CLOCK) {
-        c->audio_acc -= INDY_SOUND_CLOCK;
+    while (c->audio_acc >= (int32_t)AS1_SOUND_CLOCK) {
+        c->audio_acc -= AS1_SOUND_CLOCK;
         int32_t s = pokey_update(&c->pk) + tms5220_last_sample(&c->tms);
         if (!c->ym_external) s += ym2151_update(&c->ym);
         if (s < -32768) s = -32768; else if (s > 32767) s = 32767;
@@ -614,34 +701,43 @@ static inline void INDY_HOT on_sound_cycles(void *u, int cycles)
     }
 }
 
-// The sound program's main loop at $40F1 polls for work 17 instructions (54
-// cycles) at a time:
+// The sound program's main loop polls for work 17 instructions at a time
+// (Indy at $40F1, 54 cycles; Road Runner the same code at $80EC, 53 cycles,
+// counter in $28):
 //   40F1 LDA $02 / AND #$FE / STA $02 / SEI / INC $1C / BNE 4103 / (INC, JSR)
 //   4103 CLI / LDA #$10 / BIT $1820 / BNE (main CPU wrote) / LDY $224 / CPY $225
 //   / BEQ 4123 / ... 4123 LDX $210 / CPX $211 / BEQ 413B / ... 413B JMP $40F1
 // With nothing to do and no interrupt able to arrive (the YM2151 timers are the
-// only source while the 6502 runs), a pass changes only $1C; the registers and
-// flags come out as they went in. Passes are replayed here: $1C and the chips'
-// per-instruction work (same cycles, same order) without decoding them.
-static const uint8_t poll_cycles[17] = {3, 2, 3, 2, 5, 4, 2, 2, 4, 2, 4, 4, 3, 4, 4, 3, 3};
-#define POLL_PASS 54
+// only source while the 6502 runs), a pass changes only the counter; the
+// registers and flags come out as they went in. Passes are replayed here: the
+// counter and the chips' per-instruction work (same cycles, same order)
+// without decoding them.
+typedef struct {
+    uint16_t pc, jmp;               // loop start, its closing JMP
+    uint8_t counter;                // zero page counter it increments
+    uint8_t pass;                   // cycles of a pass
+    uint8_t cycles[17];
+} sound_poll;
+static const sound_poll poll_indy = {0x40f1, 0x413b, 0x1c, 54, {3, 2, 3, 2, 5, 4, 2, 2, 4, 2, 4, 4, 3, 4, 4, 3, 3}};
+static const sound_poll poll_rr = {0x80ec, 0x8136, 0x28, 53, {3, 2, 3, 2, 5, 3, 2, 2, 4, 2, 4, 4, 3, 4, 4, 3, 3}};
 
-static int INDY_HOT sound_idle(void *u, int budget)
+static int AS1_HOT sound_idle(void *u, int budget)
 {
-    indy_core *c = (indy_core *)u;
+    as1_core *c = (as1_core *)u;
+    const sound_poll *sp = c->game == AS1_ROADRUNN ? &poll_rr : &poll_indy;
     const uint8_t *ram = c->sound_ram;
-    if (!c->idle_skip || c->snd.ppc != 0x413b) return 0;   // after a real pass
+    if (!c->idle_skip || c->snd.ppc != sp->jmp) return 0;   // after a real pass
     if (c->snd.irq_request != LINE_CLEAR || c->snd.nmi_request != LINE_CLEAR || c->snd.fi) return 0;
     if (c->main_pending || (ram[0x02] & 1)) return 0;
     if (ram[0x224] != ram[0x225] || ram[0x210] != ram[0x211]) return 0;
-    uint8_t count = ram[0x1c];
+    uint8_t count = ram[sp->counter];
     int done = 0;
-    while (count != 0xff && done + POLL_PASS < budget && c->ym_pending + 2 * POLL_PASS < c->ym_due) {
-        for (int i = 0; i < 17; i++) on_sound_cycles(c, poll_cycles[i]);
+    while (count != 0xff && done + sp->pass < budget && c->ym_pending + 2 * sp->pass < c->ym_due) {
+        for (int i = 0; i < 17; i++) on_sound_cycles(c, sp->cycles[i]);
         count++;
-        done += POLL_PASS;
+        done += sp->pass;
     }
-    c->sound_ram[0x1c] = count;
+    c->sound_ram[sp->counter] = count;
     c->snd_skipped += (uint32_t)done;
     return done;
 }
@@ -654,20 +750,20 @@ static int INDY_HOT sound_idle(void *u, int budget)
 
 static void ym_irq(void *u, bool on)
 {
-    indy_core *c = (indy_core *)u;
+    as1_core *c = (as1_core *)u;
     dsp6502_set_irq(&c->snd, on ? LINE_HOLD : LINE_CLEAR);
 }
 
-static uint8_t via_pa_in(void *u) { return tms5220_status(&((indy_core *)u)->tms); }
+static uint8_t via_pa_in(void *u) { return tms5220_status(&((as1_core *)u)->tms); }
 static void via_pa_out(void *u, uint8_t v)
 {
-    indy_core *c = (indy_core *)u;
+    as1_core *c = (as1_core *)u;
     tms5220_set_data_latch(&c->tms, v);
     tms5220_write_data(&c->tms, v);
 }
 static uint8_t via_pb_in(void *u)
 {
-    indy_core *c = (indy_core *)u;
+    as1_core *c = (as1_core *)u;
     uint8_t v = 0;
     if (tms5220_readyq(&c->tms)) v |= 0x04;
     if (tms5220_intq(&c->tms)) v |= 0x08;
@@ -675,23 +771,29 @@ static uint8_t via_pb_in(void *u)
 }
 static void via_pb_out(void *u, uint8_t v)
 {
-    indy_core *c = (indy_core *)u;
+    as1_core *c = (as1_core *)u;
     tms5220_set_wsq(&c->tms, (v & 0x01) != 0);
     tms5220_set_rsq(&c->tms, (v & 0x02) != 0);
     int div = 5 | ((v >> 3) & 2);
-    tms5220_set_clock(&c->tms, INDY_ATARI_CLOCK / 2 / (uint32_t)(16 - div));
+    tms5220_set_clock(&c->tms, AS1_ATARI_CLOCK / 2 / (uint32_t)(16 - div));
 }
 
 // ---------------------------------------------------------------------------
 // Machine
 // ---------------------------------------------------------------------------
 
-void indy_init(indy_core *c, const indy_roms *roms, uint32_t sample_rate)
+void as1_init(as1_core *c, const as1_roms *roms, uint32_t sample_rate)
 {
     memset(c, 0, sizeof *c);
     g_core = c;
     c->roms = *roms;
-    for (int i = 0; i < INDY_ROM_PAGES; i++) c->main_page[i] = roms->main + (size_t)i * 1024;
+    c->game = roms->game;
+    c->gfx_bytes = as1_gfx_bytes(roms->game);
+    if (c->game == AS1_ROADRUNN) {
+        c->frame_mo = (as1_mo_list *)calloc(1, sizeof *c->frame_mo);
+        c->v.pens_per_line = true;
+    }
+    for (int i = 0; i < AS1_ROM_PAGES; i++) c->main_page[i] = roms->main + (size_t)i * 1024;
     c->sample_rate = sample_rate ? sample_rate : 44100;
     c->audio_enabled = true;
     make_char_pens();
@@ -699,7 +801,7 @@ void indy_init(indy_core *c, const indy_roms *roms, uint32_t sample_rate)
     c->gfx.roms = &c->roms;
     convert_background(&c->gfx, roms->proms);
     for (int i = 0; i < 256; i++) {
-        indy_gfx *g = &c->gfx;
+        as1_gfx *g = &c->gfx;
         const uint16_t lookup = g->playfield_lookup[i];
         int gfx = (lookup >> 8) & 0xf;
         const int shift = g->bank_color_shift[gfx];
@@ -715,8 +817,8 @@ void indy_init(indy_core *c, const indy_roms *roms, uint32_t sample_rate)
     c->snd.write = sound_write;
     c->snd.cycles = on_sound_cycles;
     c->snd.user = c;
-    c->snd.idle = sound_idle;
-    c->snd.idle_pc = 0x40f1;
+    c->snd.idle = sound_idle;                // the polling loop of the sound program
+    c->snd.idle_pc = c->game == AS1_ROADRUNN ? poll_rr.pc : poll_indy.pc;
     for (int page = 0x40; page < 0x100; ++page) dsp6502_set_page(&c->snd, (uint8_t)page, roms->sound + (page - 0x40) * 0x100, NULL);
     for (int page = 0; page < 0x10; ++page) {
         dsp6502_set_page(&c->snd, (uint8_t)page, c->sound_ram + page * 0x100, c->sound_ram + page * 0x100);
@@ -725,7 +827,7 @@ void indy_init(indy_core *c, const indy_roms *roms, uint32_t sample_rate)
 
     c->ym.irq_handler = ym_irq;
     c->ym.user = c;
-    ym2151_init(&c->ym, INDY_YM_CLOCK, c->sample_rate);
+    ym2151_init(&c->ym, AS1_YM_CLOCK, c->sample_rate);
     pokey_init(&c->pk);
     c->via.pa_in = via_pa_in;
     c->via.pa_out = via_pa_out;
@@ -733,25 +835,25 @@ void indy_init(indy_core *c, const indy_roms *roms, uint32_t sample_rate)
     c->via.pb_out = via_pb_out;
     c->via.user = c;
     via6522_reset(&c->via);
-    tms5220_init(&c->tms, INDY_ATARI_CLOCK / 2 / 11, false);
+    tms5220_init(&c->tms, AS1_ATARI_CLOCK / 2 / 11, false);
 
     slapstic_cpu sc = {s_pc, s_ppc, s_peek, s_areg, c};
-    slapstic_init(&c->slap, 105, &sc);
+    slapstic_init(&c->slap, c->game == AS1_ROADRUNN ? 108 : 105, &sc);
 
     memset(c->eeprom, 0xff, sizeof c->eeprom);
 
     m68k_init();
     m68k_set_cpu_type(M68K_CPU_TYPE_68010);
-    indy_reset(c);
+    as1_reset(c);
 }
 
-void indy_reset(indy_core *c)
+void as1_reset(as1_core *c)
 {
     g_core = c;
     slapstic_reset(&c->slap);
     c->rom_bank = c->slap.current_bank;
     memset(c->irq, 0, sizeof c->irq);
-    indy_ipl_dirty = false;
+    as1_ipl_dirty = false;
     c->in_main = false;
     m68k_pulse_reset();
     m68k_set_irq(0);
@@ -767,6 +869,9 @@ void indy_reset(indy_core *c)
     c->in0 = 0xff6f;
     c->in2 = 0x87;
     c->joy_bits = 0;
+    c->analog_x = c->analog_y = 0x80;
+    c->int3_line = c->int3_off_line = -1;
+    c->int3_state = false;
     c->adc_channel = c->adc_value = 0;
     c->adc_irq_enable = true;
     c->adc_busy = false;
@@ -787,13 +892,14 @@ void indy_reset(indy_core *c)
     c->sample_pos = 0;
 }
 
-void indy_set_inputs(indy_core *c, const indy_inputs *in)
+void as1_set_inputs(as1_core *c, const as1_inputs *in)
 {
     c->in0 = 0xff6f;
     c->in2 = 0x87;
     if (in->button1) c->in0 &= (uint16_t)~0x0001;
     if (in->start) c->in0 &= (uint16_t)~0x0002;
     if (in->button2) c->in0 &= (uint16_t)~0x0004;
+    if (c->game == AS1_ROADRUNN && in->button2) c->in0 &= (uint16_t)~0x0002;
     if (in->coin1) c->in2 &= (uint8_t)~0x01;
     if (in->coin2) c->in2 &= (uint8_t)~0x02;
     c->joy_bits = 0;
@@ -801,31 +907,53 @@ void indy_set_inputs(indy_core *c, const indy_inputs *in)
     if (in->down) c->joy_bits |= 0x20;
     if (in->left) c->joy_bits |= 0x40;
     if (in->right) c->joy_bits |= 0x80;
+    if (in->analog_x || in->analog_y) {
+        c->analog_x = in->analog_x;
+        c->analog_y = in->analog_y;
+    } else {
+        c->analog_y = in->up == in->down ? 0x80 : in->up ? 0x10 : 0xf0;
+        c->analog_x = in->left == in->right ? 0x80 : in->left ? 0xf0 : 0x10;   // PORT_REVERSE
+    }
 }
 
-void indy_run_frame(indy_core *c)
+void as1_run_frame(as1_core *c)
 {
-    const int main_cycles = (int)((double)INDY_MAIN_CLOCK / INDY_FPS / INDY_SCANLINES + 0.5);
-    const int sound_cycles = (int)((double)INDY_SOUND_CLOCK / INDY_FPS / INDY_SCANLINES + 0.5);
+    const int main_cycles = (int)((double)AS1_MAIN_CLOCK / AS1_FPS / AS1_SCANLINES + 0.5);
+    const int sound_cycles = (int)((double)AS1_SOUND_CLOCK / AS1_FPS / AS1_SCANLINES + 0.5);
     g_core = c;
     c->audio_n = 0;
-    for (c->line = 0; c->line < INDY_SCANLINES; c->line++) {
+    reschedule_int3(c, -1);
+    if (c->frame_mo) { c->frame_mo->count = 0; c->mo_line = 0; }
+    for (c->line = 0; c->line < AS1_SCANLINES; c->line++) {
         c->in_main = true;
         c->slice++;
         m68k_execute(main_cycles);
         c->in_main = false;
-#ifdef INDY_TRACE_SLICES
-        { extern void trace_slice(indy_core *c); trace_slice(c); }
+#ifdef AS1_TRACE_SLICES
+        { extern void trace_slice(as1_core *c); trace_slice(c); }
 #endif
-        if (indy_ipl_dirty) {
-            indy_ipl_dirty = false;
+        if (as1_ipl_dirty) {
+            as1_ipl_dirty = false;
             apply_ipl(c);
         }
         if (!c->sound_halted) dsp6502_run(&c->snd, sound_cycles);
         adc_complete(c);
         c->v.scroll_x[c->line] = c->scroll_x;
         c->v.scroll_y[c->line] = c->scroll_y;
+        if (c->line < AS1_SCREEN_H) c->v.pens_line[c->line] = c->v.priority_pens;
+        if (c->int3_off_line == c->line) {
+            c->int3_state = false;
+            c->int3_off_line = -1;
+            main_irq(c, 3, LINE_CLEAR);
+        }
+        if (c->int3_line == c->line) {
+            c->int3_state = true;
+            main_irq(c, 3, LINE_ASSERT);
+            c->int3_off_line = (c->line + 1) % AS1_SCANLINES;
+            reschedule_int3(c, c->line);
+        }
         if (c->line == 239) {
+            mo_partial(c, AS1_SCREEN_H);
             if (c->on_frame) c->on_frame(c->user, c);
             c->vblank = 0;
             main_irq(c, 4, LINE_ASSERT);
@@ -841,27 +969,30 @@ void indy_run_frame(indy_core *c)
 // ---------------------------------------------------------------------------
 
 typedef struct {
-    const indy_gfx *g;
-    indy_mo_list *list;
+    const as1_gfx *g;
+    as1_mo_list *list;
+    int y0, y1;
 } mo_ctx;
 
 static int mo_code(void *u, int raw)
 {
-    const indy_gfx *g = ((mo_ctx *)u)->g;
+    const as1_gfx *g = ((mo_ctx *)u)->g;
     return (raw & 0xff) | ((g->motable[(raw >> 8) & 0xff] & 0xff) << 8);
 }
 static int mo_color(void *u, int index)
 {
-    const indy_gfx *g = ((mo_ctx *)u)->g;
+    const as1_gfx *g = ((mo_ctx *)u)->g;
     return index < 256 ? (g->motable[index] >> 12) & 0xf : index;
 }
 static int mo_gfx(void *u, int hi) { return (((mo_ctx *)u)->g->motable[hi & 0xff] >> 8) & 0xf; }
 
 static void mo_tile(void *u, int code, int color, bool hflip, bool vflip, int x, int y, int gfx, int priority)
 {
-    indy_mo_list *l = ((mo_ctx *)u)->list;
-    if (l->count >= INDY_MO_MAX_TILES) return;
-    indy_mo_tile *t = &l->t[l->count++];
+    mo_ctx *m = (mo_ctx *)u;
+    as1_mo_list *l = m->list;
+    if (l->count >= AS1_MO_MAX_TILES) return;
+    if (y + 8 <= m->y0 || y >= m->y1) return;
+    as1_mo_tile *t = &l->t[l->count++];
     t->x = (int16_t)x;
     t->y = (int16_t)y;
     t->code = (uint16_t)code;
@@ -870,6 +1001,8 @@ static void mo_tile(void *u, int code, int color, bool hflip, bool vflip, int x,
     t->hflip = hflip;
     t->vflip = vflip;
     t->priority = (uint8_t)priority;
+    t->ymin = (int16_t)m->y0;
+    t->ymax = (int16_t)m->y1;
 }
 
 static const atari_mo_config mo_config = {
@@ -887,16 +1020,29 @@ static const atari_mo_config mo_config = {
     .specialvalue = 0xffff,
 };
 
-void indy_build_mo_list(const indy_gfx *g, const indy_video *v, indy_mo_list *list)
+void as1_build_mo_band(const as1_gfx *g, const as1_video *v, as1_mo_list *list, int y0, int y1)
 {
     atari_mo *mo = &list->mo;
     if (!list->mo_ready) {
-        atari_mo_init(mo, &mo_config, INDY_SCREEN_W + 8, INDY_SCREEN_H + 8);
+        atari_mo_init(mo, &mo_config, AS1_SCREEN_W + 8, AS1_SCREEN_H + 8);
+        list->mo_ready = true;
+    }
+    mo->bank = v->mo_bank;
+    mo_ctx ctx = {g, list, y0, y1};
+    const atari_mo_lookup lk = {mo_code, mo_color, mo_gfx};
+    atari_mo_draw(mo, &v->ram3[0x2000 >> 1], 0, 256, -1, &lk, mo_tile, &ctx);
+}
+
+void as1_build_mo_list(const as1_gfx *g, const as1_video *v, as1_mo_list *list)
+{
+    atari_mo *mo = &list->mo;
+    if (!list->mo_ready) {
+        atari_mo_init(mo, &mo_config, AS1_SCREEN_W + 8, AS1_SCREEN_H + 8);
         list->mo_ready = true;
     }
     mo->bank = v->mo_bank;
     list->count = 0;
-    mo_ctx ctx = {g, list};
+    mo_ctx ctx = {g, list, -1000, 1000};
     const atari_mo_lookup lk = {mo_code, mo_color, mo_gfx};
     atari_mo_draw(mo, &v->ram3[0x2000 >> 1], 0, 256, -1, &lk, mo_tile, &ctx);
 }
@@ -910,12 +1056,12 @@ static inline void mix_mo_pixel(uint16_t pens, uint16_t *pf, uint16_t mo)
     }
 }
 
-void INDY_HOT indy_compose(const indy_gfx *g, const indy_video *v, const indy_mo_list *mo,
+void AS1_HOT as1_compose(const as1_gfx *g, const as1_video *v, const as1_mo_list *mo,
                            int y0, int y1, uint16_t *out)
 {
-    const int W = INDY_SCREEN_W;
+    const int W = AS1_SCREEN_W;
     // Playfield: 64x64 tiles of 8x8 on a 512x512 map, scrolled per line.
-    const indy_pf_info *pfi = g->pf + ((unsigned)v->tile_bank << 7);
+    const as1_pf_info *pfi = g->pf + ((unsigned)v->tile_bank << 7);
     for (int y = y0; y < y1; y++) {
         uint16_t *dst = out + (size_t)(y - y0) * W;
         const int sy = (int)v->scroll_y[y] & 511;
@@ -925,7 +1071,7 @@ void INDY_HOT indy_compose(const indy_gfx *g, const indy_video *v, const indy_mo
         int x = 0;
         while (x < W) {
             const uint16_t atrib = maprow[(px >> 3) & 63];
-            const indy_pf_info *pi = &pfi[(atrib >> 8) & 0x7f];
+            const as1_pf_info *pi = &pfi[(atrib >> 8) & 0x7f];
             uint32_t row = pi->tiles ? pi->tiles[(unsigned)((pi->codehi | (atrib & 0xff)) & 0xfff) * 8 + (unsigned)(py & 7)] : 0;
             if (atrib & 0x8000) {   // hflip: reverse the 8 nibbles
                 row = ((row >> 4) & 0x0f0f0f0fu) | ((row & 0x0f0f0f0fu) << 4);
@@ -955,14 +1101,14 @@ void INDY_HOT indy_compose(const indy_gfx *g, const indy_video *v, const indy_mo
     }
 
     // Motion objects, in drawing order, the rows of this band.
-    const uint16_t pens_mask = v->priority_pens;
     for (int i = 0; i < mo->count; i++) {
-        const indy_mo_tile *t = &mo->t[i];
+        const as1_mo_tile *t = &mo->t[i];
         if (t->y + 8 <= y0 || t->y >= y1) continue;
         int set = (gfx_valid(g, t->gfx) && t->gfx > 0) ? t->gfx : (gfx_valid(g, 1) ? 1 : 0);
         for (int r = 0; r < 8; r++) {
             const int ty = t->y + r;
-            if (ty < y0 || ty >= y1 || ty < 0 || ty >= INDY_SCREEN_H) continue;
+            if (ty < y0 || ty >= y1 || ty < 0 || ty >= AS1_SCREEN_H || ty < t->ymin || ty >= t->ymax) continue;
+            const uint16_t pens_mask = v->pens_per_line ? v->pens_line[ty] : v->priority_pens;
             uint32_t row = set ? tile_row4(g, set, t->code, t->vflip ? 7 - r : r) : 0;
             if (!row) continue;
             uint16_t *line = out + (size_t)(ty - y0) * W;
@@ -996,13 +1142,16 @@ void INDY_HOT indy_compose(const indy_gfx *g, const indy_video *v, const indy_mo
     }
 }
 
-uint32_t indy_palette_rgb(const indy_video *v, int index)
+uint32_t as1_palette_rgb(const as1_video *v, int index)
 {
-    static const uint8_t k[16] = {0x0, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x10, 0x11};
+    // IRGB 4444 as MAME's palette_device::IRGB_4444 (standard_irgb_decoder):
+    // each 4-bit value expanded to 8 bits, colour = intensity * value / 256.
+    // (dsp-cpp used the old intensity table 0, 3, 4 .. 0x11, too bright at
+    // low intensities: Road Runner's dark tunnel interiors showed grey.)
     index &= 0x3ff;
     if (!(v->palette_set[index >> 3] & (1 << (index & 7)))) return 0;
     uint16_t val = v->palette[index];
-    uint8_t in = k[val >> 12];
-    uint32_t r = (uint32_t)((val >> 8) & 15) * in, g = (uint32_t)((val >> 4) & 15) * in, b = (uint32_t)(val & 15) * in;
+    uint32_t i = (uint32_t)(val >> 12) * 17;
+    uint32_t r = (i * ((val >> 8) & 15) * 17) >> 8, g = (i * ((val >> 4) & 15) * 17) >> 8, b = (i * (val & 15) * 17) >> 8;
     return (r << 16) | (g << 8) | b;
 }
