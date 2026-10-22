@@ -1,4 +1,4 @@
-# Sources of the selected game (GAME: indytemp, snowbros, trackfld).
+# Sources of the selected game (GAME: indytemp, snowbros, trackfld, pbobble).
 idf_build_get_property(GAME GAME)
 set(D drivers/arcades/${GAME})
 set(PORT ports/esp32-cyd/cyd.c ports/esp32-cyd/dac_audio.c ports/esp32-cyd/nunchuk.c)
@@ -17,8 +17,12 @@ elseif(GAME STREQUAL "trackfld")
     set(SRCS ${D}/trackfld_cyd.c ${D}/tf_core.c ${D}/rom_data.c cpu/mc6809/mc6809.c cpu/z80/z80.c
              sound/sn76489.c sound/vlm5030.c)
     set(DEFS MC6809_NO_SETJMP)
+elseif(GAME STREQUAL "pbobble")
+    set(SRCS ${D}/pbobble_cyd.c ${D}/pb_core.c ${D}/rom_data.c ${D}/m68k_tables.c ${M68K}
+             cpu/z80/z80.c sound/ym2610.c machine/tc0140syt.c machine/eeprom93c46.c video/tc0180vcu.c)
+    set(DEFS M68K_FLASH_TABLES)
 else()
-    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, snowbros, trackfld)")
+    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, snowbros, trackfld, pbobble)")
 endif()
 
 idf_component_register(

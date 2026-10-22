@@ -3,3 +3,8 @@ sdkconfig
 sdkconfig.old
 *.eep
 shot.ppm
+# ROMs: never committed
+roms/*/*
+!roms/*/put_your_unzipped_rom_here.txt
+# firmware images (they contain the ROMs): never committed
+dist/*.bin
