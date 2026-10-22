@@ -1,8 +1,0 @@
-# Hot interpreter / sound code in IRAM
-[mapping:emu_hot]
-archive: libmain.a
-entries:
-    mc6809 (noflash)
-    z80 (noflash)
-    sn76489 (noflash)
-    vlm5030 (noflash)
