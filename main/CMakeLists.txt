@@ -1,6 +1,11 @@
-# Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop).
+# Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop)
+# or computer (GAME: ql).
 idf_build_get_property(GAME GAME)
-set(D drivers/arcades/${GAME})
+if(GAME STREQUAL "ql")
+    set(D drivers/computers/${GAME})
+else()
+    set(D drivers/arcades/${GAME})
+endif()
 set(AS1 drivers/arcades/atarisy1)
 set(PORT ports/esp32-cyd/cyd.c ports/esp32-cyd/dac_audio.c ports/esp32-cyd/nunchuk.c)
 set(M68K cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c)
@@ -45,13 +50,17 @@ elseif(GAME STREQUAL "robocop")
              cpu/h6280/h6280.c sound/ym2610.c sound/okim6295.c
              sound/emu8950/emu8950.c sound/emu8950/emuadpcm.c)
     set(DEFS M68K_FLASH_TABLES)
+elseif(GAME STREQUAL "ql")
+    set(SRCS ${D}/ql_cyd.c ${D}/ql_core.c ${D}/ql_view.c ${D}/rom_data.c ${D}/m68k_tables.c ${M68K}
+             cpu/mcs48/mcs48.c machine/zx8302.c machine/ql_mdv.c video/zx8301.c)
+    set(DEFS M68K_FLASH_TABLES)
 else()
-    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop)")
+    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql)")
 endif()
 
 idf_component_register(
     SRCS ${SRCS} ${PORT}
-    INCLUDE_DIRS ${D} ${AS1} ports/esp32-cyd cpu cpu/m68k cpu/m6502 cpu/mc6809 sound machine video
+    INCLUDE_DIRS ${D} ${AS1} ports/esp32-cyd cpu cpu/m68k cpu/m6502 cpu/mc6809 cpu/mcs48 sound machine video
     REQUIRES esp_driver_i2c esp_system xtensa esp_lcd esp_driver_spi esp_driver_gpio esp_driver_dac
              esp_driver_uart nvs_flash esp_timer
     LDFRAGMENTS ${D}/${GAME}.lf)

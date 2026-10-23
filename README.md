@@ -1,6 +1,6 @@
-# Arcades para ESP32 CYD (ST7789) y escritorio (SDL2)
+# Arcades (y un Sinclair QL) para ESP32 CYD (ST7789) y escritorio (SDL2)
 
-Nueve máquinas en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI) o como programa de escritorio con SDL2:
+Diez máquinas (nueve recreativas y el ordenador Sinclair QL) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI) o como programa de escritorio con SDL2:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -12,16 +12,17 @@ Nueve máquinas en un único árbol de fuentes, cada una compilable como firmwar
 | Track & Field (Konami, 1983) | `trackfld` | Konami-1 (6809) + Z80 | SN76489, VLM5030, DAC | `zxtiny/zxm/trackfld.c` |
 | Return of the Invaders (Taito, 1985) | `retofinv` | 3 x Z80 + MC68705P5 | 2 x SN76489 | dsp-cpp `retofinv.cpp` → `retofinv/rv_core.c` (detalles verificados con MAME `retofinv.cpp`) |
 | RoboCop (Data East, 1988) | `robocop` | 68000 + HuC6280 + 6502 | YM2203, YM3812, OKI M6295 | dsp-cpp `dec0.cpp` → `robocop/rc_core.c` (detalles verificados con MAME `dec0.cpp`) |
+| Sinclair QL (1984, ROM JS) — ordenador | `ql` | 68008 + 8749 (IPC) | altavoz del IPC | dsp-cpp `ql.cpp` → `drivers/computers/ql/ql_core.c` (detalles verificados con MAME `sinclair/ql.cpp`) |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
 
-Cada firmware lleva un solo juego. Las ROMs van dentro y cada juego configura el 68000 a su manera. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
+Cada firmware lleva un solo juego (el del QL lleva también un cartucho de microdrive, el `.mdv` que haya en `roms/ql`). Las ROMs van dentro y cada juego configura el 68000 a su manera. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
 
 ## Estructura
 
 ```
 CMakeLists.txt            proyecto ESP-IDF (idf.py -DGAME=<juego> build)
 Makefile                  escritorio SDL2 (make GAME=<juego>)
-build_all.sh              los 18 firmwares (9 juegos x SPI 40/80 MHz) -> dist/, y los 9 de escritorio
+build_all.sh              los 20 firmwares (10 máquinas x SPI 40/80 MHz) -> dist/, y los 10 de escritorio
 partitions.csv, sdkconfig.defaults
 main/
   CMakeLists.txt          elige las fuentes del juego
@@ -31,12 +32,16 @@ main/
     m6805/                MC6805 HMOS (MC68705P5)
     mc6809/               6809 / Konami-1
     h6280/                HuC6280 (port de MAME)
+    mcs48/                MCS-48 (8035/8039/8049/8749) y UPI-41 (port de dsp-cpp / MAME)
     z80/                  Z80
   sound/                  ym2151, pokey (+pokey_poly17.inc), tms5220, sn76489, vlm5030, emu8950/ (YM3812),
                           ym2610 (YM2610/YM2610B y YM2203), segapcm (Sega 315-5218), okim6295 (OKI M6295)
   machine/                via6522, slapstic, tc0140syt (buzón Taito 68000 <-> Z80), eeprom93c46,
-                          sega_315_5195 (mapeador de memoria de Sega), taito68705 (MCU de Taito)
-  video/                  atari_mo (objetos móviles Atari, con las SLIP de Gauntlet), tc0180vcu (vídeo del Taito B System)
+                          sega_315_5195 (mapeador de memoria de Sega), taito68705 (MCU de Taito),
+                          zx8302 (periféricos del QL: reloj, enlace con el IPC, interrupciones,
+                          controlador de microdrives), ql_mdv (microdrive del QL, imágenes QLAY)
+  video/                  atari_mo (objetos móviles Atari, con las SLIP de Gauntlet), tc0180vcu (vídeo del Taito B System),
+                          zx8301 (vídeo del QL: modos 4 y 8)
   drivers/arcades/
     atarisy1/             núcleo Atari System 1 compartido por indytemp y roadrunn:
                           atarisy1_core.c/.h (máquina), atarisy1_roms.c/.h (carga desde directorios)
@@ -58,16 +63,21 @@ main/
     robocop/              rc_core.c/.h (máquina), rc_video.c (imagen), rc_sound.c/.h (placa de
                           sonido), robocop_cyd.c, robocop_sdl.c, rom_data.c, m68k_game_conf.h,
                           m68k_tables.c, robocop.lf
+  drivers/computers/
+    ql/                   ql_core.c/.h (Sinclair QL), ql_view.c/.h (imagen 512x256 en 320x240),
+                          ql_cyd.c, ql_sdl.c, rom_data.c (ROMs + cartucho), m68k_game_conf.h,
+                          m68k_tables.c, ql.lf
   ports/
     esp32-cyd/            cyd.c/.h (LCD SPI/DMA, táctil XPT2046 y calibración, menú de ajustes en NVS,
                           diagnóstico de cuelgues, arranque), dac_audio (DAC GPIO26 asíncrono),
                           nunchuk (I2C), font5x7.h
-    sdl2/                 sdl_port.c/.h (ventana, cola de audio, teclado, ritmo, capturas)
+    sdl2/                 sdl_port.c/.h (ventana, cola de audio, teclado, ritmo, capturas; modo
+                          "ordenador": todas las teclas van a la máquina)
 tools/
   regen.sh <juego>        regenera rom_data.c y m68k_tables.c del juego
   gen_roms_*.{c,py}, gen_m68k_tables.c, m68k_stub.c
 roms/                     indytemp, roadrunn, atarisy1 (BIOS de Indy y Road Runner), gauntlet, outrun, snowbros, trackfld, pbobble,
-                          retofinv, robocop (descomprimidas)
+                          retofinv, robocop, ql (descomprimidas; en ql, también el cartucho .mdv)
 ```
 
 Los núcleos de los juegos (`*_core.c`) no dependen de la plataforma. El frontend CYD y el SDL2 de cada juego usan exactamente el mismo núcleo.
@@ -177,6 +187,22 @@ Táctil en 3x3 zonas sobre la pantalla (se muestran 2,5 s al empezar); la imagen
 - **Nunchuk**: stick = joystick de 8 direcciones (arriba / abajo apuntan), Z ataque, C salto, C+Z moneda + start.
 - Serie: `a` / `d` / `w` / `s` joystick, `j` ataque, `k` salto, `5` moneda, `1` start.
 
+### Controles: Sinclair QL
+
+El QL arranca en su pantalla de inicio ("F1...monitor  F2...TV"). **MDV** (zona táctil o el botón **BOOT**) monta el cartucho que lleva el firmware (Psion Chess en el binario entregado) en mdv1, reinicia el QL y pulsa F1 por ti: QDOS carga y ejecuta `mdv1_boot` (unos 30 s, como el QL real; el LED rojo se enciende mientras gira el microdrive). Otra pulsación lo desmonta y vuelve a reiniciar (queda en SuperBASIC).
+
+Táctil en 4x3 zonas invisibles sobre la imagen (se muestran al empezar; mantén VIEW un segundo para volver a verlas):
+
+| | | | |
+|---|---|---|---|
+| MDV | F1 | F2 | VIEW |
+| IZQUIERDA | ARRIBA | ABAJO | DERECHA |
+| ESC | ESPACIO | ENTER | F3 |
+
+- **VIEW**: imagen entera (512x256 reducida a 320x240 promediando, se lee bien) o a 1:1 (las 320 columnas de la izquierda o de la derecha).
+- **Nunchuk**: stick = cursores, Z = ENTER, C = ESPACIO, C+Z = ESC.
+- **Puerto serie** (115200): se escribe en el teclado del QL (mayúsculas y símbolos con su SHIFT, flechas, ESC, `ESC O P`..`S` = F1..F4, Retroceso = CTRL+IZQUIERDA).
+
 ### Controles: Snow Bros
 
 ```
@@ -229,7 +255,7 @@ ESP-IDF 5.3:
 
 ```
 . $IDF_PATH/export.sh
-idf.py -B build/indytemp -DGAME=indytemp build       # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble / retofinv / robocop
+idf.py -B build/indytemp -DGAME=indytemp build       # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble / retofinv / robocop / ql
 LCD_SPI_MHZ=80 idf.py -B build/indytemp-80 -DGAME=indytemp build
 ./build_all.sh                                       # todo -> dist/
 ```
@@ -239,13 +265,14 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble / retofinv / robocop; "make all" para todos -> build/sdl/<juego>
+make GAME=indytemp        # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble / retofinv / robocop / ql; "make all" para todos -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
 ./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ./build/sdl/gauntlet      # ROMs incluidas
 ./build/sdl/outrun        # ROMs incluidas
 ./build/sdl/retofinv      # ROMs incluidas
 ./build/sdl/robocop       # ROMs incluidas
+./build/sdl/ql            # ROMs y cartucho incluidos; o ./build/sdl/ql <cartucho.mdv>
 ```
 
 Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset, P pausa, ESC salir.
@@ -258,12 +285,13 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **Return of the Invaders**: izquierda / derecha, Z disparo. Se ve en vertical (224x288, como el mueble ROT90).
 - **RoboCop**: cursores = joystick (arriba / abajo apuntan), Z ataque (disparo / puñetazo), X salto.
 - **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
+- **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta el cartucho** en mdv1 y reinicia el QL arrancando desde él; **F6 es el F1 del QL** (F2-F5 son los suyos), F12 reinicia, cerrar la ventana sale. El título de la ventana dice si hay cartucho. Para pruebas, `QL_MOUNT_AT=n` pulsa F1 en el frame n.
 
 Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
 
 ## ROMs
 
-Para regenerar las ROMs compiladas (`rom_data.c`) a partir de `roms/`: `tools/regen.sh <juego>`. En Indy, Road Runner, Gauntlet, OutRun, Snow Bros, Puzzle Bobble y RoboCop también regenera las tablas de Musashi.
+Para regenerar las ROMs compiladas (`rom_data.c`) a partir de `roms/`: `tools/regen.sh <juego>`. En Indy, Road Runner, Gauntlet, OutRun, Snow Bros, Puzzle Bobble, RoboCop y el QL también regenera las tablas de Musashi.
 
 Road Runner usa el set de MAME `roadrunn` (rev 2: `136040-228.11c` ... `136040-231.13a` y el resto de `136040-*`) en `roms/roadrunn/` y la BIOS `atarisy1` en `roms/atarisy1/`, como Indy.
 
@@ -274,6 +302,8 @@ OutRun usa el set de MAME `outrun` (rev B): `epr-10380b.133`, `epr-10381b.132`, 
 Return of the Invaders usa el set de MAME `retofinv`: `a37__01.ic72` ... `a37__05.ic17`, `a37__09.ic37` (MC68705P5), `a37__10` ... `a37__16.gfxboard` y las PROM `a37-06` ... `a37-08`, `a37-17` ... `a37-20` en `roms/retofinv/`.
 
 RoboCop usa el set de MAME `robocop` (World, revision 4): `ep05-4.11c`, `ep01-4.11b`, `ep04-3`, `ep00-3` (68000), `ep03-3` (6502), `en_24_mb7124e.a2` (HuC6280), `ep02` (OKI) y `ep06` ... `ep23` (gráficos) en `roms/robocop/` (`tools/gen_roms_robocop.py` comprueba tamaños y CRC; las PROM no hacen falta).
+
+El Sinclair QL usa el set de MAME `ql` (ROM JS): `ql.js 0000.ic33`, `ql.js 8000.ic34` e `ipc8049.ic24` en `roms/ql/`, más el cartucho que se quiera llevar en el firmware: el primer `*.mdv` (imagen QLAY de 174930 bytes) de `roms/ql/` (`tools/gen_roms_ql.py` comprueba tamaños y CRC; `python3 tools/gen_roms_ql.py roms/ql main/drivers/computers/ql/rom_data.c otro.mdv` elige otro).
 
 Puzzle Bobble usa el set de MAME `pbobble` (Taito B System, versión japonesa): `pb-ic18.ic18`, `pb-ic2.ic2`, `pb-ic27.ic27`, `pb-ic14.ic14`, `pb-ic9.ic9`, `pb-ic15.ic15` en `roms/pbobble/` (el script comprueba tamaños y CRC). No sirve el Puzzle Bobble de Neo Geo.
 
@@ -324,6 +354,15 @@ Los dos juegos usan el mismo núcleo (`drivers/arcades/atarisy1/`, port en C del
 - **Atajos con el mismo resultado** (imagen y audio bit a bit con y sin ellos, en demo y en partida): las dos esperas del 68000 a la interrupción de vblank en `$17BA` / `$17E8` (que además cuentan sus vueltas en `$FF8008`), la espera del 6502 en `$8091` (`JMP $8091`) y su bucle de retardo después de cada orden al OKI en `$8F5F`; todos se paran antes de la vuelta en la que vence un temporizador del YM.
 - En el CYD, las 32 páginas de 1 KB más usadas del programa del 68000 (98,5 % de las instrucciones) se copian a RAM.
 - **Verificación contra MAME**: imagen idéntica píxel a píxel en la demo y en partida con las mismas entradas (andar, disparar, saltar, moneda, start): 108 capturas comparadas, todas iguales (con un frame de desfase constante en la numeración). Audio con el mismo espectro y nivel (±5 %), salvo alguna nota del YM3812 cuya envolvente hace `emu8950` algo distinta de ymfm. En QEMU el firmware da las mismas huellas de imagen que el PC y emula a 57,4 fps con unos 45-55 fps mostrados; no está probado en una placa real.
+
+## Sinclair QL: cómo funciona
+
+- **Hardware** (MAME `sinclair/ql.cpp`): 68008 a 7,5 MHz, 128 KB de RAM en $20000 (la pantalla en $20000 o $28000), ROM JS de 48 KB; ZX8301 (vídeo 512x256 en modo 4, o 256x256 de 8 colores con parpadeo en modo 8; registro en $18063); ZX8302 (reloj de tiempo real, enlace serie con el IPC, registro de interrupciones y controlador de los microdrives); IPC 8749 a 11 MHz (teclado, altavoz, IPL del 68008 y el enlace con el ZX8302); dos microdrives a 100 kbit/s. 50,08 Hz.
+- Componentes nuevos, pasados a C desde dsp-cpp: `cpu/mcs48` (8749 y familia), `machine/zx8302`, `machine/ql_mdv` (la cinta como sucesión de pares de bytes: cabecera, hueco, bloque, hueco; un sector escrito recibe su copia en RAM, la imagen se lee de flash) y `video/zx8301`.
+- **Reparto del tiempo como dsp-cpp**: el 68008 (Musashi, ciclos de 68000) corre en tramos de 128 ciclos y, tras cada uno, el IPC, el reloj BAUDx4 del enlace serie y el reloj de bits del microdrive avanzan lo que les toca; una orden al IPC lo hace correr 64 ciclos en el acto. Con tramos de 32 ciclos el resultado es idéntico (mismas huellas de imagen durante la carga y la partida).
+- **Montar = reiniciar + F1**: `ql_mount()` mete (o saca) el cartucho, reinicia y pulsa F1 en el frame 110, cuando el QL ya muestra la pantalla de inicio; con un cartucho en mdv1, QDOS ejecuta su `BOOT`.
+- **CYD**: la RAM en 4 bloques de 32 KB (no hay 128 KB contiguos), las ROMs y el cartucho en flash, y sólo se redibujan las franjas de la pantalla cuyas líneas ha escrito el 68008 (todas al cambiar de modo, de pantalla o de vista).
+- **Verificación**: la pantalla de inicio es idéntica píxel a píxel a la de MAME, y la de SuperBASIC tras F1 también (salvo el cursor, que parpadea con otra fase). Psion Chess carga desde el microdrive en unos 32 s (en MAME no llegó a cargar en 160 s con `-utap1`) y responde al teclado; `BEEP` suena. En QEMU el firmware da las mismas huellas de imagen que el PC durante toda la carga y emula a unos 45 fps; no está probado en una placa real.
 
 ## Puzzle Bobble: cómo funciona
 

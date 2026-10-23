@@ -19,6 +19,8 @@ typedef struct {
     int scale;                // window = picture x scale
     int audio_rate;           // mono int16 samples per second (0 = no audio)
     double fps;               // frame rate to pace at
+    bool computer;            // computers: every key goes to the machine (no ESC
+                              // quit, P pause or F3 reset), see sdl_port_key()
 } sdl_port_cfg;
 
 bool sdl_port_open(const sdl_port_cfg *cfg);
@@ -27,6 +29,10 @@ void sdl_port_close(void);
 bool sdl_port_poll(bool *reset);
 uint32_t sdl_port_keys(void);            // SP_* bits held
 bool sdl_port_paused(void);
+// Computer mode: SDL scancode held / next key pressed (-1: none) / title.
+bool sdl_port_key(int scancode);
+int sdl_port_next_press(void);
+void sdl_port_set_title(const char *title);
 void sdl_port_audio(const int16_t *samples, int n);
 // Shows a width x height 0xRRGGBB picture and waits for the next frame time.
 void sdl_port_present(const uint32_t *rgb);

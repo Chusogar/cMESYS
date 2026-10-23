@@ -1,7 +1,8 @@
 # Desktop (SDL2) builds of the arcade drivers, from the same sources as the
 # ESP32 CYD firmware.
 #
-#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop)  -> build/sdl/<game>
+#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | ql)  -> build/sdl/<game>
+#                             (ql: the Sinclair QL computer, in main/drivers/computers/ql)
 #   make all                  all of them
 #   make clean
 #
@@ -11,12 +12,16 @@ GAME    ?= indytemp
 CC      ?= gcc
 OUT     := build/sdl
 M       := main
-D       := $(M)/drivers/arcades/$(GAME)
+ifeq ($(GAME),ql)
+  D     := $(M)/drivers/computers/$(GAME)
+else
+  D     := $(M)/drivers/arcades/$(GAME)
+endif
 AS1     := $(M)/drivers/arcades/atarisy1
 
 CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-maybe-uninitialized
 CFLAGS  += -std=gnu11 -I$(D) -I$(AS1) -I$(M)/ports/sdl2 -I$(M)/cpu -I$(M)/cpu/m68k -I$(M)/cpu/m6502 \
-           -I$(M)/cpu/mc6809 -I$(M)/sound -I$(M)/machine -I$(M)/video
+           -I$(M)/cpu/mc6809 -I$(M)/cpu/mcs48 -I$(M)/sound -I$(M)/machine -I$(M)/video
 SDL_CFLAGS := $(shell sdl2-config --cflags 2>/dev/null)
 SDL_LIBS   := $(shell sdl2-config --libs 2>/dev/null || echo -lSDL2)
 
@@ -67,8 +72,12 @@ else ifeq ($(GAME),robocop)
           $(M)/cpu/h6280/h6280.c $(M)/sound/ym2610.c $(M)/sound/okim6295.c \
           $(M)/sound/emu8950/emu8950.c $(M)/sound/emu8950/emuadpcm.c
   DEFS :=
+else ifeq ($(GAME),ql)
+  SRC  := $(D)/ql_sdl.c $(D)/ql_core.c $(D)/rom_data.c $(M68K) $(M)/cpu/mcs48/mcs48.c \
+          $(M)/machine/zx8302.c $(M)/machine/ql_mdv.c $(M)/video/zx8301.c
+  DEFS :=
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv or robocop)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop or ql)
 endif
 
 $(OUT)/$(GAME): $(SRC) $(PORT) $(wildcard $(D)/*.h) $(wildcard $(AS1)/*.h) Makefile
@@ -85,6 +94,7 @@ all:
 	$(MAKE) GAME=pbobble
 	$(MAKE) GAME=retofinv
 	$(MAKE) GAME=robocop
+	$(MAKE) GAME=ql
 
 clean:
 	rm -rf $(OUT)
