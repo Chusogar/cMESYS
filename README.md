@@ -1,6 +1,6 @@
 # Arcades para ESP32 CYD (ST7789) y escritorio (SDL2)
 
-Siete máquinas en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI) o como programa de escritorio con SDL2:
+Nueve máquinas en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI) o como programa de escritorio con SDL2:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -10,6 +10,8 @@ Siete máquinas en un único árbol de fuentes, cada una compilable como firmwar
 | OutRun (Sega, 1986) | `outrun` | 2 x 68000 + Z80 | YM2151, Sega PCM (315-5218) | dsp-cpp `outrun.cpp` → `outrun/or_core.c` (detalles verificados con MAME `segaorun.cpp`) |
 | Snow Bros (Toaplan, 1990) | `snowbros` | 68000 + Z80 | YM3812 | `zxtiny/zxm/snowbros.c` |
 | Track & Field (Konami, 1983) | `trackfld` | Konami-1 (6809) + Z80 | SN76489, VLM5030, DAC | `zxtiny/zxm/trackfld.c` |
+| Return of the Invaders (Taito, 1985) | `retofinv` | 3 x Z80 + MC68705P5 | 2 x SN76489 | dsp-cpp `retofinv.cpp` → `retofinv/rv_core.c` (detalles verificados con MAME `retofinv.cpp`) |
+| RoboCop (Data East, 1988) | `robocop` | 68000 + HuC6280 + 6502 | YM2203, YM3812, OKI M6295 | dsp-cpp `dec0.cpp` → `robocop/rc_core.c` (detalles verificados con MAME `dec0.cpp`) |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
 
 Cada firmware lleva un solo juego. Las ROMs van dentro y cada juego configura el 68000 a su manera. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
@@ -19,19 +21,21 @@ Cada firmware lleva un solo juego. Las ROMs van dentro y cada juego configura el
 ```
 CMakeLists.txt            proyecto ESP-IDF (idf.py -DGAME=<juego> build)
 Makefile                  escritorio SDL2 (make GAME=<juego>)
-build_all.sh              los 14 firmwares (7 juegos x SPI 40/80 MHz) -> dist/, y los 7 de escritorio
+build_all.sh              los 18 firmwares (9 juegos x SPI 40/80 MHz) -> dist/, y los 9 de escritorio
 partitions.csv, sdkconfig.defaults
 main/
   CMakeLists.txt          elige las fuentes del juego
   cpu/
     m68k/                 Musashi (68000/68010); m68kconf.h incluye el m68k_game_conf.h del juego
     m6502/                6502 (port de dsp-cpp)
+    m6805/                MC6805 HMOS (MC68705P5)
     mc6809/               6809 / Konami-1
+    h6280/                HuC6280 (port de MAME)
     z80/                  Z80
   sound/                  ym2151, pokey (+pokey_poly17.inc), tms5220, sn76489, vlm5030, emu8950/ (YM3812),
-                          ym2610 (YM2610/YM2610B), segapcm (Sega 315-5218)
+                          ym2610 (YM2610/YM2610B y YM2203), segapcm (Sega 315-5218), okim6295 (OKI M6295)
   machine/                via6522, slapstic, tc0140syt (buzón Taito 68000 <-> Z80), eeprom93c46,
-                          sega_315_5195 (mapeador de memoria de Sega)
+                          sega_315_5195 (mapeador de memoria de Sega), taito68705 (MCU de Taito)
   video/                  atari_mo (objetos móviles Atari, con las SLIP de Gauntlet), tc0180vcu (vídeo del Taito B System)
   drivers/arcades/
     atarisy1/             núcleo Atari System 1 compartido por indytemp y roadrunn:
@@ -50,6 +54,10 @@ main/
     trackfld/             tf_core.c/.h, trackfld_cyd.c, trackfld_sdl.c, rom_data.c, trackfld.lf
     pbobble/              pb_core.c/.h, pbobble_cyd.c, pbobble_sdl.c, rom_data.c,
                           m68k_game_conf.h, m68k_tables.c, pbobble.lf
+    retofinv/             rv_core.c/.h, rv_video.c, retofinv_cyd.c, retofinv_sdl.c, rom_data.c, retofinv.lf
+    robocop/              rc_core.c/.h (máquina), rc_video.c (imagen), rc_sound.c/.h (placa de
+                          sonido), robocop_cyd.c, robocop_sdl.c, rom_data.c, m68k_game_conf.h,
+                          m68k_tables.c, robocop.lf
   ports/
     esp32-cyd/            cyd.c/.h (LCD SPI/DMA, táctil XPT2046 y calibración, menú de ajustes en NVS,
                           diagnóstico de cuelgues, arranque), dac_audio (DAC GPIO26 asíncrono),
@@ -58,7 +66,8 @@ main/
 tools/
   regen.sh <juego>        regenera rom_data.c y m68k_tables.c del juego
   gen_roms_*.{c,py}, gen_m68k_tables.c, m68k_stub.c
-roms/                     indytemp, roadrunn, atarisy1 (BIOS de Indy y Road Runner), gauntlet, outrun, snowbros, trackfld, pbobble (descomprimidas)
+roms/                     indytemp, roadrunn, atarisy1 (BIOS de Indy y Road Runner), gauntlet, outrun, snowbros, trackfld, pbobble,
+                          retofinv, robocop (descomprimidas)
 ```
 
 Los núcleos de los juegos (`*_core.c`) no dependen de la plataforma. El frontend CYD y el SDL2 de cada juego usan exactamente el mismo núcleo.
@@ -145,6 +154,29 @@ Táctil en 3x3 zonas sobre la imagen (se muestran 2,5 s al empezar):
 - La imagen es de 320x224: se centra en la pantalla con 8 líneas negras arriba y abajo.
 - En el CYD no se guardan las puntuaciones (la RAM con batería del juego son 32 KB, demasiados para NVS).
 
+### Controles: Return of the Invaders
+
+Pantalla en vertical (240x320): la imagen del juego (224x288, como el mueble ROT90) arriba y una barra de botones táctiles debajo:
+
+| MONEDA (+ START) | IZQ. + DISPARO | DISPARO | DCHA. + DISPARO |
+|---|---|---|---|
+
+- Tocando la imagen: tercio izquierdo = izquierda, centro = disparo, tercio derecho = derecha.
+- **Nunchuk**: stick izquierda / derecha, Z disparo, C+Z moneda + start. Serie: `a` / `d`, `j` disparo, `5` moneda, `1` start.
+
+### Controles: RoboCop
+
+Táctil en 3x3 zonas sobre la pantalla (se muestran 2,5 s al empezar); la imagen de 256x240 va centrada:
+
+| | | |
+|---|---|---|
+| MONEDA + START | ARRIBA | SALTO |
+| IZQUIERDA | ATAQUE | DERECHA |
+| IZQ. + ATAQUE | ABAJO | DCHA. + ATAQUE |
+
+- **Nunchuk**: stick = joystick de 8 direcciones (arriba / abajo apuntan), Z ataque, C salto, C+Z moneda + start.
+- Serie: `a` / `d` / `w` / `s` joystick, `j` ataque, `k` salto, `5` moneda, `1` start.
+
 ### Controles: Snow Bros
 
 ```
@@ -197,7 +229,7 @@ ESP-IDF 5.3:
 
 ```
 . $IDF_PATH/export.sh
-idf.py -B build/indytemp -DGAME=indytemp build       # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble
+idf.py -B build/indytemp -DGAME=indytemp build       # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble / retofinv / robocop
 LCD_SPI_MHZ=80 idf.py -B build/indytemp-80 -DGAME=indytemp build
 ./build_all.sh                                       # todo -> dist/
 ```
@@ -207,11 +239,13 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble; "make all" para todos -> build/sdl/<juego>
+make GAME=indytemp        # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble / retofinv / robocop; "make all" para todos -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
 ./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ./build/sdl/gauntlet      # ROMs incluidas
 ./build/sdl/outrun        # ROMs incluidas
+./build/sdl/retofinv      # ROMs incluidas
+./build/sdl/robocop       # ROMs incluidas
 ```
 
 Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset, P pausa, ESC salir.
@@ -221,19 +255,25 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **OutRun**: izquierda / derecha volante, arriba o Z acelerar, abajo o X frenar, C / Espacio cambiar de marcha. La RAM con batería (puntuaciones) se guarda en `outrun.nv`.
 - **Snow Bros**: Z disparo, X salto.
 - **Track & Field**: C = RUN 1, Z = RUN 2 (altérnalos), X = salto.
+- **Return of the Invaders**: izquierda / derecha, Z disparo. Se ve en vertical (224x288, como el mueble ROT90).
+- **RoboCop**: cursores = joystick (arriba / abajo apuntan), Z ataque (disparo / puñetazo), X salto.
 - **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
 
 Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
 
 ## ROMs
 
-Para regenerar las ROMs compiladas (`rom_data.c`) a partir de `roms/`: `tools/regen.sh <juego>`. En Indy, Road Runner, Gauntlet, OutRun, Snow Bros y Puzzle Bobble también regenera las tablas de Musashi.
+Para regenerar las ROMs compiladas (`rom_data.c`) a partir de `roms/`: `tools/regen.sh <juego>`. En Indy, Road Runner, Gauntlet, OutRun, Snow Bros, Puzzle Bobble y RoboCop también regenera las tablas de Musashi.
 
 Road Runner usa el set de MAME `roadrunn` (rev 2: `136040-228.11c` ... `136040-231.13a` y el resto de `136040-*`) en `roms/roadrunn/` y la BIOS `atarisy1` en `roms/atarisy1/`, como Indy.
 
 Gauntlet usa el set de MAME `gauntlet` (rev 14): `136037-1307.9a`, `1308.9b`, `205.10a`, `206.10b`, `1409.7a`, `1410.7b`, `120.16r`, `119.16s`, `104.6p` y `111.1a` ... `118.2mn` en `roms/gauntlet/` (`tools/gen_roms_gauntlet.py` comprueba tamaños y CRC; las PROM no hacen falta).
 
 OutRun usa el set de MAME `outrun` (rev B): `epr-10380b.133`, `epr-10381b.132`, `epr-10382b.118`, `epr-10383b.117`, `epr-10327a.76` ... `epr-10330a.57`, `epr-10187.88`, los `opr-*` (tiles, carretera, PCM) y los `mpr-10371.9` ... `mpr-10378.16` (sprites) en `roms/outrun/` (`tools/gen_roms_outrun.py` comprueba tamaños y CRC).
+
+Return of the Invaders usa el set de MAME `retofinv`: `a37__01.ic72` ... `a37__05.ic17`, `a37__09.ic37` (MC68705P5), `a37__10` ... `a37__16.gfxboard` y las PROM `a37-06` ... `a37-08`, `a37-17` ... `a37-20` en `roms/retofinv/`.
+
+RoboCop usa el set de MAME `robocop` (World, revision 4): `ep05-4.11c`, `ep01-4.11b`, `ep04-3`, `ep00-3` (68000), `ep03-3` (6502), `en_24_mb7124e.a2` (HuC6280), `ep02` (OKI) y `ep06` ... `ep23` (gráficos) en `roms/robocop/` (`tools/gen_roms_robocop.py` comprueba tamaños y CRC; las PROM no hacen falta).
 
 Puzzle Bobble usa el set de MAME `pbobble` (Taito B System, versión japonesa): `pb-ic18.ic18`, `pb-ic2.ic2`, `pb-ic27.ic27`, `pb-ic14.ic14`, `pb-ic9.ic9`, `pb-ic15.ic15` en `roms/pbobble/` (el script comprueba tamaños y CRC). No sirve el Puzzle Bobble de Neo Geo.
 
@@ -268,6 +308,22 @@ Los dos juegos usan el mismo núcleo (`drivers/arcades/atarisy1/`, port en C del
 - **Atajos con el mismo resultado** (imagen y audio bit a bit con y sin ellos, en demo y en partida): las esperas del principal en `$7DDA` y `$7964` y del secundario en `$1182` (esperan a que cambie una palabra de RAM que en ese tramo nadie puede tocar), y el sondeo del temporizador del YM2151 por el Z80 en `$0A61` (se hace en C instrucción a instrucción y se para donde haga falta).
 - En el CYD, las 37 páginas de 1 KB de programa más usadas (el secundario corre de 5) se copian a RAM, parte en IRAM (se leen siempre de 32 en 32 bits).
 - **Verificación contra MAME**: imagen idéntica píxel a píxel en la demo y en partida con las mismas entradas (volante, acelerador, moneda, start), sin desfase de frames; solo cambia el indicador de marcha que MAME dibuja como decorado (no es parte de la imagen del juego). Audio con el mismo espectro y nivel (±10 %). En QEMU el firmware da las mismas huellas de imagen que el PC y emula unos 60 fps; no está probado en una placa real (allí el acceso a flash será más lento, y con el LCD a 40 MHz la pantalla no pasa de unos 30 fps: mejor el binario de 80 MHz).
+
+## Return of the Invaders: cómo funciona
+
+- **Hardware** (MAME `taito/retofinv.cpp`): tres Z80 a 3,072 MHz (principal, secundario de vídeo y sonido), un MC68705P5 con la conexión estándar de Taito (`machine/taito68705`, con el núcleo `cpu/m6805` nuevo), un latch LS259 con las máscaras de IRQ y los reset, dos SN76489A y NMI de sonido a 120 Hz. Imagen de 288x224 girada (ROT90), dos tilemaps de 36x28 y 64 sprites.
+- Verificado contra MAME: imagen idéntica en la demo y en partida, audio con la misma envolvente, y QEMU da las mismas huellas que el PC.
+
+## RoboCop: cómo funciona
+
+- **Hardware** (MAME `dataeast/dec0.cpp`, placa DEC0): 68000 a 10 MHz con tres BAC06 (texto 8x8 y dos planos 16x16, scroll por fila y por columna, tres formas de mapa) y los sprites MXC06; un HuC6280 a 1,34 MHz que ejecuta la protección (el 68000 le sube rutinas y datos por una RAM de doble puerto MB8421 con buzón de interrupciones); placa de sonido con un 6502 a 1,5 MHz, YM2203, YM3812 y OKI M6295. Imagen de 256x240 a 57,44 Hz.
+- Componentes nuevos: `cpu/h6280` (HuC6280 pasado de MAME, con el flag T, transferencias de bloque, modo lento/rápido, temporizador y controlador de interrupciones), `sound/okim6295` (OKI M6295) y el modo YM2203 de `sound/ym2610` (3 canales FM + SSG, prescaler programable). El YM3812 es el `emu8950` que ya usaba Snow Bros.
+- Prioridades como MAME: el plano de fondo opaco, el de delante transparente, los sprites (que pueden quedar detrás del plano de delante según el registro de prioridad y su color) y el texto encima; los sprites se dibujan en el orden de MAME (la lista al revés, cada píxel tapado por un sprite ya no lo tapa otro).
+- **El HuC6280 sólo habla con el buzón**: se pone al día con el 68000 cada vez que éste lo toca, así que el orden de todos los mensajes entre los dos es el exacto.
+- **La placa de sonido va aparte** (`rc_sound.c`): el 68000 sólo le escribe el latch, así que recibe esas escrituras con marca de tiempo. Los temporizadores, el estado y la IRQ de los dos Yamaha siguen a ymfm (MAME) sobre los ciclos del 6502; las escrituras de registros van directas a los sintetizadores. En el escritorio corre en el mismo hilo; en el CYD corre entera en el núcleo 0.
+- **Atajos con el mismo resultado** (imagen y audio bit a bit con y sin ellos, en demo y en partida): las dos esperas del 68000 a la interrupción de vblank en `$17BA` / `$17E8` (que además cuentan sus vueltas en `$FF8008`), la espera del 6502 en `$8091` (`JMP $8091`) y su bucle de retardo después de cada orden al OKI en `$8F5F`; todos se paran antes de la vuelta en la que vence un temporizador del YM.
+- En el CYD, las 32 páginas de 1 KB más usadas del programa del 68000 (98,5 % de las instrucciones) se copian a RAM.
+- **Verificación contra MAME**: imagen idéntica píxel a píxel en la demo y en partida con las mismas entradas (andar, disparar, saltar, moneda, start): 108 capturas comparadas, todas iguales (con un frame de desfase constante en la numeración). Audio con el mismo espectro y nivel (±5 %), salvo alguna nota del YM3812 cuya envolvente hace `emu8950` algo distinta de ymfm. En QEMU el firmware da las mismas huellas de imagen que el PC y emula a 57,4 fps con unos 45-55 fps mostrados; no está probado en una placa real.
 
 ## Puzzle Bobble: cómo funciona
 

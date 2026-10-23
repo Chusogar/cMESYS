@@ -49,11 +49,20 @@ int32_t ym2610_ctl_next_event(const ym2610_ctl_t *c);
 // ---------------------------------------------------------------------------
 typedef struct ym2610 ym2610_t;
 
-// fm_channels: 6 for the YM2610B, 4 for the YM2610 (channels 1, 2, 4, 5).
+// fm_channels: 6 for the YM2610B, 4 for the YM2610 (channels 1, 2, 4, 5),
+// 3 for a YM2203 (ym2203_create).
 ym2610_t *ym2610_create(uint32_t clock, int rate, int fm_channels,
                         const uint8_t *adpcm_a, uint32_t adpcm_a_size,
                         const uint8_t *adpcm_b, uint32_t adpcm_b_size);
 void ym2610_reset(ym2610_t *y);
+// YM2203 (OPN): the same FM core with 3 channels and the SSG, no LFO / ADPCM;
+// native rate clock / (prescale x 12), prescale 6 (default), 3 or 2 (selected
+// by writing the address 2D / 2E / 2F: ym2203_set_prescale).
+ym2610_t *ym2203_create(uint32_t clock, int rate);
+void ym2203_set_prescale(ym2610_t *y, int prescale);
+// Output weights of the FM (+ ADPCM) and the SSG sum, 256 = 1.0 (defaults
+// 256 and 192). ssg_output is the average of the 3 SSG channels.
+void ym2610_set_gains(ym2610_t *y, int fm_gain, int ssg_gain);
 void ym2610_write(ym2610_t *y, int part, uint8_t reg, uint8_t val);
 // Mono output L+R (as MAME's mono speaker), signed 16 bits, clamped. gain: 0..256 (256 = 0 dB).
 void ym2610_render(ym2610_t *y, int16_t *out, int n, int gain);

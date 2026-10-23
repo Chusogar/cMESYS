@@ -341,6 +341,10 @@ struct ym2610 {
     uint8_t ssg_out[3], ssg_nout;
     int ssg_estep, ssg_eattack, ssg_ehold, ssg_ealt, ssg_eholding;
     uint32_t ssg_acc, ssg_step;     // 16.16 SSG ticks (clock/32) per output sample
+    // YM2203 mode (3 FM channels, no LFO / ADPCM, programmable prescaler)
+    bool is2203;
+    int tick;                       // clocks per native FM sample (144 YM2610, 72 YM2203)
+    int fm_gain, ssg_gain;          // 256 = 1.0
 };
 
 static double fn_value(const ym2610_t *y, uint32_t i)
@@ -350,7 +354,7 @@ static double fn_value(const ym2610_t *y, uint32_t i)
 
 static void set_prescaler(ym2610_t *y)
 {
-    y->freqbase = y->rate ? ((double)y->clock / y->rate) / OPNB_TICK : 0.0;
+    y->freqbase = y->rate ? ((double)y->clock / y->rate) / y->tick : 0.0;
     y->eg_timer_add = (uint32_t)((1 << EG_SH) * y->freqbase);
     y->eg_timer_overflow = 3u << EG_SH;
     for (int d = 0; d < 4; d++)
@@ -362,8 +366,10 @@ static void set_prescaler(ym2610_t *y)
         }
     y->fn_max = (uint32_t)(0x20000 * y->freqbase * (1 << (FREQ_SH - 10)));
     y->lfo_step = (uint32_t)(y->freqbase * 65536.0);
-    y->a_step = (uint32_t)((double)y->clock / (3.0 * OPNB_TICK) / y->rate * 65536.0);
-    y->ssg_step = (uint32_t)((double)y->clock / 32.0 / y->rate * 65536.0);
+    y->a_step = (uint32_t)((double)y->clock / (3.0 * y->tick) / y->rate * 65536.0);
+    // SSG ticks at its effective clock / 8 (YM2610: clock / 4; YM2203: 3 clock / prescale)
+    const double ssg_clock = y->is2203 ? 3.0 * y->clock / (y->tick / 12) : y->clock / 4.0;
+    y->ssg_step = (uint32_t)(ssg_clock / 8.0 / y->rate * 65536.0);
 }
 
 static void refresh_fc_eg_slot(ym2610_t *y, fm_slot *s, int fc, int kc)
@@ -840,10 +846,34 @@ ym2610_t *ym2610_create(uint32_t clock, int rate, int fm_channels,
     y->rate = rate;
     y->a_rom = adpcm_a; y->a_size = adpcm_a_size;
     y->b_rom = adpcm_b; y->b_size = adpcm_b_size;
-    for (int c = 0; c < 6; c++) y->ch[c].exists = fm_channels >= 6 || (c != 0 && c != 3);
+    y->is2203 = fm_channels == 3;
+    y->tick = y->is2203 ? 72 : OPNB_TICK;
+    y->fm_gain = 256;
+    y->ssg_gain = 192;              // (route 0.75 in pbobble's mixer)
+    for (int c = 0; c < 6; c++)
+        y->ch[c].exists = y->is2203 ? c < 3 : fm_channels >= 6 || (c != 0 && c != 3);
     set_prescaler(y);
     ym2610_reset(y);
     return y;
+}
+
+ym2610_t *ym2203_create(uint32_t clock, int rate)
+{
+    return ym2610_create(clock, rate, 3, NULL, 0, NULL, 0);
+}
+
+void ym2203_set_prescale(ym2610_t *y, int prescale)
+{
+    if (!y->is2203 || y->tick == prescale * 12) return;
+    y->tick = prescale * 12;
+    set_prescaler(y);
+    for (int c = 0; c < 3; c++) y->ch[c].slot[SLOT1].incr = -1;
+}
+
+void ym2610_set_gains(ym2610_t *y, int fm_gain, int ssg_gain)
+{
+    y->fm_gain = fm_gain;
+    y->ssg_gain = ssg_gain;
 }
 
 void ym2610_reset(ym2610_t *y)
@@ -882,6 +912,7 @@ void ym2610_write(ym2610_t *y, int part, uint8_t r, uint8_t v)
 {
     if (part == 0) {
         if (r < 0x10) { ym2610_usage[0]++; ssg_write(y, r, v); return; }
+        if (y->is2203 && (r < 0x20 || r == 0x22)) return;
         if (r < 0x1c) { ym2610_usage[1]++; adpcm_b_write(y, (uint8_t)(r - 0x10 + 0x10), v); return; }
         if (r < 0x20) return;
         if (r == 0x22) { ym2610_usage[2] += (v & 8) != 0; y->lfo_reg = v; return; }
@@ -893,7 +924,7 @@ void ym2610_write(ym2610_t *y, int part, uint8_t r, uint8_t v)
         if (r == 0x28) {
             int c = v & 3;
             if (c == 3) return;
-            if (v & 4) c += 3;
+            if ((v & 4) && !y->is2203) c += 3;
             fm_ch *ch = &y->ch[c];
             if (v & 0x10) key_on(ch, SLOT1); else key_off(ch, SLOT1);
             if (v & 0x20) key_on(ch, SLOT2); else key_off(ch, SLOT2);
@@ -978,21 +1009,24 @@ void HOT ym2610_render(ym2610_t *y, int16_t *out, int n, int gain)
             y->eg_cnt++;
             for (int c = 0; c < 6; c++) if (y->ch[c].exists) advance_eg_channel(y, &y->ch[c]);
         }
-        // ADPCM-A at clock / 432
-        y->a_acc += y->a_step;
-        while (y->a_acc >= 0x10000) { y->a_acc -= 0x10000; adpcm_a_clock(y); }
-        mix += y->a_out;
-        // ADPCM-B at clock / 144
-        if (y->b_playing) {
-            y->b_clk_acc += y->lfo_step;
-            while (y->b_clk_acc >= 0x10000) { y->b_clk_acc -= 0x10000; adpcm_b_clock(y); }
-            mix += y->b_out;
+        if (!y->is2203) {
+            // ADPCM-A at clock / 432
+            y->a_acc += y->a_step;
+            while (y->a_acc >= 0x10000) { y->a_acc -= 0x10000; adpcm_a_clock(y); }
+            mix += y->a_out;
+            // ADPCM-B at clock / 144
+            if (y->b_playing) {
+                y->b_clk_acc += y->lfo_step;
+                while (y->b_clk_acc >= 0x10000) { y->b_clk_acc -= 0x10000; adpcm_b_clock(y); }
+                mix += y->b_out;
+            }
         }
-        // SSG (route 0.75 in pbobble's mixer)
+        if (y->fm_gain != 256) mix = (mix * y->fm_gain) >> 8;
+        // SSG
         if ((y->ssg_regs[7] & 0x3f) != 0x3f || (y->ssg_regs[8] | y->ssg_regs[9] | y->ssg_regs[10])) {
             y->ssg_acc += y->ssg_step;
             while (y->ssg_acc >= 0x10000) { y->ssg_acc -= 0x10000; ssg_tick(y); }
-            mix += ssg_output(y) * 3 / 4;
+            mix += (ssg_output(y) * y->ssg_gain) >> 8;
         }
         mix = (mix * gain) >> 8;
         out[i] = (int16_t)(mix > 32767 ? 32767 : mix < -32768 ? -32768 : mix);

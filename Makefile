@@ -1,7 +1,7 @@
 # Desktop (SDL2) builds of the arcade drivers, from the same sources as the
 # ESP32 CYD firmware.
 #
-#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv)  -> build/sdl/<game>
+#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop)  -> build/sdl/<game>
 #   make all                  all of them
 #   make clean
 #
@@ -62,8 +62,13 @@ else ifeq ($(GAME),retofinv)
   SRC  := $(D)/retofinv_sdl.c $(D)/rv_core.c $(D)/rv_video.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
           $(M)/cpu/m6805/m6805.c $(M)/machine/taito68705.c $(M)/sound/sn76489.c
   DEFS :=
+else ifeq ($(GAME),robocop)
+  SRC  := $(D)/robocop_sdl.c $(D)/rc_core.c $(D)/rc_video.c $(D)/rc_sound.c $(D)/rom_data.c $(M68K) \
+          $(M)/cpu/h6280/h6280.c $(M)/sound/ym2610.c $(M)/sound/okim6295.c \
+          $(M)/sound/emu8950/emu8950.c $(M)/sound/emu8950/emuadpcm.c
+  DEFS :=
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble or retofinv)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv or robocop)
 endif
 
 $(OUT)/$(GAME): $(SRC) $(PORT) $(wildcard $(D)/*.h) $(wildcard $(AS1)/*.h) Makefile
@@ -79,6 +84,7 @@ all:
 	$(MAKE) GAME=trackfld
 	$(MAKE) GAME=pbobble
 	$(MAKE) GAME=retofinv
+	$(MAKE) GAME=robocop
 
 clean:
 	rm -rf $(OUT)
