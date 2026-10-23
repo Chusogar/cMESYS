@@ -28,6 +28,11 @@
 #include "m68k/m68k.h"
 
 static volatile uint32_t diag_emu_frames, diag_vid_frames;
+#ifdef CYD_DIAG
+#define DIAG_STAGE(t) do { draw_text(0, 230, t, 1, C_YELLOW, C_BLACK); lcd_flush(); ESP_LOGI("robocop", "stage %s", t); } while (0)
+#else
+#define DIAG_STAGE(t) do { } while (0)
+#endif
 static const char *TAG = "robocop";
 
 #define GAME_X ((320 - RC_SCREEN_W) / 2)
@@ -323,7 +328,11 @@ static const uint8_t main_hot[] = {29, 4, 5, 15, 30, 6, 17, 7, 8, 100, 112, 111,
 
 static uint8_t *page_alloc(void)
 {
+#ifdef RC_NO_IRAM_DATA
+    uint8_t *p = NULL;
+#else
     uint8_t *p = heap_caps_malloc(1024, MALLOC_CAP_32BIT | MALLOC_CAP_EXEC);
+#endif
     if (!p && heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) > 40 * 1024)
         p = heap_caps_malloc(1024, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     return p;
@@ -365,7 +374,11 @@ void app_main(void)
     cband = must_alloc(RC_SCREEN_W * RBAND * 2, "band");
     pband = must_alloc(RC_SCREEN_W * RBAND, "priority band");
     // the palette as 32-bit words: fits the IRAM heap, which the rest cannot use
+#ifdef RC_NO_IRAM_DATA
+    pal565 = NULL;
+#else
     pal565 = heap_caps_malloc(0x400 * 4, MALLOC_CAP_32BIT | MALLOC_CAP_EXEC);
+#endif
     if (!pal565) pal565 = must_alloc(0x400 * 4, "palette");
     ESP_LOGI(TAG, "core %u bytes, sound %u, free %u (largest %u)", (unsigned)sizeof *core, (unsigned)sizeof(rc_sound),
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
@@ -388,6 +401,7 @@ void app_main(void)
 #endif
 
     set_landscape(true);
+    DIAG_STAGE("1 LANDSCAPE   ");
 #ifndef CYD_HEADLESS_TEST
     draw_help();
     vTaskDelay(pdMS_TO_TICKS(2500));
@@ -395,11 +409,14 @@ void app_main(void)
     fill_rect(0, 0, 320, 240, C_BLACK);
     lcd_flush();
 
+    DIAG_STAGE("2 PAGES       ");
     copy_hot_pages();
+    DIAG_STAGE("3 DAC         ");
     dac_audio_set_rate(AUDIO_RATE);
 #if !defined(CYD_HEADLESS_TEST) || defined(CYD_QEMU_DAC)
     dac_audio_start(AUDIO_RATE);
 #endif
+    DIAG_STAGE("4 TASKS       ");
     frame_ready = xSemaphoreCreateBinary();
     ESP_LOGI(TAG, "free internal heap: %u (largest %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
