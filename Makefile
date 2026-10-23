@@ -1,7 +1,7 @@
 # Desktop (SDL2) builds of the arcade drivers, from the same sources as the
 # ESP32 CYD firmware.
 #
-#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | snowbros | trackfld | pbobble)  -> build/sdl/<game>
+#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble)  -> build/sdl/<game>
 #   make all                  all of them
 #   make clean
 #
@@ -42,6 +42,10 @@ else ifeq ($(GAME),gauntlet)
           $(M)/sound/ym2151.c $(M)/sound/pokey.c $(M)/sound/tms5220.c \
           $(M)/machine/slapstic.c $(M)/video/atari_mo.c
   DEFS :=
+else ifeq ($(GAME),outrun)
+  SRC  := $(D)/outrun_sdl.c $(D)/or_core.c $(D)/or_video.c $(D)/or_sound.c $(D)/rom_data.c $(M68K) $(M)/cpu/z80/z80.c \
+          $(M)/sound/ym2151.c $(M)/sound/segapcm.c $(M)/machine/sega_315_5195.c
+  DEFS :=
 else ifeq ($(GAME),snowbros)
   SRC  := $(D)/snowbros_sdl.c $(D)/sb_core.c $(D)/rom_data.c $(M68K) $(M)/cpu/z80/z80.c \
           $(M)/sound/emu8950/emu8950.c $(M)/sound/emu8950/emuadpcm.c
@@ -55,7 +59,7 @@ else ifeq ($(GAME),pbobble)
           $(M)/sound/ym2610.c $(M)/machine/tc0140syt.c $(M)/machine/eeprom93c46.c $(M)/video/tc0180vcu.c
   DEFS :=
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, snowbros, trackfld or pbobble)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld or pbobble)
 endif
 
 $(OUT)/$(GAME): $(SRC) $(PORT) $(wildcard $(D)/*.h) $(wildcard $(AS1)/*.h) Makefile
@@ -66,6 +70,7 @@ all:
 	$(MAKE) GAME=indytemp
 	$(MAKE) GAME=roadrunn
 	$(MAKE) GAME=gauntlet
+	$(MAKE) GAME=outrun
 	$(MAKE) GAME=snowbros
 	$(MAKE) GAME=trackfld
 	$(MAKE) GAME=pbobble

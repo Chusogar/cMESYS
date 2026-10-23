@@ -1,12 +1,13 @@
 # Arcades para ESP32 CYD (ST7789) y escritorio (SDL2)
 
-Seis máquinas en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI) o como programa de escritorio con SDL2:
+Siete máquinas en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI) o como programa de escritorio con SDL2:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
 | Indiana Jones and the Temple of Doom (Atari System 1, 1985) | `indytemp` | 68010 + 6502 | YM2151, POKEY, TMS5220 | dsp-cpp `atari_system1.cpp` → `atarisy1/atarisy1_core.c` |
 | Road Runner (Atari System 1, 1985) | `roadrunn` | 68010 + 6502 | YM2151, POKEY, TMS5220 | dsp-cpp `atari_system1.cpp` → `atarisy1/atarisy1_core.c` (el mismo núcleo que Indy) |
 | Gauntlet (Atari, 1985) | `gauntlet` | 68010 + 6502 | YM2151, POKEY, TMS5220C | dsp-cpp `gauntlet.cpp` → `gauntlet/gauntlet_core.c` (detalles verificados con MAME `gauntlet.cpp`) |
+| OutRun (Sega, 1986) | `outrun` | 2 x 68000 + Z80 | YM2151, Sega PCM (315-5218) | dsp-cpp `outrun.cpp` → `outrun/or_core.c` (detalles verificados con MAME `segaorun.cpp`) |
 | Snow Bros (Toaplan, 1990) | `snowbros` | 68000 + Z80 | YM3812 | `zxtiny/zxm/snowbros.c` |
 | Track & Field (Konami, 1983) | `trackfld` | Konami-1 (6809) + Z80 | SN76489, VLM5030, DAC | `zxtiny/zxm/trackfld.c` |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
@@ -18,7 +19,7 @@ Cada firmware lleva un solo juego. Las ROMs van dentro y cada juego configura el
 ```
 CMakeLists.txt            proyecto ESP-IDF (idf.py -DGAME=<juego> build)
 Makefile                  escritorio SDL2 (make GAME=<juego>)
-build_all.sh              los 12 firmwares (6 juegos x SPI 40/80 MHz) -> dist/, y los 6 de escritorio
+build_all.sh              los 14 firmwares (7 juegos x SPI 40/80 MHz) -> dist/, y los 7 de escritorio
 partitions.csv, sdkconfig.defaults
 main/
   CMakeLists.txt          elige las fuentes del juego
@@ -28,8 +29,9 @@ main/
     mc6809/               6809 / Konami-1
     z80/                  Z80
   sound/                  ym2151, pokey (+pokey_poly17.inc), tms5220, sn76489, vlm5030, emu8950/ (YM3812),
-                          ym2610 (YM2610/YM2610B)
-  machine/                via6522, slapstic, tc0140syt (buzón Taito 68000 <-> Z80), eeprom93c46
+                          ym2610 (YM2610/YM2610B), segapcm (Sega 315-5218)
+  machine/                via6522, slapstic, tc0140syt (buzón Taito 68000 <-> Z80), eeprom93c46,
+                          sega_315_5195 (mapeador de memoria de Sega)
   video/                  atari_mo (objetos móviles Atari, con las SLIP de Gauntlet), tc0180vcu (vídeo del Taito B System)
   drivers/arcades/
     atarisy1/             núcleo Atari System 1 compartido por indytemp y roadrunn:
@@ -40,6 +42,9 @@ main/
                           m68k_tables.c, roadrunn.lf
     gauntlet/             gauntlet_core.c/.h, gauntlet_cyd.c, gauntlet_sdl.c, rom_data.c,
                           m68k_game_conf.h, m68k_tables.c, gauntlet.lf
+    outrun/               or_core.c/.h (máquina), or_video.c (imagen), or_sound.c/.h (placa de
+                          sonido), outrun_cyd.c, outrun_sdl.c, rom_data.c, m68k_game_conf.h,
+                          m68k_tables.c, outrun.lf
     snowbros/             sb_core.c/.h, snowbros_cyd.c, snowbros_sdl.c, rom_data.c,
                           m68k_game_conf.h, m68k_tables.c, snowbros.lf
     trackfld/             tf_core.c/.h, trackfld_cyd.c, trackfld_sdl.c, rom_data.c, trackfld.lf
@@ -53,7 +58,7 @@ main/
 tools/
   regen.sh <juego>        regenera rom_data.c y m68k_tables.c del juego
   gen_roms_*.{c,py}, gen_m68k_tables.c, m68k_stub.c
-roms/                     indytemp, roadrunn, atarisy1 (BIOS de Indy y Road Runner), gauntlet, snowbros, trackfld, pbobble (descomprimidas)
+roms/                     indytemp, roadrunn, atarisy1 (BIOS de Indy y Road Runner), gauntlet, outrun, snowbros, trackfld, pbobble (descomprimidas)
 ```
 
 Los núcleos de los juegos (`*_core.c`) no dependen de la plataforma. El frontend CYD y el SDL2 de cada juego usan exactamente el mismo núcleo.
@@ -125,6 +130,21 @@ Un jugador (el jugador 1, el Guerrero). Táctil en 3x3 zonas sobre la imagen (se
 - Serie: `a d w s` mover, `j` disparo, `k` magia, `5` moneda, `1` start.
 - La imagen de 336 columnas se recorta 8 por cada lado (320x240). Los ajustes y las puntuaciones (EEPROM 2804) se guardan en NVS.
 
+### Controles: OutRun
+
+Táctil en 3x3 zonas sobre la imagen (se muestran 2,5 s al empezar):
+
+| | | |
+|---|---|---|
+| MONEDA + START | MARCHA | ACELERAR |
+| IZQ. + ACELERAR | ACELERAR | DCHA. + ACELERAR |
+| IZQUIERDA | FRENO | DERECHA |
+
+- El volante es analógico: el táctil y las teclas serie lo giran del todo; el **Nunchuk** da la posición real del stick (X = volante). Z = acelerar, C = frenar, stick arriba = cambiar de marcha (baja/alta), C+Z = moneda + start.
+- Serie: `a` / `d` volante, `w` acelerar, `s` frenar, `g` marcha, `5` moneda, `1` start.
+- La imagen es de 320x224: se centra en la pantalla con 8 líneas negras arriba y abajo.
+- En el CYD no se guardan las puntuaciones (la RAM con batería del juego son 32 KB, demasiados para NVS).
+
 ### Controles: Snow Bros
 
 ```
@@ -177,7 +197,7 @@ ESP-IDF 5.3:
 
 ```
 . $IDF_PATH/export.sh
-idf.py -B build/indytemp -DGAME=indytemp build       # o roadrunn / gauntlet / snowbros / trackfld / pbobble
+idf.py -B build/indytemp -DGAME=indytemp build       # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble
 LCD_SPI_MHZ=80 idf.py -B build/indytemp-80 -DGAME=indytemp build
 ./build_all.sh                                       # todo -> dist/
 ```
@@ -187,16 +207,18 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o roadrunn / gauntlet / snowbros / trackfld / pbobble; "make all" para todos -> build/sdl/<juego>
+make GAME=indytemp        # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble; "make all" para todos -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
 ./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ./build/sdl/gauntlet      # ROMs incluidas
+./build/sdl/outrun        # ROMs incluidas
 ```
 
 Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset, P pausa, ESC salir.
 - **Indy**: Z látigo, X salto. La EEPROM se guarda en `indytemp.eep`.
 - **Road Runner**: cursores = joystick (desviación máxima), Z / X salto. La EEPROM se guarda en `roadrunn.eep`.
 - **Gauntlet**: jugador 1; Z disparo, X magia (`1` también es magia, para entrar en la partida). La EEPROM se guarda en `gauntlet.eep`.
+- **OutRun**: izquierda / derecha volante, arriba o Z acelerar, abajo o X frenar, C / Espacio cambiar de marcha. La RAM con batería (puntuaciones) se guarda en `outrun.nv`.
 - **Snow Bros**: Z disparo, X salto.
 - **Track & Field**: C = RUN 1, Z = RUN 2 (altérnalos), X = salto.
 - **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
@@ -205,11 +227,13 @@ Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 
 
 ## ROMs
 
-Para regenerar las ROMs compiladas (`rom_data.c`) a partir de `roms/`: `tools/regen.sh <juego>`. En Indy, Road Runner, Gauntlet, Snow Bros y Puzzle Bobble también regenera las tablas de Musashi.
+Para regenerar las ROMs compiladas (`rom_data.c`) a partir de `roms/`: `tools/regen.sh <juego>`. En Indy, Road Runner, Gauntlet, OutRun, Snow Bros y Puzzle Bobble también regenera las tablas de Musashi.
 
 Road Runner usa el set de MAME `roadrunn` (rev 2: `136040-228.11c` ... `136040-231.13a` y el resto de `136040-*`) en `roms/roadrunn/` y la BIOS `atarisy1` en `roms/atarisy1/`, como Indy.
 
 Gauntlet usa el set de MAME `gauntlet` (rev 14): `136037-1307.9a`, `1308.9b`, `205.10a`, `206.10b`, `1409.7a`, `1410.7b`, `120.16r`, `119.16s`, `104.6p` y `111.1a` ... `118.2mn` en `roms/gauntlet/` (`tools/gen_roms_gauntlet.py` comprueba tamaños y CRC; las PROM no hacen falta).
+
+OutRun usa el set de MAME `outrun` (rev B): `epr-10380b.133`, `epr-10381b.132`, `epr-10382b.118`, `epr-10383b.117`, `epr-10327a.76` ... `epr-10330a.57`, `epr-10187.88`, los `opr-*` (tiles, carretera, PCM) y los `mpr-10371.9` ... `mpr-10378.16` (sprites) en `roms/outrun/` (`tools/gen_roms_outrun.py` comprueba tamaños y CRC).
 
 Puzzle Bobble usa el set de MAME `pbobble` (Taito B System, versión japonesa): `pb-ic18.ic18`, `pb-ic2.ic2`, `pb-ic27.ic27`, `pb-ic14.ic14`, `pb-ic9.ic9`, `pb-ic15.ic15` en `roms/pbobble/` (el script comprueba tamaños y CRC). No sirve el Puzzle Bobble de Neo Geo.
 
@@ -234,6 +258,16 @@ Los dos juegos usan el mismo núcleo (`drivers/arcades/atarisy1/`, port en C del
   - Bucle de espera del vblank del 68010 en `$40C22` (`tst.w (A2) / bne / clr.w (A3) / bra`) y el retardo `subq.l #1,D0 / bne` en `$47F0` (preparación de la EEPROM al arrancar).
   - Bucle de sondeo del 6502 en `$4104`: sus 12 instrucciones se hacen en C (mismas lecturas, escrituras, registros, flags y ciclos) y pueden pararse en cualquiera, porque el 6502 corre un cuarto de línea cada vez; se devuelve el control al núcleo justo antes de la instrucción que saldría del bucle.
 - **Verificación contra MAME**: imagen idéntica píxel a píxel en la demo y en partida con las mismas entradas (2 frames de desfase en el arranque). El audio tiene la misma forma: la música (YM2151) y los efectos (POKEY) suenan unas 1,5 veces más altos que en MAME y la voz (TMS5220) al mismo nivel, para que no sature. En QEMU el firmware da las mismas huellas de imagen que el PC.
+
+## OutRun: cómo funciona
+
+- **Hardware** (MAME `segaorun.cpp`): dos 68000 a 10 MHz (principal y secundario: el secundario calcula la carretera), Z80 a 4 MHz con YM2151 y el PCM 315-5218 (16 voces), mapeador de memoria 315-5195, i8255, ADC0804 (volante, acelerador, freno). Vídeo: dos planos de tiles estilo System 16B (16 páginas, scroll por fila y por columna, páginas alternativas), capa de texto, generador de carretera y sprites con zoom; 320x224 a 60,05 Hz.
+- Del driver de dsp-cpp se toman la estructura, la carga de ROMs y el reparto entre CPUs. De MAME se toman los detalles: el mapeador como componente propio (`machine/sega_315_5195`, regiones configurables por el programa), las prioridades de la carretera, las sombras de los sprites (pen 0xA), la paleta con sombra/brillo por redes de resistencias, el doble búfer de sprites y de carretera, las IRQ2 en el hblank de las líneas 65/129/193, el motor de la cabina (su posición se lee en el ADC y en el i8255) y el ADC con su tiempo de conversión.
+- **Dos 68000 con un solo Musashi**: cada CPU guarda su contexto y corren por turnos en tramos de 4 líneas (las líneas con interrupciones o latches cortan el tramo).
+- **La placa de sonido va aparte** (`or_sound.c`): el 68000 principal solo le escribe (el latch del mapeador y el reset del Z80), así que recibe esos eventos con marca de tiempo y se pone al día cuando se le pide. En el escritorio corre en el mismo hilo; en el CYD corre entero en el núcleo 0, con el mismo resultado.
+- **Atajos con el mismo resultado** (imagen y audio bit a bit con y sin ellos, en demo y en partida): las esperas del principal en `$7DDA` y `$7964` y del secundario en `$1182` (esperan a que cambie una palabra de RAM que en ese tramo nadie puede tocar), y el sondeo del temporizador del YM2151 por el Z80 en `$0A61` (se hace en C instrucción a instrucción y se para donde haga falta).
+- En el CYD, las 37 páginas de 1 KB de programa más usadas (el secundario corre de 5) se copian a RAM, parte en IRAM (se leen siempre de 32 en 32 bits).
+- **Verificación contra MAME**: imagen idéntica píxel a píxel en la demo y en partida con las mismas entradas (volante, acelerador, moneda, start), sin desfase de frames; solo cambia el indicador de marcha que MAME dibuja como decorado (no es parte de la imagen del juego). Audio con el mismo espectro y nivel (±10 %). En QEMU el firmware da las mismas huellas de imagen que el PC y emula unos 60 fps; no está probado en una placa real (allí el acceso a flash será más lento, y con el LCD a 40 MHz la pantalla no pasa de unos 30 fps: mejor el binario de 80 MHz).
 
 ## Puzzle Bobble: cómo funciona
 

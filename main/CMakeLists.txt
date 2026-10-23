@@ -1,4 +1,4 @@
-# Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, snowbros, trackfld, pbobble).
+# Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble).
 idf_build_get_property(GAME GAME)
 set(D drivers/arcades/${GAME})
 set(AS1 drivers/arcades/atarisy1)
@@ -20,6 +20,10 @@ elseif(GAME STREQUAL "gauntlet")
     set(SRCS ${D}/gauntlet_cyd.c ${D}/gauntlet_core.c ${D}/rom_data.c ${D}/m68k_tables.c ${M68K}
              sound/ym2151.c sound/pokey.c sound/tms5220.c machine/slapstic.c video/atari_mo.c)
     set(DEFS M68K_FLASH_TABLES)
+elseif(GAME STREQUAL "outrun")
+    set(SRCS ${D}/outrun_cyd.c ${D}/or_core.c ${D}/or_video.c ${D}/or_sound.c ${D}/rom_data.c ${D}/m68k_tables.c ${M68K}
+             cpu/z80/z80.c sound/ym2151.c sound/segapcm.c machine/sega_315_5195.c)
+    set(DEFS M68K_FLASH_TABLES)
 elseif(GAME STREQUAL "snowbros")
     set(SRCS ${D}/snowbros_cyd.c ${D}/sb_core.c ${D}/rom_data.c ${D}/m68k_tables.c ${M68K}
              cpu/z80/z80.c sound/emu8950/emu8950.c sound/emu8950/emuadpcm.c)
@@ -33,7 +37,7 @@ elseif(GAME STREQUAL "pbobble")
              cpu/z80/z80.c sound/ym2610.c machine/tc0140syt.c machine/eeprom93c46.c video/tc0180vcu.c)
     set(DEFS M68K_FLASH_TABLES)
 else()
-    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, snowbros, trackfld, pbobble)")
+    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble)")
 endif()
 
 idf_component_register(

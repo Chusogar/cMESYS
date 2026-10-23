@@ -6,3 +6,4 @@ unsigned int m68k_read_immediate_16(unsigned int a){return 0;} unsigned int m68k
 unsigned int m68k_read_pcrelative_8(unsigned int a){return 0;} unsigned int m68k_read_pcrelative_16(unsigned int a){return 0;} unsigned int m68k_read_pcrelative_32(unsigned int a){return 0;}
 _Bool as1_ipl_dirty;   /* referenced by the Indy m68k_game_conf.h hook test */
 _Bool gt_ipl_dirty;    /* referenced by the Gauntlet m68k_game_conf.h hook test */
+_Bool or_ipl_dirty;    /* referenced by the OutRun m68k_game_conf.h hook test */

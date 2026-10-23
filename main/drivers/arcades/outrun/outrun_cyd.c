@@ -1,0 +1,419 @@
+// outrun_cyd.c - OutRun (Sega, 1986) on the ESP32 CYD.
+// Core: or_core.c / or_video.c (C port of dsp-cpp's outrun driver).
+//
+//   Core 1 : both 68000s (Musashi, one at a time)
+//   Core 0 : sound board (Z80, YM2151, PCM) -> DAC GPIO26, tilemaps/road/sprites renderer,
+//            ST7789 SPI/DMA, XPT2046 touch, Nunchuk, buttons, serial keys
+//
+// There is no room for a copy of the video RAM: the picture is drawn from the
+// core's RAM as it is when core 0 gets to it (a frame is dropped while the
+// screen is still busy with the previous one).
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "driver/gpio.h"
+#include "driver/uart.h"
+#include "esp_timer.h"
+#include "esp_heap_caps.h"
+#include "esp_log.h"
+#include "cyd.h"
+#include "dac_audio.h"
+#include "nunchuk.h"
+#include "or_core.h"
+#include "rom_data.h"
+#include "m68k/m68k.h"
+
+static const char *TAG = "outrun";
+
+// ----------------------------------------------------------------------------
+// Controls (landscape): the touch screen in 3x3 zones over the picture
+// ----------------------------------------------------------------------------
+//   COIN+START | GEAR  | GAS
+//   LEFT+GAS   | GAS   | RIGHT+GAS
+//   LEFT       | BRAKE | RIGHT
+enum { K_LEFT = 1, K_RIGHT = 2, K_GAS = 4, K_BRAKE = 8, K_GEAR = 16, K_COIN = 64, K_START = 128 };
+
+static const uint8_t zone_keys[3][3] = {
+    { 0,              K_GEAR,  K_GAS },
+    { K_LEFT | K_GAS, K_GAS,   K_RIGHT | K_GAS },
+    { K_LEFT,         K_BRAKE, K_RIGHT },
+};
+static const char *zone_label[3][3] = {
+    { "COIN+START", "GEAR", "GAS" },
+    { "LEFT+GAS", "GAS", "RIGHT+GAS" },
+    { "LEFT", "BRAKE", "RIGHT" },
+};
+
+static void draw_help(void)
+{
+    fill_rect(0, 0, 320, 240, C_BLACK);
+    for (int r = 0; r < 3; r++)
+        for (int c = 0; c < 3; c++) {
+            int x = c * 107, y = r * 80, w = c == 2 ? 106 : 107;
+            uint16_t bg = (r == 0 && c == 0) ? rgb565(120, 30, 30) :
+                          (zone_keys[r][c] & (K_GAS | K_BRAKE | K_GEAR)) ? rgb565(20, 60, 140) : C_DGREY;
+            fill_rect(x + 1, y + 1, w - 2, 78, bg);
+            draw_text_c(x + w / 2, y + 36, zone_label[r][c], 1, C_WHITE, bg);
+        }
+    draw_text_c(160, 4, "TOUCH ZONES", 1, C_YELLOW, C_DGREY);
+    lcd_flush();
+}
+
+static volatile uint8_t in_keys;
+static volatile uint8_t in_steer;           // Nunchuk steering (0 = not in use)
+static volatile int64_t ser_until[8];
+
+static void input_task(void *arg)
+{
+    nunchuk_init(NUNCHUK_SDA, NUNCHUK_SCL);
+    gpio_config_t b = { .pin_bit_mask = (1ULL << PIN_BOOT_BTN),
+                        .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE };
+    gpio_config(&b);
+    uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0);
+    int64_t boot_t0 = 0;
+    for (;;) {
+        uint8_t k = 0, steer = 0;
+        int x, y;
+        int64_t now = esp_timer_get_time();
+        nunchuk_t nc;
+        nunchuk_read(&nc);
+        bool nc_combo = nc.ok && nc.c && nc.z;
+        bool seq = false;
+        if (touch_get(&x, &y)) {
+            int c = x / 107, r = y / 80;
+            if (c > 2) c = 2;
+            if (r > 2) r = 2;
+            if (r == 0 && c == 0) seq = true;
+            else k |= zone_keys[r][c];
+        }
+        // BOOT, Nunchuk C+Z or the top-left zone: a coin, then START
+        if (gpio_get_level(PIN_BOOT_BTN) == 0 || nc_combo || seq) {
+            if (!boot_t0) boot_t0 = now;
+            if (now - boot_t0 < 150000) k |= K_COIN;
+            if (now - boot_t0 > 300000 && now - boot_t0 < 450000) k |= K_START;
+        } else boot_t0 = 0;
+        // Nunchuk: stick X = steering wheel, stick up = gear, Z = gas, C = brake
+        if (nc.ok && !nc_combo) {
+            int dx = nc.jx - 128;
+            if (dx > -8 && dx < 8) dx = 0;
+            if (dx) {
+                int s = 0x80 + dx * 0x60 / 100;
+                steer = (uint8_t)(s < 0x20 ? 0x20 : s > 0xe0 ? 0xe0 : s);
+            }
+            if (nc.jy > 128 + 60) k |= K_GEAR;
+            if (nc.z) k |= K_GAS;
+            if (nc.c) k |= K_BRAKE;
+        }
+        // Serial keys: a/d steer, w gas, s brake, g gear, 5 coin, 1 start
+        uint8_t ch;
+        while (uart_read_bytes(UART_NUM_0, &ch, 1, 0) == 1) {
+            int i = -1;
+            switch (ch) {
+            case 'a': case 'A': i = 0; break;
+            case 'd': case 'D': i = 1; break;
+            case 'w': case 'W': i = 2; break;
+            case 's': case 'S': i = 3; break;
+            case 'g': case 'G': i = 4; break;
+            case '5': i = 6; break;
+            case '1': i = 7; break;
+            }
+            if (i >= 0) ser_until[i] = now + 150000;
+        }
+        for (int i = 0; i < 8; i++) if (ser_until[i] > now) k |= (uint8_t)(1 << i);
+#ifdef CYD_HEADLESS_TEST
+        k = 0; steer = 0;      // QEMU reads all GPIOs as 0 ("pressed")
+#endif
+        in_steer = steer;
+        in_keys = k;
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Sound: the whole sound board (Z80, YM2151, PCM) runs on core 0, from the
+// time-stamped latch writes core 1 queues (see or_sound.h), as the DAC
+// takes the samples. Core 1 stays at most ~2.5 frames ahead.
+// ----------------------------------------------------------------------------
+#define AUDIO_RATE 22050
+#define CHUNK 256
+static or_core *core;
+static volatile int64_t emu_time;                  // main CPU cycles emulated (end of the last frame)
+static volatile uint32_t audio_underruns;
+static volatile uint32_t audio_busy_us, video_busy_us;
+
+static void audio_task(void *arg)
+{
+    static int16_t pcm[CHUNK + 8];
+    static uint8_t a8[CHUNK + 8];
+    static const int gain_shift[5] = { 0, 9, 8, 7, 6 };    // ~17-bit mix -> 8 bits, with gain
+    or_sound *s = core->sound;
+    s->audio = pcm;
+    s->audio_cap = CHUNK + 8;
+    const int64_t chunk_time = (int64_t)OR_MAIN_CLOCK * CHUNK / AUDIO_RATE;
+    for (;;) {
+        // as far as core 1 has got: its last frame, or its latest event
+        int64_t avail = emu_time;
+        const uint32_t head = s->ev_head;
+        if (head != s->ev_tail) {
+            const int64_t t = s->ev[(head - 1) % OR_SND_EVENTS].time;
+            if (t > avail) avail = t;
+        }
+        if (avail <= s->time) {                     // caught up with the emulation
+            if (dac_audio_queued() < 64) audio_underruns++;     // and the DAC runs dry
+            vTaskDelay(1);
+            continue;
+        }
+        int64_t ta = esp_timer_get_time();
+        const int64_t until = avail - s->time > chunk_time ? s->time + chunk_time : avail;
+        s->audio_n = 0;
+        or_sound_run(s, until);
+        int sh = gain_shift[cyd_cfg.volume % 5];
+        for (int i = 0; i < s->audio_n; i++) {
+            int v = sh ? 128 + (pcm[i] >> (sh - 1)) : 128;
+            a8[i] = (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v);
+        }
+        audio_busy_us += (uint32_t)(esp_timer_get_time() - ta);
+        if (s->audio_n) dac_audio_push(a8, s->audio_n);      // blocks while the ring is full
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Video task (core 0): draws the frame from the core's RAM
+// ----------------------------------------------------------------------------
+#define RBAND 8                          // lines rendered at a time (two per LCD band)
+static uint16_t *cband, *sband;          // OR_SCREEN_W x RBAND palette indices / sprite work
+static uint32_t *pal565;                 // the 0x1000 colours, RGB565 (32-bit RAM if any)
+static SemaphoreHandle_t frame_ready;
+static volatile bool video_busy;
+static volatile uint32_t frames_shown;
+static or_video vframe;
+
+static void on_frame(void *user, or_core *c)
+{
+    (void)user;
+    if (video_busy) return;              // the screen is behind: skip this frame
+    or_get_video(c, &vframe);
+    video_busy = true;
+    xSemaphoreGive(frame_ready);
+}
+
+static inline uint16_t color_of(int index)
+{
+    if (index < 0x1000) return (uint16_t)pal565[index];
+    if (index >= OR_BLACK) return 0;
+    uint32_t c = or_palette_rgb(core->paletteram, index);    // shadow / hilight
+    return rgb565((uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
+}
+
+static void video_task(void *arg)
+{
+    for (;;) {
+        xSemaphoreTake(frame_ready, portMAX_DELAY);
+        int64_t tv = esp_timer_get_time();
+        if (core->palette_dirty) {
+            core->palette_dirty = false;
+            for (int i = 0; i < 0x1000; i++) {
+                uint32_t c = or_palette_rgb(core->paletteram, i);
+                pal565[i] = rgb565((uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
+            }
+        }
+        for (int y0 = 0; y0 < OR_SCREEN_H; y0 += BAND) {
+            uint16_t *b = lcd_get_buf();
+            for (int h = 0; h < BAND; h += RBAND) {
+                or_render(&vframe, &core->roms, y0 + h, y0 + h + RBAND, cband, sband);
+                for (int i = 0; i < OR_SCREEN_W * RBAND; i++) b[h * 320 + i] = color_of(cband[i]);
+            }
+            lcd_blit(0, 8 + y0, 320, BAND, b);       // 224 lines centred in 240
+        }
+        video_busy = false;
+        frames_shown++;
+        video_busy_us += (uint32_t)(esp_timer_get_time() - tv);
+    }
+}
+
+#ifdef CYD_HEADLESS_TEST
+// Progress check against the host build: hash of the composed picture.
+static uint32_t frame_hash(void)
+{
+    static uint16_t *hband, *hspr;
+    if (!hband) {
+        hband = heap_caps_malloc(OR_SCREEN_W * RBAND * 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        hspr = heap_caps_malloc(OR_SCREEN_W * RBAND * 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
+    if (!hband || !hspr) return 0;
+    or_video v;
+    or_get_video(core, &v);
+    uint32_t h = 2166136261u;
+    for (int y0 = 0; y0 < OR_SCREEN_H; y0 += RBAND) {
+        or_render(&v, &core->roms, y0, y0 + RBAND, hband, hspr);
+        for (int i = 0; i < OR_SCREEN_W * RBAND; i++) h = (h ^ hband[i]) * 16777619u;
+    }
+    return h;
+}
+#endif
+
+// ----------------------------------------------------------------------------
+// Emulation task (core 1)
+// ----------------------------------------------------------------------------
+static void emu_task(void *arg)
+{
+    const int64_t frame_time = (int64_t)(OR_MAIN_CLOCK / OR_FPS);
+    int64_t stat_t = esp_timer_get_time();
+    uint32_t stat_frames = 0, stat_busy = 0, stat_under0 = 0;
+    uint32_t sk0[3] = {0, 0, 0};
+    bool gear_prev = false;
+
+    for (;;) {
+        uint8_t k = in_keys;
+        or_inputs in = {0};
+        in.coin1 = k & K_COIN;
+        in.start = k & K_START;
+        const uint8_t st = in_steer;
+        in.steer = st ? st : (k & K_LEFT) ? 0x20 : (k & K_RIGHT) ? 0xe0 : 0x80;
+        in.gas = (k & K_GAS) ? 0xff : 0;
+        in.brake = (k & K_BRAKE) ? 0xff : 0;
+        in.gear_toggle = (k & K_GEAR) && !gear_prev;
+        gear_prev = k & K_GEAR;
+        or_set_inputs(core, &in);
+
+        int64_t t0 = esp_timer_get_time();
+        or_run_frame(core);
+        __sync_synchronize();
+        emu_time = core->time;
+        stat_busy += (uint32_t)(esp_timer_get_time() - t0);
+        stat_frames++;
+#ifdef CYD_HEADLESS_TEST
+        { static uint32_t fno; if (++fno % 300 == 0) ESP_LOGI(TAG, "HASH frame %u %08x", (unsigned)fno, (unsigned)frame_hash()); }
+#endif
+        // Pace on the audio clock: stay at most ~2.5 frames ahead of the sound board.
+        while (core->time - core->sound->time > frame_time * 5 / 2) vTaskDelay(1);
+
+        int64_t now = esp_timer_get_time();
+        if (now - stat_t >= 5000000) {
+            const double cyc = stat_frames * (double)OR_MAIN_CLOCK / OR_FPS + 1;
+            ESP_LOGI(TAG, "emu %.1f fps (cpu1 %.0f%%, skipped main %.0f%% sub %.0f%% z80 %.0f%%), sound %.0f%%, video %.0f%%, shown %.1f fps, underruns %u (%s), heap %u",
+                     stat_frames * 1e6 / (double)(now - stat_t),
+                     100.0 * stat_busy / (double)(now - stat_t),
+                     100.0 * (core->skipped[0] - sk0[0]) / cyc, 100.0 * (core->skipped[1] - sk0[1]) / cyc,
+                     100.0 * (core->sound->skipped - sk0[2]) / (cyc * 0.4),
+                     100.0 * audio_busy_us / (double)(now - stat_t),
+                     100.0 * video_busy_us / (double)(now - stat_t),
+                     frames_shown * 1e6 / (double)(now - stat_t),
+                     (unsigned)(audio_underruns - stat_under0), dac_audio_ok() ? "dac ok" : "dac OFF",
+                     (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+            stat_t = now; stat_frames = 0; stat_busy = 0; frames_shown = 0; stat_under0 = audio_underruns;
+            audio_busy_us = 0; video_busy_us = 0;
+            sk0[0] = core->skipped[0]; sk0[1] = core->skipped[1]; sk0[2] = core->sound->skipped;
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// The busiest 1 KB pages of the two programs (measured on the host, attract
+// mode and play): the sub CPU runs from 5 pages, the main one 97% from its
+// first 24 here. Copied from flash to RAM (IRAM first: only read 32 bits at a
+// time), as many as fit.
+static const uint8_t sub_hot[] = {6, 4, 5, 8, 7};
+static const uint8_t main_hot[] = {37, 30, 16, 29, 31, 54, 18, 19, 17, 26, 41, 20, 33, 15, 47, 48,
+                                   27, 46, 38, 39, 42, 55, 49, 25, 21, 32, 45, 24, 28, 53, 40, 51};
+
+static uint8_t *page_alloc(void)
+{
+    uint8_t *p = heap_caps_malloc(1024, MALLOC_CAP_32BIT | MALLOC_CAP_EXEC);
+    if (!p && heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) > 40 * 1024)
+        p = heap_caps_malloc(1024, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    return p;
+}
+
+static void copy_hot_pages(void)
+{
+    int n = 0;
+    for (int i = 0; i < (int)sizeof sub_hot; i++, n++) {
+        uint8_t *p = page_alloc();
+        if (!p) goto done;
+        for (int k = 0; k < 1024; k += 4) *(uint32_t *)(p + k) = *(const uint32_t *)(or_sub_rom + sub_hot[i] * 1024 + k);
+        core->sub_page[sub_hot[i]] = p;
+    }
+    for (int i = 0; i < (int)sizeof main_hot; i++, n++) {
+        uint8_t *p = page_alloc();
+        if (!p) goto done;
+        for (int k = 0; k < 1024; k += 4) *(uint32_t *)(p + k) = *(const uint32_t *)(or_main_rom + main_hot[i] * 1024 + k);
+        core->main_page[main_hot[i]] = p;
+    }
+done:
+    ESP_LOGI(TAG, "%d hot program pages in RAM", n);
+}
+
+static void *must_alloc(size_t n, const char *what)
+{
+    void *p = heap_caps_malloc(n, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!p) {
+        ESP_LOGE(TAG, "no memory for %s (%u bytes, largest block %u)", what, (unsigned)n,
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+        abort();
+    }
+    return p;
+}
+
+void app_main(void)
+{
+    static const cyd_game_t info = { "outrun", "OUTRUN", "SEGA 1986", {255, 60, 40} };
+    cyd_boot(&info);
+
+    // Big allocations first, while the heap is unfragmented
+    core = must_alloc(sizeof *core, "core");
+    memset(core, 0, sizeof *core);
+    core->tileram = must_alloc(0x10000, "tile RAM");
+    core->workram = must_alloc(0x8000, "work RAM");
+    core->cpu1ram = must_alloc(0x8000, "sub CPU RAM");
+    core->sound = must_alloc(sizeof(or_sound), "sound board");
+    cband = must_alloc(OR_SCREEN_W * RBAND * 2, "band");
+    sband = must_alloc(OR_SCREEN_W * RBAND * 2, "sprite band");
+    // the palette as 32-bit words: fits the IRAM heap, which the rest cannot use
+    pal565 = heap_caps_malloc(0x1000 * 4, MALLOC_CAP_32BIT | MALLOC_CAP_EXEC);
+    if (!pal565) pal565 = must_alloc(0x1000 * 4, "palette");
+    ESP_LOGI(TAG, "core %u bytes, free %u (largest %u)", (unsigned)sizeof *core,
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    or_roms roms;
+    or_rom_data(&roms);
+    or_init(core, &roms, AUDIO_RATE);
+    core->idle_skip = true;
+    core->sound_async = true;           // run by the audio task on core 0
+    core->on_frame = on_frame;
+    core->palette_dirty = true;
+
+#if !defined(CYD_HEADLESS_TEST) || defined(CYD_QEMU_FULL)
+    cyd_display_start(true);
+#else
+    cyd_display_start(false);
+#endif
+#ifndef CYD_HEADLESS_TEST
+    cyd_setup_ui();
+#endif
+
+    set_landscape(true);
+#ifndef CYD_HEADLESS_TEST
+    draw_help();
+    vTaskDelay(pdMS_TO_TICKS(2500));
+#endif
+    fill_rect(0, 0, 320, 240, C_BLACK);
+    lcd_flush();
+
+    copy_hot_pages();
+    dac_audio_set_rate(AUDIO_RATE);
+#if !defined(CYD_HEADLESS_TEST) || defined(CYD_QEMU_DAC)
+    dac_audio_start(AUDIO_RATE);
+#endif
+    frame_ready = xSemaphoreCreateBinary();
+    ESP_LOGI(TAG, "free internal heap: %u (largest %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+
+    xTaskCreatePinnedToCore(audio_task, "audio", 4096, NULL, 8, NULL, 0);
+    xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0);
+    xTaskCreatePinnedToCore(video_task, "video", 4096, NULL, 6, NULL, 0);
+    xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1);
+}
