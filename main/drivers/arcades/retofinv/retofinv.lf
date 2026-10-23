@@ -1,0 +1,7 @@
+# Hot interpreter / sound code in IRAM (out of the flash cache)
+[mapping:retofinv_hot]
+archive: libmain.a
+entries:
+    z80 (noflash)
+    m6805 (noflash)
+    sn76489 (noflash)

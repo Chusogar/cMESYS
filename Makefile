@@ -1,7 +1,7 @@
 # Desktop (SDL2) builds of the arcade drivers, from the same sources as the
 # ESP32 CYD firmware.
 #
-#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble)  -> build/sdl/<game>
+#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv)  -> build/sdl/<game>
 #   make all                  all of them
 #   make clean
 #
@@ -58,8 +58,12 @@ else ifeq ($(GAME),pbobble)
   SRC  := $(D)/pbobble_sdl.c $(D)/pb_core.c $(D)/rom_data.c $(M68K) $(M)/cpu/z80/z80.c \
           $(M)/sound/ym2610.c $(M)/machine/tc0140syt.c $(M)/machine/eeprom93c46.c $(M)/video/tc0180vcu.c
   DEFS :=
+else ifeq ($(GAME),retofinv)
+  SRC  := $(D)/retofinv_sdl.c $(D)/rv_core.c $(D)/rv_video.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
+          $(M)/cpu/m6805/m6805.c $(M)/machine/taito68705.c $(M)/sound/sn76489.c
+  DEFS :=
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld or pbobble)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble or retofinv)
 endif
 
 $(OUT)/$(GAME): $(SRC) $(PORT) $(wildcard $(D)/*.h) $(wildcard $(AS1)/*.h) Makefile
@@ -74,6 +78,7 @@ all:
 	$(MAKE) GAME=snowbros
 	$(MAKE) GAME=trackfld
 	$(MAKE) GAME=pbobble
+	$(MAKE) GAME=retofinv
 
 clean:
 	rm -rf $(OUT)

@@ -1,4 +1,4 @@
-# Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble).
+# Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv).
 idf_build_get_property(GAME GAME)
 set(D drivers/arcades/${GAME})
 set(AS1 drivers/arcades/atarisy1)
@@ -36,8 +36,12 @@ elseif(GAME STREQUAL "pbobble")
     set(SRCS ${D}/pbobble_cyd.c ${D}/pb_core.c ${D}/rom_data.c ${D}/m68k_tables.c ${M68K}
              cpu/z80/z80.c sound/ym2610.c machine/tc0140syt.c machine/eeprom93c46.c video/tc0180vcu.c)
     set(DEFS M68K_FLASH_TABLES)
+elseif(GAME STREQUAL "retofinv")
+    set(SRCS ${D}/retofinv_cyd.c ${D}/rv_core.c ${D}/rv_video.c ${D}/rom_data.c cpu/z80/z80.c
+             cpu/m6805/m6805.c machine/taito68705.c sound/sn76489.c)
+    set(DEFS)
 else()
-    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble)")
+    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv)")
 endif()
 
 idf_component_register(
