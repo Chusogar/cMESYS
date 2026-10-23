@@ -81,6 +81,8 @@ bool ql_flash(void);
 void ql_take_dirty_rows(uint32_t rows[8]);
 
 uint32_t ql_pc(void);
+uint16_t ql_ipc_pc(void);
+extern volatile uint32_t ql_diag_slices;
 uint8_t ql_peek(uint32_t address);
 
 #endif

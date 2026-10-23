@@ -51,6 +51,7 @@ typedef struct {
 } ql_t;
 
 static ql_t q;
+volatile uint32_t ql_diag_slices;          // 68008 slices run (diagnostics)
 
 // ---------------------------------------------------------------------------
 // Interrupts: IPL from the IPC (P2 bits 2-3) and the ZX8302 (IPL1L, level 2)
@@ -384,6 +385,7 @@ int ql_run_frame(const int16_t **audio)
     while (left > 0) {
         int run = left < SLICE ? left : SLICE;
         int used = m68k_execute(run);
+        ql_diag_slices++;
         on_cycles(used);
         left -= used;
         if (q.irq_dirty) {
@@ -448,5 +450,6 @@ void ql_take_dirty_rows(uint32_t rows[8])
     q.all_dirty = false;
 }
 
+uint16_t ql_ipc_pc(void) { return q.ipc.pc; }
 uint32_t ql_pc(void) { return m68k_get_reg(NULL, M68K_REG_PC); }
 uint8_t ql_peek(uint32_t a) { return (uint8_t)cpu_read_byte(a); }

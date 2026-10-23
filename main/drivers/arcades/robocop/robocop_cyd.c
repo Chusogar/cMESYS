@@ -415,11 +415,13 @@ void app_main(void)
 #ifdef CYD_DIAG
     // Diagnostics on the screen for the first 60 s: frames emulated / shown, 68000 PC
     for (int i = 0; i < 120; i++) {
-        char l[64];
-        snprintf(l, sizeof l, "E%u V%u PC%06X H%u", (unsigned)diag_emu_frames, (unsigned)diag_vid_frames,
+        char l[64], l2[64];
+        snprintf(l, sizeof l, "T%d E%u V%u PC%06X H%u", i, (unsigned)diag_emu_frames, (unsigned)diag_vid_frames,
                  (unsigned)m68k_get_reg(NULL, M68K_REG_PC), (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+        snprintf(l2, sizeof l2, "S%u L%d M%04X", (unsigned)core->slice_no, core->line, (unsigned)core->mcu.pc);
         draw_text(0, 0, l, 1, C_YELLOW, C_BLACK);
-        ESP_LOGI(TAG, "diag %s", l);
+        draw_text(0, 10, l2, 1, C_YELLOW, C_BLACK);
+        ESP_LOGI(TAG, "diag %s %s", l, l2);
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 #endif
