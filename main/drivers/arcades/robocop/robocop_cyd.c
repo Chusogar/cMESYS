@@ -27,7 +27,7 @@
 #include "rom_data.h"
 #include "m68k/m68k.h"
 
-static volatile uint32_t diag_emu_frames, diag_vid_frames;
+static volatile uint32_t diag_emu_frames, diag_vid_frames, diag_in_loops, diag_au_loops, diag_in_stage;
 #ifdef CYD_DIAG
 #define DIAG_STAGE(t) do { draw_text(0, 230, t, 1, C_YELLOW, C_BLACK); lcd_flush(); ESP_LOGI("robocop", "stage %s", t); } while (0)
 #else
@@ -76,13 +76,17 @@ static volatile int64_t ser_until[8];
 
 static void input_task(void *arg)
 {
+    diag_in_stage = 1;
     nunchuk_init(NUNCHUK_SDA, NUNCHUK_SCL);
+    diag_in_stage = 2;
     gpio_config_t b = { .pin_bit_mask = (1ULL << PIN_BOOT_BTN),
                         .mode = GPIO_MODE_INPUT, .pull_up_en = GPIO_PULLUP_ENABLE };
     gpio_config(&b);
     uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0);
+    diag_in_stage = 3;
     int64_t boot_t0 = 0;
     for (;;) {
+        diag_in_loops++;
         uint8_t k = 0;
         int x, y;
         int64_t now = esp_timer_get_time();
@@ -160,6 +164,7 @@ static void audio_task(void *arg)
     s->audio_cap = CHUNK + 8;
     const int64_t chunk_time = (int64_t)RC_MAIN_CLOCK * CHUNK / AUDIO_RATE;
     for (;;) {
+        diag_au_loops++;
         // as far as core 1 has got: its last frame, or its latest event
         int64_t avail = emu_time;
         const uint32_t head = s->ev_head;
@@ -430,15 +435,22 @@ void app_main(void)
     if (xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1) != pdPASS)
         ESP_LOGE(TAG, "task emu not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
 #ifdef CYD_DIAG
-    // Diagnostics on the screen for the first 60 s: frames emulated / shown, 68000 PC
+    // Diagnostics on the screen for the first 60 s (at a high priority, so a
+    // busy task on core 0 cannot hide them)
+    vTaskPrioritySet(NULL, 20);
     for (int i = 0; i < 120; i++) {
-        char l[64], l2[64];
+        char l[64], l2[64], l3[64];
         snprintf(l, sizeof l, "T%d E%u V%u PC%06X H%u", i, (unsigned)diag_emu_frames, (unsigned)diag_vid_frames,
                  (unsigned)m68k_get_reg(NULL, M68K_REG_PC), (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-        snprintf(l2, sizeof l2, "S%u L%d M%04X", (unsigned)core->slice_no, core->line, (unsigned)core->mcu.pc);
+        snprintf(l2, sizeof l2, "S%u L%d M%04X Q%u", (unsigned)core->slice_no, core->line, (unsigned)core->mcu.pc,
+                 (unsigned)(core->sound->ev_head - core->sound->ev_tail));
+        snprintf(l3, sizeof l3, "A%u I%u/%u ST%u ET%u D%u", (unsigned)diag_au_loops, (unsigned)diag_in_stage,
+                 (unsigned)diag_in_loops, (unsigned)(core->sound->time >> 10), (unsigned)(core->time >> 10),
+                 (unsigned)dac_audio_queued());
         draw_text(0, 0, l, 1, C_YELLOW, C_BLACK);
         draw_text(0, 10, l2, 1, C_YELLOW, C_BLACK);
-        ESP_LOGI(TAG, "diag %s %s", l, l2);
+        draw_text(0, 20, l3, 1, C_YELLOW, C_BLACK);
+        ESP_LOGI(TAG, "diag %s %s %s", l, l2, l3);
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 #endif
