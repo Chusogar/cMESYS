@@ -185,7 +185,7 @@ static void audio_task(void *arg)
 // ----------------------------------------------------------------------------
 #define RBAND 8                          // lines rendered at a time (two per LCD band)
 static uint16_t *cband, *sband;          // OR_SCREEN_W x RBAND palette indices / sprite work
-static uint32_t *pal565;                 // the 0x1000 colours, RGB565 (32-bit RAM if any)
+static uint32_t *pal565;                 // the 0x1000 colours, RGB565 (IRAM if any: 32-bit accesses only)
 static SemaphoreHandle_t frame_ready;
 static volatile bool video_busy;
 static volatile uint32_t frames_shown;
@@ -202,7 +202,7 @@ static void on_frame(void *user, or_core *c)
 
 static inline uint16_t color_of(int index)
 {
-    if (index < 0x1000) return (uint16_t)pal565[index];
+    if (index < 0x1000) return (uint16_t)((const volatile uint32_t *)pal565)[index];   // 32-bit load (IRAM)
     if (index >= OR_BLACK) return 0;
     uint32_t c = or_palette_rgb(core->paletteram, index);    // shadow / hilight
     return rgb565((uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
@@ -217,7 +217,7 @@ static void video_task(void *arg)
             core->palette_dirty = false;
             for (int i = 0; i < 0x1000; i++) {
                 uint32_t c = or_palette_rgb(core->paletteram, i);
-                pal565[i] = rgb565((uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
+                ((volatile uint32_t *)pal565)[i] = rgb565((uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
             }
         }
         for (int y0 = 0; y0 < OR_SCREEN_H; y0 += BAND) {
@@ -334,13 +334,13 @@ static void copy_hot_pages(void)
     for (int i = 0; i < (int)sizeof sub_hot; i++, n++) {
         uint8_t *p = page_alloc();
         if (!p) goto done;
-        for (int k = 0; k < 1024; k += 4) *(uint32_t *)(p + k) = *(const uint32_t *)(or_sub_rom + sub_hot[i] * 1024 + k);
+        for (int k = 0; k < 1024; k += 4) *(volatile uint32_t *)(p + k) = *(const uint32_t *)(or_sub_rom + sub_hot[i] * 1024 + k);
         core->sub_page[sub_hot[i]] = p;
     }
     for (int i = 0; i < (int)sizeof main_hot; i++, n++) {
         uint8_t *p = page_alloc();
         if (!p) goto done;
-        for (int k = 0; k < 1024; k += 4) *(uint32_t *)(p + k) = *(const uint32_t *)(or_main_rom + main_hot[i] * 1024 + k);
+        for (int k = 0; k < 1024; k += 4) *(volatile uint32_t *)(p + k) = *(const uint32_t *)(or_main_rom + main_hot[i] * 1024 + k);
         core->main_page[main_hot[i]] = p;
     }
 done:

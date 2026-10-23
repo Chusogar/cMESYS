@@ -34,7 +34,9 @@ enum {
 // 32-bit-only IRAM: always read as aligned 32-bit words).
 static inline uint32_t rom_word32(const uint8_t *const *pages, uint32_t off)
 {
-    return *(const uint32_t *)(pages[(off >> 10) & 0xff] + (off & 0x3fc));
+    // volatile: the compiler must not narrow it to a 16-bit load (IRAM
+    // raises LoadStoreError on anything but 32-bit accesses)
+    return *(const volatile uint32_t *)(pages[(off >> 10) & 0xff] + (off & 0x3fc));
 }
 static inline uint16_t rom16(const uint8_t *const *pages, uint32_t off)
 {
