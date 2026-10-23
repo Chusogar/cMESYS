@@ -27,7 +27,6 @@ SDL_LIBS   := $(shell sdl2-config --libs 2>/dev/null || echo -lSDL2)
 
 M68K := $(M)/cpu/m68k/m68kcpu.c $(M)/cpu/m68k/m68kops.c $(M)/cpu/m68k/m68kopac.c \
         $(M)/cpu/m68k/m68kopdm.c $(M)/cpu/m68k/m68kopnz.c
-PORT := $(M)/ports/sdl2/sdl_port.c
 
 ifeq ($(GAME),indytemp)
   # Atari System 1 core shared with roadrunn (cpu/m6502/dsp6502.c is compiled inside it)
@@ -73,16 +72,29 @@ else ifeq ($(GAME),robocop)
           $(M)/sound/emu8950/emu8950.c $(M)/sound/emu8950/emuadpcm.c
   DEFS :=
 else ifeq ($(GAME),ql)
-  SRC  := $(D)/ql_sdl.c $(D)/ql_core.c $(D)/rom_data.c $(M68K) $(M)/cpu/mcs48/mcs48.c \
+  SRC  := $(D)/ql_sdl.c $(D)/ql_core.c $(D)/ql_view.c $(D)/rom_data.c $(M68K) $(M)/cpu/mcs48/mcs48.c \
           $(M)/machine/zx8302.c $(M)/machine/ql_mdv.c $(M)/video/zx8301.c
   DEFS :=
 else
   $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop or ql)
 endif
 
-$(OUT)/$(GAME): $(SRC) $(PORT) $(wildcard $(D)/*.h) $(wildcard $(AS1)/*.h) Makefile
+# PORT=picohost: the game's RP2040-PiZero frontend (<game>_pico.c) on the
+# desktop without a window (tools/pico_host.c), to test it without the board.
+ifeq ($(PORT),picohost)
+  OUT   := build/picohost
+  SRC   := $(patsubst %_sdl.c,%_pico.c,$(SRC))
+  PORTSRC := tools/pico_host.c
+  CFLAGS += -I$(M)/ports/rp2040-pizero
+  SDL_CFLAGS :=
+  SDL_LIBS :=
+else
+  PORTSRC := $(M)/ports/sdl2/sdl_port.c
+endif
+
+$(OUT)/$(GAME): $(SRC) $(PORTSRC) $(wildcard $(D)/*.h) $(wildcard $(AS1)/*.h) Makefile
 	@mkdir -p $(OUT)
-	$(CC) $(CFLAGS) $(DEFS) $(SDL_CFLAGS) -o $@ $(SRC) $(PORT) $(SDL_LIBS) -lm
+	$(CC) $(CFLAGS) $(DEFS) $(SDL_CFLAGS) -o $@ $(SRC) $(PORTSRC) $(SDL_LIBS) -lm
 
 all:
 	$(MAKE) GAME=indytemp

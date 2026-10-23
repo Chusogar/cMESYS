@@ -1,6 +1,6 @@
-# Arcades (y un Sinclair QL) para ESP32 CYD (ST7789) y escritorio (SDL2)
+# Arcades (y un Sinclair QL) para ESP32 CYD (ST7789), RP2040-PiZero (HDMI) y escritorio (SDL2)
 
-Diez máquinas (nueve recreativas y el ordenador Sinclair QL) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI) o como programa de escritorio con SDL2:
+Diez máquinas (nueve recreativas y el ordenador Sinclair QL) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI) o como programa de escritorio con SDL2:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -23,6 +23,7 @@ Cada firmware lleva un solo juego (el del QL lleva también un cartucho de micro
 CMakeLists.txt            proyecto ESP-IDF (idf.py -DGAME=<juego> build)
 Makefile                  escritorio SDL2 (make GAME=<juego>)
 build_all.sh              los 20 firmwares (10 máquinas x SPI 40/80 MHz) -> dist/, y los 10 de escritorio
+build_pico.sh             los 10 firmwares de la RP2040-PiZero -> dist/<juego>_rp2040_pizero.uf2
 partitions.csv, sdkconfig.defaults
 main/
   CMakeLists.txt          elige las fuentes del juego
@@ -45,7 +46,7 @@ main/
   drivers/arcades/
     atarisy1/             núcleo Atari System 1 compartido por indytemp y roadrunn:
                           atarisy1_core.c/.h (máquina), atarisy1_roms.c/.h (carga desde directorios)
-    indytemp/             indytemp_cyd.c (frontend CYD), indytemp_sdl.c (frontend SDL2),
+    indytemp/             indytemp_cyd.c (frontend CYD), indytemp_sdl.c (frontend SDL2), indytemp_pico.c (RP2040),
                           rom_data.c (ROMs), m68k_game_conf.h, m68k_tables.c, indytemp.lf (IRAM)
     roadrunn/             roadrunn_cyd.c, roadrunn_sdl.c, rom_data.c, m68k_game_conf.h,
                           m68k_tables.c, roadrunn.lf
@@ -71,10 +72,15 @@ main/
     esp32-cyd/            cyd.c/.h (LCD SPI/DMA, táctil XPT2046 y calibración, menú de ajustes en NVS,
                           diagnóstico de cuelgues, arranque), dac_audio (DAC GPIO26 asíncrono),
                           nunchuk (I2C), font5x7.h
+    rp2040-pizero/        pico_port.c/.h (HDMI con PicoDVI en el núcleo 1, sonido PWM, teclado y mandos USB),
+                          CMakeLists.txt (proyecto Pico SDK, una máquina por compilación), tusb_config.h
     sdl2/                 sdl_port.c/.h (ventana, cola de audio, teclado, ritmo, capturas; modo
                           "ordenador": todas las teclas van a la máquina)
 tools/
   regen.sh <juego>        regenera rom_data.c y m68k_tables.c del juego
+  setup_pico.sh           descarga el Pico SDK y PicoDVI (en deps/pico)
+  pico_host.c             la API de la RP2040 en el PC, sin ventana: prueba los frontends *_pico.c
+  pico_hot.py, pico_ram.py  manejadores del 68000 en RAM y memoria usada (RP2040)
   gen_roms_*.{c,py}, gen_m68k_tables.c, m68k_stub.c
 roms/                     indytemp, roadrunn, atarisy1 (BIOS de Indy y Road Runner), gauntlet, outrun, snowbros, trackfld, pbobble,
                           retofinv, robocop, ql (descomprimidas; en ql, también el cartucho .mdv)
@@ -288,6 +294,56 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta el cartucho** en mdv1 y reinicia el QL arrancando desde él; **F6 es el F1 del QL** (F2-F5 son los suyos), F12 reinicia, cerrar la ventana sale. El título de la ventana dice si hay cartucho. Para pruebas, `QL_MOUNT_AT=n` pulsa F1 en el frame n.
 
 Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
+
+## RP2040-PiZero (HDMI)
+
+Firmware para la [Waveshare RP2040-PiZero](https://www.waveshare.com/wiki/RP2040-PiZero) (RP2040 a 252 MHz, 264 KB de RAM, 16 MB de flash, HDMI). Cada juego tiene su frontend `<juego>_pico.c` sobre el mismo núcleo que el CYD y el escritorio; lo común está en `main/ports/rp2040-pizero/pico_port.c`, basado en el puerto `rp2040-pizero` de dsp-cpp.
+
+| Función | Conexión | Notas |
+|---|---|---|
+| HDMI | D0 26/27, D1 24/25, D2 22/23, CLK 28/29 | 640x480 a 60 Hz desde una imagen de 320x240 (cada píxel doble). No hay frame buffer: el núcleo 1 le pide al juego su imagen por franjas de 4 líneas (2 en OutRun y Puzzle Bobble) mientras salen y las codifica en TMDS. Si una franja no llega a tiempo sale una línea roja; la emulación nunca espera a la pantalla |
+| Mandos | puerto USB-C nativo (marcado USB) | teclado USB y/o mando HID, también por un hub; alimenta la placa y el mando con un cable OTG / Y |
+| Sonido | GPIO4 | PWM de 10 bits, mono; pon un filtro RC (p. ej. 1 kΩ + 10 nF) antes del amplificador |
+| Log | UART0: TX GPIO0 | 115200 baudios: fps cada 5 s |
+
+Teclas (teclado USB): `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset. Mando: cruceta o stick, A/B/X = botones 1/2/3, SELECT moneda, START start, SELECT+START reset. Cada juego usa los mismos botones que en el escritorio. En la imagen: los de 336 de ancho (Indy, Road Runner, Gauntlet) muestran las 320 columnas centrales; Return of the Invaders (224x288, vertical) quita una de cada 6 líneas; el resto va centrado.
+
+**Sinclair QL**: el teclado USB es el del QL (Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta el cartucho** del firmware en mdv1 y reinicia el QL arrancando desde él, como en el CYD y el escritorio; **F6 es el F1 del QL**, F11 cambia la vista (entera promediada a 320x240, o 1:1 mitad izquierda / derecha), F12 reinicia. Un mando USB da los cursores, A = ESPACIO, B = ENTER.
+
+### Compilar y flashear
+
+```
+sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi cmake python3   # (Debian/Ubuntu)
+tools/setup_pico.sh                       # una vez: Pico SDK 2.1.1 y PicoDVI en deps/pico
+./build_pico.sh                           # las 10 máquinas -> dist/<juego>_rp2040_pizero.uf2
+./build_pico.sh robocop ql                # algunas
+```
+
+Con las ROMs ya generadas (`tools/regen.sh <juego>`, como para el CYD). Para flashear: mantén BOOT al enchufar el USB-C, aparece la unidad `RPI-RP2` y se copia el `.uf2`.
+
+### Memoria y velocidad
+
+Con 264 KB de RAM, cada juego tiene que caber entero: su RAM de la placa original (OutRun y Puzzle Bobble necesitan casi 180 KB), la emulación y las líneas del HDMI (`tools/pico_ram.py` dice cuánta RAM estática queda para el resto). Los códigos más usados van en RAM, porque la caché de la flash es de sólo 16 KB: el bucle de Musashi, los manejadores del 68000 más usados de cada juego (los mismos que en IRAM en el CYD, sacados de su `.lf` por `tools/pico_hot.py`; Musashi no se toca) y, cuando caben, las CPU y chips de sonido de la placa. Las pilas van en los bancos SCRATCH de 4 KB.
+
+El RP2040 (Cortex-M0+) es bastante más lento que el ESP32, así que las máquinas pesadas no llegan a la velocidad real; la imagen y el sonido van al ritmo que dé la emulación. Velocidad estimada en el simulador rp2040js (sin la espera de la flash ni el reparto del bus con el HDMI, así que en la placa será algo menor): ver la tabla de abajo. **No está probado en una placa real.**
+
+| Máquina | Velocidad real | Estimada en el simulador (a 252 MHz) |
+|---|---|---|
+| Return of the Invaders | 60,6 fps | sobra (unas 2 veces la real) |
+| Track & Field | 60 fps | ~63 fps |
+| Puzzle Bobble | 60 fps | ~80 fps (en la demo) |
+| Gauntlet | 59,9 fps | ~58 fps |
+| Road Runner | 59,9 fps | ~53 fps |
+| Indiana Jones | 59,9 fps | ~51 fps |
+| Sinclair QL | 50,1 fps | ~41 fps |
+| Snow Bros | 60 fps | ~38 fps |
+| OutRun | 60,1 fps | ~28 fps |
+| RoboCop | 57,4 fps | ~26 fps |
+
+### Pruebas sin la placa
+
+- `make GAME=<juego> PORT=picohost` compila el frontend `<juego>_pico.c` para el PC con `tools/pico_host.c` (la misma API sin ventana): `PICO_FRAMES=1200 PICO_SHOT=600,1200 PICO_KEYS=1@300:10,4@400:10 build/picohost/<juego>` guarda `shot_600.ppm`… dibujados con el mismo callback que usa el núcleo 1 (y dice cuánta memoria pide el juego).
+- `cmake -S main/ports/rp2040-pizero -B build/picoemu-<juego> -DGAME=<juego> -DPICO_EMU_TEST=ON` hace un firmware para el simulador [rp2040js](https://github.com/wokwi/rp2040js) (un solo núcleo: sin HDMI, USB ni sonido) que escribe los frames por la UART.
 
 ## ROMs
 

@@ -268,11 +268,17 @@ static void HOT sprites_band(const vcu_frame_t *f, int fy0, int n, uint16_t *sb,
     }
 }
 
+#ifndef RENDER_NO_OWN_BUFFERS                 // (the caller always gives scratch then)
 static uint16_t sband_own[VCU_SCREEN_W * 16];
+#endif
 
 void HOT tc0180vcu_render(const vcu_frame_t *f, const uint16_t *vram, int y0, int n, uint16_t *out, uint16_t *scratch)
 {
+#ifdef RENDER_NO_OWN_BUFFERS
+    uint16_t *sband = scratch;
+#else
     uint16_t *sband = scratch ? scratch : sband_own;
+#endif
     uint8_t sline[16];
     uint8_t vc = f->video_control;
     if (!(vc & 0x20)) {                       // video off

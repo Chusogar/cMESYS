@@ -8,3 +8,6 @@ roms/*/*
 !roms/*/put_your_unzipped_rom_here.txt
 # firmware images (they contain the ROMs): never committed
 dist/*.bin
+# Pico SDK and PicoDVI (tools/setup_pico.sh)
+deps/
+dist/*.uf2

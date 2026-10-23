@@ -274,7 +274,7 @@ void OV_HOT or_render(const or_video *v, const or_roms *roms, int y0, int y1, ui
         for (int i = 0; i < (y1 - y0) * W; i++) out[i] = BLACK;
         return;
     }
-#ifndef ESP_PLATFORM
+#if !defined(ESP_PLATFORM) && !defined(RENDER_NO_OWN_BUFFERS)
     static uint16_t own_spr[OR_SCREEN_W * 16];
     if (!spr) spr = own_spr;
 #endif
