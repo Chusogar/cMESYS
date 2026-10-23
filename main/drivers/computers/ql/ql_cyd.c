@@ -30,12 +30,14 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "cyd.h"
+#include "m68k.h"
 #include "dac_audio.h"
 #include "nunchuk.h"
 #include "ql_core.h"
 #include "ql_view.h"
 #include "rom_data.h"
 
+static volatile uint32_t diag_emu_frames, diag_vid_frames;
 static const char *TAG = "ql";
 
 // ----------------------------------------------------------------------------
@@ -279,6 +281,7 @@ static void video_task(void *arg)
         }
         toast_shown = toast_on;
         frames_shown++;
+        diag_vid_frames++;
         video_busy_us += (uint32_t)(esp_timer_get_time() - tv);
     }
 }
@@ -338,6 +341,7 @@ static void emu_task(void *arg)
         }
         stat_busy += (uint32_t)(esp_timer_get_time() - t0);
         stat_frames++;
+        diag_emu_frames++;
 
         uint32_t rows[8];
         ql_take_dirty_rows(rows);
@@ -424,7 +428,21 @@ void app_main(void)
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
 
-    xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0);
-    xTaskCreatePinnedToCore(video_task, "video", 4096, NULL, 6, NULL, 0);
-    xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1);
+    if (xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0) != pdPASS)
+        ESP_LOGE(TAG, "task input not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    if (xTaskCreatePinnedToCore(video_task, "video", 4096, NULL, 6, NULL, 0) != pdPASS)
+        ESP_LOGE(TAG, "task video not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    if (xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1) != pdPASS)
+        ESP_LOGE(TAG, "task emu not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+#ifdef CYD_DIAG
+    // Diagnostics on the screen for the first 60 s: frames emulated / shown, 68000 PC
+    for (int i = 0; i < 120; i++) {
+        char l[64];
+        snprintf(l, sizeof l, "E%u V%u PC%06X H%u", (unsigned)diag_emu_frames, (unsigned)diag_vid_frames,
+                 (unsigned)m68k_get_reg(NULL, M68K_REG_PC), (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+        draw_text(0, 0, l, 1, C_YELLOW, C_BLACK);
+        ESP_LOGI(TAG, "diag %s", l);
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+#endif
 }

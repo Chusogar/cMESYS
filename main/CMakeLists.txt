@@ -69,7 +69,7 @@ target_compile_options(${COMPONENT_LIB} PRIVATE -O2 -Wno-unused-variable -Wno-ma
     -Wno-unused-function -Wno-implicit-fallthrough -Wno-unused-but-set-variable -Wno-sign-compare -Wno-type-limits
     -Wno-missing-field-initializers -Wno-unused-value -Wno-parentheses -Wno-misleading-indentation -Wno-unused-label)
 # QEMU tests: CYD_HEADLESS_TEST=1 idf.py ... (frame hashes on the serial port)
-foreach(opt CYD_HEADLESS_TEST CYD_QEMU_DAC CYD_QEMU_FULL CYD_QEMU_SOLO)
+foreach(opt CYD_HEADLESS_TEST CYD_QEMU_DAC CYD_QEMU_FULL CYD_QEMU_SOLO CYD_DIAG)
     if(DEFINED ENV{${opt}})
         target_compile_definitions(${COMPONENT_LIB} PRIVATE ${opt})
     endif()

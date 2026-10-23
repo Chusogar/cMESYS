@@ -27,6 +27,7 @@
 #include "rom_data.h"
 #include "m68k/m68k.h"
 
+static volatile uint32_t diag_emu_frames, diag_vid_frames;
 static const char *TAG = "robocop";
 
 #define GAME_X ((320 - RC_SCREEN_W) / 2)
@@ -226,6 +227,7 @@ static void video_task(void *arg)
         }
         video_busy = false;
         frames_shown++;
+        diag_vid_frames++;
         video_busy_us += (uint32_t)(esp_timer_get_time() - tv);
     }
 }
@@ -285,6 +287,7 @@ static void emu_task(void *arg)
         emu_time = core->time;
         stat_busy += (uint32_t)(esp_timer_get_time() - t0);
         stat_frames++;
+        diag_emu_frames++;
 #ifdef CYD_HEADLESS_TEST
         { static uint32_t fno; if (++fno % 300 == 0) ESP_LOGI(TAG, "HASH frame %u %08x", (unsigned)fno, (unsigned)frame_hash()); }
 #endif
@@ -401,8 +404,23 @@ void app_main(void)
     ESP_LOGI(TAG, "free internal heap: %u (largest %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
 
-    xTaskCreatePinnedToCore(audio_task, "audio", 4096, NULL, 8, NULL, 0);
-    xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0);
-    xTaskCreatePinnedToCore(video_task, "video", 4096, NULL, 6, NULL, 0);
-    xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1);
+    if (xTaskCreatePinnedToCore(audio_task, "audio", 4096, NULL, 8, NULL, 0) != pdPASS)
+        ESP_LOGE(TAG, "task audio not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    if (xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0) != pdPASS)
+        ESP_LOGE(TAG, "task input not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    if (xTaskCreatePinnedToCore(video_task, "video", 4096, NULL, 6, NULL, 0) != pdPASS)
+        ESP_LOGE(TAG, "task video not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    if (xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1) != pdPASS)
+        ESP_LOGE(TAG, "task emu not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+#ifdef CYD_DIAG
+    // Diagnostics on the screen for the first 60 s: frames emulated / shown, 68000 PC
+    for (int i = 0; i < 120; i++) {
+        char l[64];
+        snprintf(l, sizeof l, "E%u V%u PC%06X H%u", (unsigned)diag_emu_frames, (unsigned)diag_vid_frames,
+                 (unsigned)m68k_get_reg(NULL, M68K_REG_PC), (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+        draw_text(0, 0, l, 1, C_YELLOW, C_BLACK);
+        ESP_LOGI(TAG, "diag %s", l);
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+#endif
 }
