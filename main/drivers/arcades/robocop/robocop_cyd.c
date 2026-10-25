@@ -197,20 +197,28 @@ static void audio_task(void *arg)
 #define RBAND 8                          // lines rendered at a time (two per LCD band)
 static uint16_t *cband;                  // RC_SCREEN_W x RBAND palette indices
 static uint8_t *pband;                   // priority work
-static uint32_t *pal565;                 // the 0x400 colours, RGB565 (IRAM if any: 32-bit accesses only)
+static uint16_t *pal565;                 // the 0x400 colours, RGB565 (internal DRAM; avoid IRAM LoadStoreError)
 static rc_sprite_list *sprites;
 static SemaphoreHandle_t frame_ready;
 static volatile bool video_busy;
+static volatile int64_t video_busy_since;
 static volatile uint32_t frames_shown;
 static rc_video vframe;
 
 static void on_frame(void *user, rc_core *c)
 {
     (void)user;
-    if (video_busy) return;              // the screen is behind: skip this frame
+    if (video_busy) {
+        // If the video task died or stalled, unlock so attract mode can paint again
+        // instead of staying on the post-menu black screen forever.
+        if (esp_timer_get_time() - video_busy_since < 500000) return;
+        video_busy = false;
+        ESP_LOGW(TAG, "video lock timed out; forcing unlock");
+    }
     rc_get_video(c, &vframe);
     rc_build_sprites(&vframe, sprites);  // (the sprite buffer only changes on a DMA write)
     video_busy = true;
+    video_busy_since = esp_timer_get_time();
     xSemaphoreGive(frame_ready);
 }
 
@@ -223,15 +231,17 @@ static void video_task(void *arg)
             core->palette_dirty = false;
             for (int i = 0; i < 0x400; i++) {
                 uint32_t c = rc_palette_rgb(core->palette, core->palette_ext, i);
-                ((volatile uint32_t *)pal565)[i] = rgb565((uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
+                pal565[i] = rgb565((uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
             }
         }
         for (int y0 = 0; y0 < RC_SCREEN_H; y0 += BAND) {
             uint16_t *b = lcd_get_buf();
             for (int h = 0; h < BAND; h += RBAND) {
                 rc_render(&vframe, sprites, &core->roms, y0 + h, y0 + h + RBAND, cband, pband);
-                for (int i = 0; i < RC_SCREEN_W * RBAND; i++)
-                    b[h * RC_SCREEN_W + i] = (uint16_t)((const volatile uint32_t *)pal565)[cband[i]];   // 32-bit loads (IRAM)
+                for (int i = 0; i < RC_SCREEN_W * RBAND; i++) {
+                    uint16_t idx = cband[i] & 0x3ff;
+                    b[h * RC_SCREEN_W + i] = pal565[idx];
+                }
             }
             lcd_blit(GAME_X, y0, RC_SCREEN_W, BAND, b);
         }
@@ -378,13 +388,9 @@ void app_main(void)
     sprites = must_alloc(sizeof *sprites, "sprite list");
     cband = must_alloc(RC_SCREEN_W * RBAND * 2, "band");
     pband = must_alloc(RC_SCREEN_W * RBAND, "priority band");
-    // the palette as 32-bit words: fits the IRAM heap, which the rest cannot use
-#ifdef RC_NO_IRAM_DATA
-    pal565 = NULL;
-#else
-    pal565 = heap_caps_malloc(0x400 * 4, MALLOC_CAP_32BIT | MALLOC_CAP_EXEC);
-#endif
-    if (!pal565) pal565 = must_alloc(0x400 * 4, "palette");
+    // Palette in normal internal RAM (uint16). Keeping it out of the 32-bit-only
+    // IRAM heap avoids LoadStoreError panics if a 16-bit load sneaks in.
+    pal565 = must_alloc(0x400 * sizeof(*pal565), "palette");
     ESP_LOGI(TAG, "core %u bytes, sound %u, free %u (largest %u)", (unsigned)sizeof *core, (unsigned)sizeof(rc_sound),
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
@@ -412,6 +418,7 @@ void app_main(void)
     vTaskDelay(pdMS_TO_TICKS(2500));
 #endif
     fill_rect(0, 0, 320, 240, C_BLACK);
+    draw_text_c(160, 112, "STARTING...", 2, C_YELLOW, C_BLACK);
     lcd_flush();
 
     DIAG_STAGE("2 PAGES       ");
@@ -423,17 +430,27 @@ void app_main(void)
 #endif
     DIAG_STAGE("4 TASKS       ");
     frame_ready = xSemaphoreCreateBinary();
+    if (!frame_ready) {
+        ESP_LOGE(TAG, "frame_ready semaphore not created");
+        draw_text_c(160, 112, "NO SEM", 2, C_RED, C_BLACK);
+        lcd_flush();
+        abort();
+    }
     ESP_LOGI(TAG, "free internal heap: %u (largest %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
 
-    if (xTaskCreatePinnedToCore(audio_task, "audio", 4096, NULL, 8, NULL, 0) != pdPASS)
-        ESP_LOGE(TAG, "task audio not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-    if (xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0) != pdPASS)
-        ESP_LOGE(TAG, "task input not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-    if (xTaskCreatePinnedToCore(video_task, "video", 4096, NULL, 6, NULL, 0) != pdPASS)
-        ESP_LOGE(TAG, "task video not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-    if (xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1) != pdPASS)
-        ESP_LOGE(TAG, "task emu not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    BaseType_t ok_a = xTaskCreatePinnedToCore(audio_task, "audio", 4096, NULL, 8, NULL, 0);
+    BaseType_t ok_i = xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0);
+    BaseType_t ok_v = xTaskCreatePinnedToCore(video_task, "video", 6144, NULL, 6, NULL, 0);
+    BaseType_t ok_e = xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1);
+    if (ok_a != pdPASS || ok_i != pdPASS || ok_v != pdPASS || ok_e != pdPASS) {
+        ESP_LOGE(TAG, "task create failed a=%d i=%d v=%d e=%d heap %u",
+                 (int)ok_a, (int)ok_i, (int)ok_v, (int)ok_e,
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+        draw_text_c(160, 112, "TASK FAIL", 2, C_RED, C_BLACK);
+        lcd_flush();
+        abort();
+    }
 #ifdef CYD_DIAG
     // Diagnostics on the screen for the first 60 s (at a high priority, so a
     // busy task on core 0 cannot hide them)

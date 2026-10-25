@@ -9,6 +9,8 @@
 
 #ifdef ESP_PLATFORM
 #include "esp_attr.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #define RC_HOT IRAM_ATTR
 #else
 #define RC_HOT
@@ -213,8 +215,16 @@ static void RC_HOT main_write(rc_core *c, uint32_t a, uint16_t v, uint16_t mask)
         case 0x2: memcpy(c->spritebuf, c->spriteram, sizeof c->spritebuf); break;   // sprite DMA
         case 0x4:                                                           // sound latch
             if (mask & 0x00ff) {
-                while (!rc_sound_latch(c->sound, now(c), (uint8_t)v))
+                // With sound_async the board runs on another core. A full queue
+                // must not busy-spin: that freezes the 68000 before the first
+                // vblank callback and leaves the CYD on a black screen after
+                // the setup menu. Yield so the audio task can drain events.
+                while (!rc_sound_latch(c->sound, now(c), (uint8_t)v)) {
                     if (!c->sound_async) rc_sound_run(c->sound, c->time);
+#ifdef ESP_PLATFORM
+                    else vTaskDelay(1);
+#endif
+                }
             }
             break;
         case 0x8: if (c->irq6) { c->irq6 = false; ipl_changed(c); } break;   // vblank IRQ ack
