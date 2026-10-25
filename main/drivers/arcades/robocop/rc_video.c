@@ -154,7 +154,7 @@ void rc_build_sprites(const rc_video *v, rc_sprite_list *list)
                 int incy;
                 if (d0 & 0x4000) incy = -1;
                 else { code += h - 1; incy = 1; }
-                if (!flash || v->odd_frame) {
+                if ((!flash || v->odd_frame) && n < 0x100) {
                     rc_sprite *r = &list->rec[n++];
                     r->h = (uint8_t)h;
                     r->colour = (uint8_t)colour;
