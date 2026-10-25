@@ -1,5 +1,5 @@
 // indytemp_cyd.c - Indiana Jones and the Temple of Doom (Atari System 1) on
-// the ESP32 CYD. Core: indytemp_core.c (C port of dsp-cpp's atari_system1).
+// the ESP32 CYD. Core: atarisy1_core.c (C port of dsp-cpp's atari_system1).
 //
 //   Core 1 : 68010 (Musashi) + 6502 + YM2151 timers, POKEY, TMS5220, VIA
 //   Core 0 : YM2151 synthesis -> DAC GPIO26, playfield/MO/alpha renderer,
@@ -23,7 +23,7 @@
 #include "cyd.h"
 #include "dac_audio.h"
 #include "nunchuk.h"
-#include "indytemp_core.h"
+#include "atarisy1_core.h"
 #include "rom_data.h"
 #include "m68k/m68k.h"
 
@@ -193,15 +193,15 @@ static void audio_task(void *arg)
 // ----------------------------------------------------------------------------
 // Video task (core 0): composes the snapshot taken at line 239
 // ----------------------------------------------------------------------------
-static indy_core *core;
-static indy_video *vsnap;
-static indy_mo_list *mol;
-static uint16_t *cband;                  // INDY_SCREEN_W x BAND palette entries
+static as1_core *core;
+static as1_video *vsnap;
+static as1_mo_list *mol;
+static uint16_t *cband;                  // AS1_SCREEN_W x BAND palette entries
 static SemaphoreHandle_t frame_ready;
 static volatile bool video_busy;
 static volatile uint32_t frames_shown;
 
-static void on_frame(void *user, indy_core *c)
+static void on_frame(void *user, as1_core *c)
 {
     (void)user;
     if (video_busy) return;              // the screen is behind: skip this frame
@@ -216,16 +216,16 @@ static void video_task(void *arg)
     for (;;) {
         xSemaphoreTake(frame_ready, portMAX_DELAY);
         int64_t tv = esp_timer_get_time();
-        indy_build_mo_list(&core->gfx, vsnap, mol);
+        as1_build_mo_list(&core->gfx, vsnap, mol);
         for (int i = 0; i < 0x400; i++) {
-            uint32_t c = indy_palette_rgb(vsnap, i);
+            uint32_t c = as1_palette_rgb(vsnap, i);
             pal565[i] = rgb565((uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
         }
-        for (int y0 = 0; y0 < INDY_SCREEN_H; y0 += BAND) {
-            indy_compose(&core->gfx, vsnap, mol, y0, y0 + BAND, cband);
+        for (int y0 = 0; y0 < AS1_SCREEN_H; y0 += BAND) {
+            as1_compose(&core->gfx, vsnap, mol, y0, y0 + BAND, cband);
             uint16_t *b = lcd_get_buf();
             for (int y = 0; y < BAND; y++) {
-                const uint16_t *src = cband + y * INDY_SCREEN_W + CROP_X;
+                const uint16_t *src = cband + y * AS1_SCREEN_W + CROP_X;
                 uint16_t *dst = b + y * 320;
                 for (int x = 0; x < 320; x++) dst[x] = pal565[src[x]];
             }
@@ -242,15 +242,15 @@ static void video_task(void *arg)
 // (Own buffers: the video task uses the others at the same time.)
 static uint32_t frame_hash(void)
 {
-    static indy_video hv;
-    static indy_mo_list hmo;
-    static uint16_t hband[INDY_SCREEN_W * BAND];
+    static as1_video hv;
+    static as1_mo_list hmo;
+    static uint16_t hband[AS1_SCREEN_W * BAND];
     memcpy(&hv, &core->v, sizeof hv);
-    indy_build_mo_list(&core->gfx, &hv, &hmo);
+    as1_build_mo_list(&core->gfx, &hv, &hmo);
     uint32_t h = 2166136261u;
-    for (int y0 = 0; y0 < INDY_SCREEN_H; y0 += BAND) {
-        indy_compose(&core->gfx, &hv, &hmo, y0, y0 + BAND, hband);
-        for (int i = 0; i < INDY_SCREEN_W * BAND; i++) h = (h ^ hband[i]) * 16777619u;
+    for (int y0 = 0; y0 < AS1_SCREEN_H; y0 += BAND) {
+        as1_compose(&core->gfx, &hv, &hmo, y0, y0 + BAND, hband);
+        for (int i = 0; i < AS1_SCREEN_W * BAND; i++) h = (h ^ hband[i]) * 16777619u;
     }
     return h;
 }
@@ -286,7 +286,7 @@ static void eeprom_save(void)
 // ----------------------------------------------------------------------------
 static void emu_task(void *arg)
 {
-    const int32_t spf = (int32_t)(AUDIO_RATE / INDY_FPS);   // ~368 samples per frame
+    const int32_t spf = (int32_t)(AUDIO_RATE / AS1_FPS);   // ~368 samples per frame
     static int16_t aux[1024];
     core->audio = aux;
     core->audio_cap = 1024;
@@ -295,15 +295,15 @@ static void emu_task(void *arg)
 
     for (;;) {
         uint8_t k = in_keys;
-        indy_inputs in = {
+        as1_inputs in = {
             .coin1 = k & K_COIN, .start = k & K_START, .button1 = k & K_B1, .button2 = k & K_B2,
             .up = k & K_UP, .down = k & K_DOWN, .left = k & K_LEFT, .right = k & K_RIGHT,
         };
-        indy_set_inputs(core, &in);
+        as1_set_inputs(core, &in);
 
         int64_t t0 = esp_timer_get_time();
         uint32_t pos0 = core->sample_pos;
-        indy_run_frame(core);
+        as1_run_frame(core);
         for (int i = 0; i < core->audio_n; i++) auxq[(pos0 + (uint32_t)i) % AUXQ] = aux[i];
         __sync_synchronize();
         emu_sample_clock = core->sample_pos;
@@ -348,8 +348,8 @@ static void copy_hot_pages(void)
     // 6502: $4000-$57FF and $FE00-$FFFF (99.7% of its instructions)
     uint8_t *s = heap_caps_malloc(0x1800 + 0x200, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (s) {
-        memcpy(s, indy_sound_rom, 0x1800);
-        memcpy(s + 0x1800, indy_sound_rom + 0xbe00, 0x200);
+        memcpy(s, as1_sound_rom, 0x1800);
+        memcpy(s + 0x1800, as1_sound_rom + 0xbe00, 0x200);
         for (int p = 0x40; p < 0x58; p++) core->snd.page_r[p] = s + (p - 0x40) * 0x100;
         for (int p = 0xfe; p <= 0xff; p++) core->snd.page_r[p] = s + 0x1800 + (p - 0xfe) * 0x100;
     }
@@ -357,7 +357,7 @@ static void copy_hot_pages(void)
     uint8_t *ram = heap_caps_malloc((size_t)n * 1024, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (!ram) { ESP_LOGW(TAG, "no RAM for hot ROM pages"); return; }
     for (int i = 0; i < n; i++) {
-        memcpy(ram + i * 1024, indy_main_rom + hot_rom_pages[i] * 1024, 1024);
+        memcpy(ram + i * 1024, as1_main_rom + hot_rom_pages[i] * 1024, 1024);
         core->main_page[hot_rom_pages[i]] = ram + i * 1024;
     }
 }
@@ -372,20 +372,20 @@ void app_main(void)
     core = heap_caps_malloc(sizeof *core, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     vsnap = heap_caps_malloc(sizeof *vsnap, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     mol = heap_caps_calloc(1, sizeof *mol, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    cband = heap_caps_malloc(INDY_SCREEN_W * BAND * 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    cband = heap_caps_malloc(AS1_SCREEN_W * BAND * 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     assert(core && vsnap && mol && cband);
     ESP_LOGI(TAG, "core %u bytes, video snapshot %u, MO list %u", (unsigned)sizeof *core,
              (unsigned)sizeof *vsnap, (unsigned)sizeof *mol);
-    indy_roms roms;
-    indy_rom_data(&roms);
-    indy_init(core, &roms, AUDIO_RATE);
+    as1_roms roms;
+    as1_rom_data(&roms);
+    as1_init(core, &roms, AUDIO_RATE);
     core->idle_skip = true;
     core->pk.approx_mute = true;         // muted POKEY: counters frozen (see pokey.h)
     core->ym_external = true;
     core->ym_write = ym_write_cb;
     core->on_frame = on_frame;
     eeprom_load();
-    ym2151_init(&ym_synth, INDY_YM_CLOCK, AUDIO_RATE);
+    ym2151_init(&ym_synth, AS1_YM_CLOCK, AUDIO_RATE);
 
 #if !defined(CYD_HEADLESS_TEST) || defined(CYD_QEMU_FULL)
     cyd_display_start(true);

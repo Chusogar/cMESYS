@@ -14,6 +14,8 @@ static uint32_t keys;
 static bool paused;
 static uint64_t next_tick, frame_ticks;
 static long frames, quit_after = -1, shot_at = -1;
+static bool held[SDL_NUM_SCANCODES];
+static int presses[32], np;
 
 bool sdl_port_open(const sdl_port_cfg *c)
 {
@@ -87,6 +89,11 @@ bool sdl_port_poll(bool *reset)
         if (e.type != SDL_KEYDOWN && e.type != SDL_KEYUP) continue;
         bool dn = e.type == SDL_KEYDOWN;
         SDL_Scancode sc = e.key.keysym.scancode;
+        if (cfg.computer) {
+            if ((unsigned)sc < SDL_NUM_SCANCODES) held[sc] = dn;
+            if (dn && !e.key.repeat && np < 32) presses[np++] = sc;
+            continue;
+        }
         if (sc == SDL_SCANCODE_ESCAPE && dn) return false;
         if (sc == SDL_SCANCODE_F3 && dn && reset) *reset = true;
         if (sc == SDL_SCANCODE_P && dn && !e.key.repeat) paused = !paused;
@@ -97,6 +104,16 @@ bool sdl_port_poll(bool *reset)
 }
 
 uint32_t sdl_port_keys(void) { return keys; }
+bool sdl_port_key(int sc) { return (unsigned)sc < SDL_NUM_SCANCODES && held[sc]; }
+int sdl_port_next_press(void)
+{
+    if (!np) return -1;
+    int k = presses[0];
+    for (int i = 1; i < np; i++) presses[i - 1] = presses[i];
+    np--;
+    return k;
+}
+void sdl_port_set_title(const char *t) { if (win) SDL_SetWindowTitle(win, t); }
 bool sdl_port_paused(void) { return paused; }
 
 void sdl_port_audio(const int16_t *s, int n)

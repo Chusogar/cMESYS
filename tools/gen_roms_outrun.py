@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Pack the OutRun (Sega, 1986, MAME set "outrun", rev B) ROMs into
+main/drivers/arcades/outrun/rom_data.c (const arrays -> ESP32 flash).
+Run by tools/regen.sh outrun.
+
+  epr-10380b.133 / 10382b.118, 10381b.132 / 10383b.117   main 68000 (even / odd)
+  epr-10327a.76 / 10329a.58, 10328a.75 / 10330a.57       sub 68000 (even / odd)
+  epr-10187.88                                            Z80
+  opr-10268.99 ... opr-10230.104                          tiles, 3 bitplanes
+  mpr-10371.9 ... mpr-10378.16                            sprites (32-bit words)
+  opr-10186.47 (= opr-10185.11)                           road
+  opr-10193.66 ... opr-10188.71                           PCM samples
+
+Tiles and road are stored decoded (tiles: 8 rows of 32 bits per 8x8 tile, pixel
+x in bits 4x..4x+2; road: MAME's 513 rows of 512 one-byte pixels).
+"""
+import os, sys, zlib
+
+ROMS = {  # name: (size, crc32)
+    "epr-10380b.133": (0x10000, 0x1f6cadad), "epr-10382b.118": (0x10000, 0xc4c3fa1a),
+    "epr-10381b.132": (0x10000, 0xbe8c412b), "epr-10383b.117": (0x10000, 0x10a2014a),
+    "epr-10327a.76": (0x10000, 0xe28a5baf), "epr-10329a.58": (0x10000, 0xda131c81),
+    "epr-10328a.75": (0x10000, 0xd5ec5e5d), "epr-10330a.57": (0x10000, 0xba9ec82a),
+    "epr-10187.88": (0x8000, 0xa10abaa9),
+    "opr-10268.99": (0x8000, 0x95344b04), "opr-10232.102": (0x8000, 0x776ba1eb),
+    "opr-10267.100": (0x8000, 0xa85bb823), "opr-10231.103": (0x8000, 0x8908bcbf),
+    "opr-10266.101": (0x8000, 0x9f6f1a74), "opr-10230.104": (0x8000, 0x686f5e50),
+    "mpr-10371.9": (0x20000, 0x7cc86208), "mpr-10373.10": (0x20000, 0xb0d26ac9),
+    "mpr-10375.11": (0x20000, 0x59b60bd7), "mpr-10377.12": (0x20000, 0x17a1b04a),
+    "mpr-10372.13": (0x20000, 0xb557078c), "mpr-10374.14": (0x20000, 0x8051e517),
+    "mpr-10376.15": (0x20000, 0xf3b8f318), "mpr-10378.16": (0x20000, 0xa1062984),
+    "opr-10186.47": (0x8000, 0x22794426), "opr-10185.11": (0x8000, 0x22794426),
+    "opr-10193.66": (0x8000, 0xbcd10dde), "opr-10192.67": (0x8000, 0x770f1270),
+    "opr-10191.68": (0x8000, 0x20a284ab), "opr-10190.69": (0x8000, 0x7cab70e2),
+    "opr-10189.70": (0x8000, 0x01366b54), "opr-10188.71": (0x8000, 0xbad30ad9),
+}
+
+
+def load(d, name):
+    p = os.path.join(d, name)
+    if not os.path.exists(p):
+        sys.exit("missing ROM: " + p)
+    data = open(p, "rb").read()
+    size, crc = ROMS[name]
+    if len(data) != size:
+        sys.exit("%s: size %d, expected %d" % (name, len(data), size))
+    if zlib.crc32(data) & 0xffffffff != crc:
+        print("warning: %s has CRC %08x, expected %08x" % (name, zlib.crc32(data) & 0xffffffff, crc))
+    return data
+
+
+def prog(d, pairs):
+    out = bytearray(0x40000)
+    for base, ev, od in pairs:
+        out[base:base + 0x20000:2] = load(d, ev)
+        out[base + 1:base + 0x20000:2] = load(d, od)
+    return out
+
+
+def main():
+    d, out = sys.argv[1], sys.argv[2]
+    main_rom = prog(d, [(0x00000, "epr-10380b.133", "epr-10382b.118"), (0x20000, "epr-10381b.132", "epr-10383b.117")])
+    sub_rom = prog(d, [(0x00000, "epr-10327a.76", "epr-10329a.58"), (0x20000, "epr-10328a.75", "epr-10330a.57")])
+    snd = load(d, "epr-10187.88")
+    gfx = b"".join(load(d, n) for n in ("opr-10268.99", "opr-10232.102", "opr-10267.100",
+                                         "opr-10231.103", "opr-10266.101", "opr-10230.104"))
+    # gfx_8x8x3_planar: planes at 2/3 (bit 2), 1/3 (bit 1), 0 (bit 0)
+    spread = [0] * 256
+    for b in range(256):
+        v = 0
+        for x in range(8):
+            if b & (0x80 >> x):
+                v |= 1 << (4 * x)
+        spread[b] = v
+    tiles = [(spread[gfx[0x20000 + i]] << 2) | (spread[gfx[0x10000 + i]] << 1) | spread[gfx[i]]
+             for i in range(0x10000)]
+    # sprites: ROM_LOAD32_BYTE into a little-endian 32-bit region
+    sp = [load(d, n) for n in ("mpr-10371.9", "mpr-10373.10", "mpr-10375.11", "mpr-10377.12",
+                               "mpr-10372.13", "mpr-10374.14", "mpr-10376.15", "mpr-10378.16")]
+    sprites = []
+    for half in range(2):
+        b0, b1, b2, b3 = sp[half * 4:half * 4 + 4]
+        sprites += [b0[i] | (b1[i] << 8) | (b2[i] << 16) | (b3[i] << 24) for i in range(0x20000)]
+    # road: as segaic16_road_outrun_decode
+    rom = load(d, "opr-10186.47") + load(d, "opr-10185.11")
+    road = bytearray((256 * 2 + 1) * 512)
+    for y in range(512):
+        src = ((y & 0xff) * 0x40 + (y >> 8) * 0x8000) % len(rom)
+        for x in range(512):
+            v = ((rom[src + (x >> 3)] >> (~x & 7)) & 1) | (((rom[src + (x >> 3) + 0x4000] >> (~x & 7)) & 1) << 1)
+            if 256 - 8 <= x < 256 and v == 3:
+                v |= 4
+            road[y * 512 + x] = v
+    for x in range(512):
+        road[512 * 512 + x] = 3
+    pcm = b"".join(load(d, n) for n in ("opr-10193.66", "opr-10192.67", "opr-10191.68",
+                                         "opr-10190.69", "opr-10189.70", "opr-10188.71"))
+
+    with open(out, "w") as f:
+        f.write("// Auto-generated by tools/gen_roms_outrun.py - OutRun ROM data\n")
+        f.write('#include "rom_data.h"\n\n')
+        for name, data in (("or_main_rom", main_rom), ("or_sub_rom", sub_rom), ("or_sound_rom", snd),
+                           ("or_road_rom", road), ("or_pcm_rom", pcm)):
+            f.write("const uint8_t %s[%d] __attribute__((aligned(4))) = {\n" % (name, len(data)))
+            for i in range(0, len(data), 32):
+                f.write("".join("%d," % b for b in data[i:i + 32]) + "\n")
+            f.write("};\n\n")
+        for name, data in (("or_tile_rom", tiles), ("or_sprite_rom", sprites)):
+            f.write("const uint32_t %s[%d] = {\n" % (name, len(data)))
+            for i in range(0, len(data), 8):
+                f.write("".join("0x%x," % v for v in data[i:i + 8]) + "\n")
+            f.write("};\n\n")
+        f.write("void or_rom_data(or_roms *r)\n{\n"
+                "    r->main = or_main_rom;\n    r->sub = or_sub_rom;\n    r->sound = or_sound_rom;\n"
+                "    r->tiles = or_tile_rom;\n    r->sprites = or_sprite_rom;\n    r->road = or_road_rom;\n"
+                "    r->pcm = or_pcm_rom;\n}\n")
+    print("OK ->", out)
+
+
+main()

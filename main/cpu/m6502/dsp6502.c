@@ -3,7 +3,8 @@
 //
 // A driver may #include this file after defining DSP6502_READ, DSP6502_WRITE
 // and DSP6502_CYCLES (user, address/value/cycles) so its handlers are called
-// directly (and inlined) instead of through the function pointers.
+// directly (and inlined) instead of through the function pointers, and
+// DSP6502_HOOK (user, cpu, budget) for a fast-forward before an instruction.
 #include "dsp6502.h"
 
 #include <string.h>
@@ -250,6 +251,14 @@ int M6502_HOT dsp6502_run(dsp6502 *c, int cycles)
             executed += c->idle(c->user, cycles - executed);
             if (executed >= cycles) break;
         }
+#ifdef DSP6502_HOOK
+        // driver hook before an instruction (a fast-forward): cycles it took
+        // the place of (0: none); the interrupts are checked again after it
+        {
+            const int n = DSP6502_HOOK(c->user, c, cycles - executed);
+            if (n) { executed += n; continue; }
+        }
+#endif
         c->ppc = c->pc;
 
 #ifdef DSP6502_PROFILE
