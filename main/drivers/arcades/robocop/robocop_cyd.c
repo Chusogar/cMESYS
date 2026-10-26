@@ -439,17 +439,25 @@ void app_main(void)
     vTaskDelay(pdMS_TO_TICKS(2500));
 #endif
     fill_rect(0, 0, 320, 240, C_BLACK);
-    draw_text_c(160, 112, "STARTING...", 2, C_YELLOW, C_BLACK);
-    lcd_flush();
+#define BOOT_MSG(msg) do { \
+        fill_rect(40, 100, 240, 40, C_BLACK); \
+        draw_text_c(160, 112, msg, 2, C_YELLOW, C_BLACK); \
+        lcd_flush(); \
+        ESP_LOGI(TAG, "boot: %s", msg); \
+    } while (0)
+    BOOT_MSG("STARTING...");
 
     DIAG_STAGE("2 PAGES       ");
+    BOOT_MSG("PAGES...");
     copy_hot_pages();
     DIAG_STAGE("3 DAC         ");
+    BOOT_MSG("AUDIO...");
     dac_audio_set_rate(AUDIO_RATE);
 #if !defined(CYD_HEADLESS_TEST) || defined(CYD_QEMU_DAC)
     dac_audio_start(AUDIO_RATE);
 #endif
     DIAG_STAGE("4 TASKS       ");
+    BOOT_MSG("TASKS...");
     frame_ready = xSemaphoreCreateBinary();
     if (!frame_ready) {
         ESP_LOGE(TAG, "frame_ready semaphore not created");
@@ -474,7 +482,8 @@ void app_main(void)
         lcd_flush();
         abort();
     }
-    // Leave STARTING... until the first composed frame overwrites it.
+    BOOT_MSG("EMU...");
+    // First composed frame overwrites this; HUD F/Q appears for ~12 s.
 #ifdef CYD_DIAG
     // Diagnostics on the screen for the first 60 s (at a high priority, so a
     // busy task on core 0 cannot hide them)

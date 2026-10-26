@@ -215,15 +215,15 @@ static void RC_HOT main_write(rc_core *c, uint32_t a, uint16_t v, uint16_t mask)
         case 0x2: memcpy(c->spritebuf, c->spriteram, sizeof c->spritebuf); break;   // sprite DMA
         case 0x4:                                                           // sound latch
             if (mask & 0x00ff) {
-                // With sound_async the board runs on another core. A full queue
-                // must not busy-spin (that froze the 68000 before the first
-                // vblank). Drain it here under the sound mutex (no samples) so
-                // progress does not depend on the audio task being runnable —
-                // e.g. while it is blocked in dac_audio_push.
-                while (!rc_sound_latch(c->sound, now(c), (uint8_t)v)) {
-                    if (!c->sound_async) rc_sound_run(c->sound, c->time);
+                // Latch events are stamped with now(c) (mid-slice). If the queue
+                // fills, draining only to c->time (slice start) leaves those
+                // events stuck forever and the 68000 never reaches vblank —
+                // CYD stays on STARTING... . Always catch up to now(c).
+                const int64_t t = now(c);
+                while (!rc_sound_latch(c->sound, t, (uint8_t)v)) {
+                    if (!c->sound_async) rc_sound_run(c->sound, t);
                     else {
-                        rc_sound_catch_up(c->sound, c->time);
+                        rc_sound_catch_up(c->sound, t);
 #ifdef ESP_PLATFORM
                         taskYIELD();
 #endif
