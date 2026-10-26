@@ -19,7 +19,7 @@
 #include "ym2610.h"
 #include "emu8950/emu8950.h"
 
-#define RC_SND_EVENTS 256
+#define RC_SND_EVENTS 512               // boot can queue many latch writes before audio catches up
 #define RC_SND_CLOCK  1500000           // 12 MHz / 8: 6502, YM2203
 
 typedef struct {
@@ -76,6 +76,10 @@ typedef struct rc_sound {
 
     bool idle_skip;
     uint32_t skipped;                   // 6502 cycles fast-forwarded
+
+#ifdef ESP_PLATFORM
+    void *lock;                         // FreeRTOS mutex: audio task <-> emu drain
+#endif
 } rc_sound;
 
 void rc_sound_init(rc_sound *s, const uint8_t *rom, const uint8_t *oki_rom, uint32_t oki_size, uint32_t sample_rate);
@@ -85,5 +89,8 @@ bool rc_sound_latch(rc_sound *s, int64_t time, uint8_t value);
 // Runs the board up to main CPU time `until`, applying the latch writes
 // before it. Samples go to s->audio (from s->audio_n on; the caller empties it).
 void rc_sound_run(rc_sound *s, int64_t until);
+// Like rc_sound_run but discards samples. Used by the 68000 thread when the
+// async event queue is full so it can make progress without racing the audio task.
+void rc_sound_catch_up(rc_sound *s, int64_t until);
 
 #endif

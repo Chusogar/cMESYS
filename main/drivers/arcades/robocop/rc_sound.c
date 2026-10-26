@@ -8,9 +8,24 @@
 
 #ifdef ESP_PLATFORM
 #include "esp_attr.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #define SND_HOT IRAM_ATTR
+static const char *SND_TAG = "rc_sound";
+static inline void snd_lock(rc_sound *s)
+{
+    if (!s->lock) s->lock = xSemaphoreCreateMutex();
+    if (s->lock) xSemaphoreTake((SemaphoreHandle_t)s->lock, portMAX_DELAY);
+}
+static inline void snd_unlock(rc_sound *s)
+{
+    if (s->lock) xSemaphoreGive((SemaphoreHandle_t)s->lock);
+}
 #else
 #define SND_HOT
+static inline void snd_lock(rc_sound *s) { (void)s; }
+static inline void snd_unlock(rc_sound *s) { (void)s; }
 #endif
 
 #define OPL_CLOCK 3000000
@@ -296,7 +311,7 @@ static void SND_HOT run_to(rc_sound *s, int64_t t)
     }
 }
 
-void rc_sound_run(rc_sound *s, int64_t until)
+static void sound_run_unlocked(rc_sound *s, int64_t until)
 {
     while (s->ev_tail != s->ev_head) {
         const rc_snd_event *e = &s->ev[s->ev_tail % RC_SND_EVENTS];
@@ -310,6 +325,27 @@ void rc_sound_run(rc_sound *s, int64_t until)
     }
     run_to(s, until);
     if (until > s->time) s->time = until;
+}
+
+void rc_sound_run(rc_sound *s, int64_t until)
+{
+    snd_lock(s);
+    sound_run_unlocked(s, until);
+    snd_unlock(s);
+}
+
+void rc_sound_catch_up(rc_sound *s, int64_t until)
+{
+    snd_lock(s);
+    int16_t *au = s->audio;
+    int cap = s->audio_cap, n = s->audio_n;
+    s->audio = NULL;
+    s->audio_cap = 0;
+    sound_run_unlocked(s, until);
+    s->audio = au;
+    s->audio_cap = cap;
+    s->audio_n = n;
+    snd_unlock(s);
 }
 
 bool rc_sound_latch(rc_sound *s, int64_t time, uint8_t value)
@@ -341,9 +377,15 @@ void rc_sound_init(rc_sound *s, const uint8_t *rom, const uint8_t *oki_rom, uint
     }
     okim6295_init(&s->oki, oki_rom, oki_size);
     s->opn = ym2203_create(RC_SND_CLOCK, (int)s->sample_rate);
+    s->opl = OPL_new(OPL_CLOCK, s->sample_rate);
+#ifdef ESP_PLATFORM
+    if (!s->opn || !s->opl) {
+        ESP_LOGE(SND_TAG, "YM2203/YM3812 alloc failed (opn=%p opl=%p)", (void *)s->opn, (void *)s->opl);
+        abort();
+    }
+#endif
     // MAME: SSG A/B/C 0.81 each, FM 0.32 (ssg_output averages the 3 channels)
     ym2610_set_gains(s->opn, 82, 622);
-    s->opl = OPL_new(OPL_CLOCK, s->sample_rate);
     OPL_setChipType(s->opl, 2);         // YM3812
     rc_sound_reset(s);
 }

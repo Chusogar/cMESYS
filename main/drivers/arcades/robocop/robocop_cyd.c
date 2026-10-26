@@ -224,6 +224,7 @@ static void on_frame(void *user, rc_core *c)
 
 static void video_task(void *arg)
 {
+    const int64_t boot_t0 = esp_timer_get_time();
     for (;;) {
         xSemaphoreTake(frame_ready, portMAX_DELAY);
         int64_t tv = esp_timer_get_time();
@@ -248,6 +249,13 @@ static void video_task(void *arg)
         video_busy = false;
         frames_shown++;
         diag_vid_frames++;
+        // First ~12 s: small HUD so a black attract/boot is distinguishable from a hang
+        if (esp_timer_get_time() - boot_t0 < 12000000) {
+            char hud[24];
+            snprintf(hud, sizeof hud, "F%u Q%u", (unsigned)diag_vid_frames,
+                     (unsigned)(core->sound->ev_head - core->sound->ev_tail));
+            draw_text(2, 2, hud, 1, C_YELLOW, C_BLACK);
+        }
         video_busy_us += (uint32_t)(esp_timer_get_time() - tv);
     }
 }
@@ -312,12 +320,23 @@ static void emu_task(void *arg)
         { static uint32_t fno; if (++fno % 300 == 0) ESP_LOGI(TAG, "HASH frame %u %08x", (unsigned)fno, (unsigned)frame_hash()); }
 #endif
         // Pace on the audio clock: stay at most ~2.5 frames ahead of the sound board.
-        while (core->time - core->sound->time > frame_time * 5 / 2) vTaskDelay(1);
+        // If audio is stuck, drain silently so we do not freeze on a black frame forever.
+        {
+            int spins = 0;
+            while (core->time - core->sound->time > frame_time * 5 / 2) {
+                if (++spins >= 50) {            // ~50 ms with HZ=1000
+                    rc_sound_catch_up(core->sound, core->time - frame_time);
+                    spins = 0;
+                }
+                vTaskDelay(1);
+            }
+        }
 
         int64_t now = esp_timer_get_time();
-        if (now - stat_t >= 5000000) {
+        const int64_t stat_period = (diag_emu_frames < 300) ? 1000000 : 5000000;
+        if (now - stat_t >= stat_period) {
             const double cyc = stat_frames * (double)RC_MAIN_CLOCK / RC_FPS + 1;
-            ESP_LOGI(TAG, "emu %.1f fps (cpu1 %.0f%%, 68000 skipped %.0f%%, 6502 skipped %.0f%%), sound %.0f%%, video %.0f%%, shown %.1f fps, underruns %u (%s), heap %u",
+            ESP_LOGI(TAG, "emu %.1f fps (cpu1 %.0f%%, 68000 skipped %.0f%%, 6502 skipped %.0f%%), sound %.0f%%, video %.0f%%, shown %.1f fps, underruns %u (%s), Q%u PC%06X heap %u",
                      stat_frames * 1e6 / (double)(now - stat_t),
                      100.0 * stat_busy / (double)(now - stat_t),
                      100.0 * (core->skipped - sk0[0]) / cyc,
@@ -326,6 +345,8 @@ static void emu_task(void *arg)
                      100.0 * video_busy_us / (double)(now - stat_t),
                      frames_shown * 1e6 / (double)(now - stat_t),
                      (unsigned)(audio_underruns - stat_under0), dac_audio_ok() ? "dac ok" : "dac OFF",
+                     (unsigned)(core->sound->ev_head - core->sound->ev_tail),
+                     (unsigned)m68k_get_reg(NULL, M68K_REG_PC),
                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
             stat_t = now; stat_frames = 0; stat_busy = 0; frames_shown = 0; stat_under0 = audio_underruns;
             audio_busy_us = 0; video_busy_us = 0;
@@ -439,9 +460,11 @@ void app_main(void)
     ESP_LOGI(TAG, "free internal heap: %u (largest %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
 
+    // Audio first so the latch queue has a consumer before the 68000 runs.
     BaseType_t ok_a = xTaskCreatePinnedToCore(audio_task, "audio", 4096, NULL, 8, NULL, 0);
     BaseType_t ok_i = xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0);
-    BaseType_t ok_v = xTaskCreatePinnedToCore(video_task, "video", 6144, NULL, 6, NULL, 0);
+    BaseType_t ok_v = xTaskCreatePinnedToCore(video_task, "video", 8192, NULL, 6, NULL, 0);
+    vTaskDelay(pdMS_TO_TICKS(20));
     BaseType_t ok_e = xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1);
     if (ok_a != pdPASS || ok_i != pdPASS || ok_v != pdPASS || ok_e != pdPASS) {
         ESP_LOGE(TAG, "task create failed a=%d i=%d v=%d e=%d heap %u",
@@ -451,6 +474,7 @@ void app_main(void)
         lcd_flush();
         abort();
     }
+    // Leave STARTING... until the first composed frame overwrites it.
 #ifdef CYD_DIAG
     // Diagnostics on the screen for the first 60 s (at a high priority, so a
     // busy task on core 0 cannot hide them)
