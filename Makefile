@@ -81,6 +81,8 @@ endif
 
 # PORT=picohost: the game's RP2040-PiZero frontend (<game>_pico.c) on the
 # desktop without a window (tools/pico_host.c), to test it without the board.
+# PORT=web: Emscripten build -> build/web/<game>.html (needs emcc; see
+# main/ports/web/Makefile and ./build_web.sh).
 ifeq ($(PORT),picohost)
   OUT   := build/picohost
   SRC   := $(patsubst %_sdl.c,%_pico.c,$(SRC))
@@ -88,6 +90,9 @@ ifeq ($(PORT),picohost)
   CFLAGS += -I$(M)/ports/rp2040-pizero
   SDL_CFLAGS :=
   SDL_LIBS :=
+else ifeq ($(PORT),web)
+  $(info Use: make -C main/ports/web GAME=$(GAME)   or ./build_web.sh)
+  $(error PORT=web is built by main/ports/web/Makefile)
 else
   PORTSRC := $(M)/ports/sdl2/sdl_port.c
 endif
