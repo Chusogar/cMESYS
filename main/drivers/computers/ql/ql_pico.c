@@ -4,20 +4,23 @@
 //
 // A USB keyboard is the QL's (Alt = ALT, Backspace = CTRL+LEFT, Delete =
 // CTRL+RIGHT, ` = pound). Not QL keys:
-//   F1   mount / unmount the cartridge built into the firmware in mdv1: the
-//        QL is reset and boots from it
+//   F1   mount / unmount the current cartridge in mdv1
+//   F9   cartridge menu (microSD .mdv list / firmware / eject)
 //   F6   the QL's F1 (F2-F5 are the QL's)     F11  view     F12  reset
+//
+// Note: PWM audio is on GP22 for the QL build (GP4 is SD MISO on this board).
 #include <stdio.h>
 #include <string.h>
 #include "pico_port.h"
 #include "ql_core.h"
+#include "ql_cart_host.h"
+#include "ql_sd.h"
 #include "ql_view.h"
 #include "rom_data.h"
 
 static uint8_t ram[QL_RAM_BLOCKS][0x8000];
 static volatile int view = QL_VIEW_FIT;
 
-// HID usage -> QL key
 static const struct { uint8_t usage, key; } keymap[] = {
     { 0x3f, QLK_F1 }, { 0x3b, QLK_F2 }, { 0x3c, QLK_F3 }, { 0x3d, QLK_F4 }, { 0x3e, QLK_F5 },
     { 0x1e, QLK_1 }, { 0x1f, QLK_2 }, { 0x20, QLK_3 }, { 0x21, QLK_4 }, { 0x22, QLK_5 },
@@ -49,25 +52,74 @@ static void render(void *user, int y, int n, uint16_t *out)
     for (int i = 0; i < n; i++) ql_view_row(v, y + i, out + i * PICO_W);
 }
 
+static void cart_menu(void)
+{
+    ql_sd_entry files[QL_SD_MAX_FILES];
+    int nfiles = 0;
+    bool sd_ok = ql_sd_mount();
+    if (sd_ok) nfiles = ql_sd_list_mdv(files, QL_SD_MAX_FILES);
+    int n = nfiles + 3, sel = 0;
+    printf("\n=== CARTRIDGE MENU (mdv1) ===\n");
+    printf("Now: %s\n", ql_cart_loaded(0) ? ql_cart_host_name() : "(empty)");
+    if (!sd_ok) printf("(no SD card)\n");
+    for (int i = 0; i < nfiles; i++) printf("  %2d  %s\n", i, files[i].name);
+    printf("  %2d  Firmware: %s\n", nfiles, ql_mdv_image ? ql_mdv_name : "(none)");
+    printf("  %2d  Eject\n", nfiles + 1);
+    printf("  %2d  Close\n", nfiles + 2);
+    printf("Arrows select, Enter confirm, Esc closes.\n> %d\n", sel);
+
+    for (;;) {
+        pico_port_poll();
+        int k;
+        while ((k = pico_port_next_press()) >= 0) {
+            if (k == 0x52) { if (sel > 0) sel--; printf("> %d\n", sel); }       // Up
+            else if (k == 0x51) { if (sel < n - 1) sel++; printf("> %d\n", sel); } // Down
+            else if (k == 0x29 || k == 0x42) return;                               // Esc / F9
+            else if (k == 0x28 || k == 0x58) {                                     // Enter
+                if (sel < nfiles) {
+                    if (ql_sd_open(files[sel].name) &&
+                        ql_cart_host_load_reader(ql_sd_read_sector, NULL, files[sel].name))
+                        printf("mdv1: %s\n", files[sel].name);
+                    else { printf("load failed\n"); ql_sd_close(); continue; }
+                } else if (sel == nfiles) {
+                    ql_sd_close();
+                    if (ql_cart_host_firmware()) printf("mdv1: %s\n", ql_mdv_name);
+                    else printf("no firmware cartridge\n");
+                } else if (sel == nfiles + 1) {
+                    ql_sd_close();
+                    ql_cart_host_eject();
+                    printf("mdv1: empty\n");
+                }
+                return;
+            }
+        }
+        // keep HDMI/USB alive
+        const int16_t *audio;
+        int ns = ql_run_frame(&audio);
+        pico_port_audio(audio, ns);
+        pico_port_frame_done();
+    }
+}
+
 static void game(void)
 {
     for (;;) {
         if (pico_port_poll()) ql_reset();
         int k;
         while ((k = pico_port_next_press()) >= 0) {
-            if (k == 0x3a && ql_mdv_image) {                 // F1: the cartridge
-                ql_mount(ql_cart_loaded(0) ? NULL : ql_mdv_image);
-                printf("mdv1: %s\n", ql_cart_loaded(0) ? ql_mdv_name : "empty");
+            if (k == 0x3a) {                                         // F1
+                ql_cart_host_toggle();
+                printf("mdv1: %s\n", ql_cart_loaded(0) ? ql_cart_host_name() : "empty");
             }
-            if (k == 0x44) view = (view + 1) % QL_VIEW_N;    // F11
-            if (k == 0x45) ql_reset();                       // F12
+            if (k == 0x42) cart_menu();                              // F9
+            if (k == 0x44) view = (view + 1) % QL_VIEW_N;            // F11
+            if (k == 0x45) ql_reset();                               // F12
         }
         ql_keys_clear();
         for (size_t i = 0; i < sizeof keymap / sizeof keymap[0]; i++)
             if (pico_port_key(keymap[i].usage)) ql_key(keymap[i].key, true);
-        if (pico_port_key(0x2a)) { ql_key(QLK_CTRL, true); ql_key(QLK_LEFT, true); }    // Backspace
-        if (pico_port_key(0x4c)) { ql_key(QLK_CTRL, true); ql_key(QLK_RIGHT, true); }   // Delete
-        // a USB pad: the cursor keys, A = SPACE, B = ENTER
+        if (pico_port_key(0x2a)) { ql_key(QLK_CTRL, true); ql_key(QLK_LEFT, true); }
+        if (pico_port_key(0x4c)) { ql_key(QLK_CTRL, true); ql_key(QLK_RIGHT, true); }
         uint32_t p = pico_port_keys();
         if (p & SP_UP) ql_key(QLK_UP, true);
         if (p & SP_DOWN) ql_key(QLK_DOWN, true);

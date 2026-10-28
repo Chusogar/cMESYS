@@ -36,6 +36,9 @@ void sdl_port_set_title(const char *title);
 void sdl_port_audio(const int16_t *samples, int n);
 // Shows a width x height 0xRRGGBB picture and waits for the next frame time.
 void sdl_port_present(const uint32_t *rgb);
+// Drag-and-drop: next dropped file path (malloc'd; caller frees), or NULL.
+char *sdl_port_next_drop(void);
+void sdl_port_queue_drop(const char *path);
 
 // Tests: SDL_PORT_FRAMES=n quits after n frames, SDL_PORT_SHOT=k saves frame
 // k as shot.ppm (with SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy).

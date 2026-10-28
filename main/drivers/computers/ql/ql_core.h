@@ -60,6 +60,9 @@ void ql_keys_clear(void);
 // Microdrive cartridges: drive 0 = mdv1, 1 = mdv2. image: a QLAY .mdv
 // (174930 bytes, kept by the caller), NULL takes the cartridge out.
 void ql_cart_insert(int drive, const uint8_t *image);
+// On-demand cartridge (SD file, etc.). fn NULL ejects. See ql_mdv_insert_reader.
+typedef int (*ql_cart_sector_fn)(void *user, unsigned sector, uint8_t dest[686]);
+void ql_cart_insert_reader(int drive, ql_cart_sector_fn fn, void *user);
 bool ql_cart_loaded(int drive);
 bool ql_cart_motor(int drive);
 // Presses F1 (monitor) at the start-up prompt after a reset: with a cartridge
@@ -70,6 +73,7 @@ bool ql_autobooting(void);
 // The MDV button: puts image in mdv1 (NULL takes it out), resets the QL and
 // boots it (ql_autoboot).
 void ql_mount(const uint8_t *image);
+void ql_mount_reader(ql_cart_sector_fn fn, void *user);
 
 // Picture: the 32 KB screen shown, the ZX8301 control register and the
 // flash phase (mode 8); zx8301_render_row() turns rows into colours.
