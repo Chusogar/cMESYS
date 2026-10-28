@@ -2,6 +2,7 @@
 #include "ql_sd.h"
 #include "ql_mdv.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -70,7 +71,26 @@ void ql_sd_unmount(void)
     mounted = false;
 }
 
-static int add_dir(const char *dir, ql_sd_entry *out, int max, int n)
+static int ext_match(const char *nm, size_t len, const char *const *exts)
+{
+    if (!exts) return 0;
+    for (int i = 0; exts[i]; i++) {
+        size_t el = strlen(exts[i]);
+        if (len < el) continue;
+        const char *a = nm + len - el, *b = exts[i];
+        int ok = 1;
+        for (size_t k = 0; k < el; k++) {
+            char ca = a[k], cb = b[k];
+            if (ca >= 'A' && ca <= 'Z') ca = (char)(ca - 'A' + 'a');
+            if (cb >= 'A' && cb <= 'Z') cb = (char)(cb - 'A' + 'a');
+            if (ca != cb) { ok = 0; break; }
+        }
+        if (ok) return 1;
+    }
+    return 0;
+}
+
+static int add_dir(const char *dir, ql_sd_entry *out, int max, int n, const char *const *exts)
 {
     DIR *d = opendir(dir);
     if (!d) return n;
@@ -78,13 +98,8 @@ static int add_dir(const char *dir, ql_sd_entry *out, int max, int n)
     while (n < max && (e = readdir(d)) != NULL) {
         const char *nm = e->d_name;
         size_t len = strlen(nm);
-        if (len < 5 || len >= QL_SD_NAME_MAX) continue;
-        // case-insensitive .mdv
-        const char *ext = nm + len - 4;
-        if (!((ext[0] == '.' ) &&
-              (ext[1] == 'm' || ext[1] == 'M') &&
-              (ext[2] == 'd' || ext[2] == 'D') &&
-              (ext[3] == 'v' || ext[3] == 'V'))) continue;
+        if (len < 2 || len >= QL_SD_NAME_MAX) continue;
+        if (!ext_match(nm, len, exts)) continue;
         snprintf(out[n].name, QL_SD_NAME_MAX, "%s", nm);
         n++;
     }
@@ -92,11 +107,12 @@ static int add_dir(const char *dir, ql_sd_entry *out, int max, int n)
     return n;
 }
 
-int ql_sd_list_mdv(ql_sd_entry *out, int max)
+int ql_sd_list_ext(ql_sd_entry *out, int max, const char *const *exts)
 {
-    if (!mounted || !out || max <= 0) return 0;
-    int n = add_dir(SD_MOUNT, out, max, 0);
-    n = add_dir(SD_MOUNT "/mdv", out, max, n);
+    if (!mounted || !out || max <= 0 || !exts) return 0;
+    int n = add_dir(SD_MOUNT, out, max, 0, exts);
+    n = add_dir(SD_MOUNT "/mdv", out, max, n, exts);
+    n = add_dir(SD_MOUNT "/tape", out, max, n, exts);
     return n;
 }
 
@@ -134,4 +150,28 @@ int ql_sd_read_sector(void *user, unsigned sector, uint8_t dest[686])
     if (!open_file || sector >= QL_MDV_SECTORS) return -1;
     if (fseek(open_file, (long)sector * QL_MDV_SECTOR_BYTES, SEEK_SET) != 0) return -1;
     return fread(dest, 1, QL_MDV_SECTOR_BYTES, open_file) == QL_MDV_SECTOR_BYTES ? 0 : -1;
+}
+
+uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
+{
+    if (out_size) *out_size = 0;
+    if (!mounted || !name || !name[0]) return NULL;
+    char path[96];
+    snprintf(path, sizeof path, SD_MOUNT "/%s", name);
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        snprintf(path, sizeof path, SD_MOUNT "/mdv/%s", name);
+        f = fopen(path, "rb");
+    }
+    if (!f) return NULL;
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return NULL; }
+    long sz = ftell(f);
+    if (sz <= 0 || sz > 8 * 1024 * 1024) { fclose(f); return NULL; }
+    rewind(f);
+    uint8_t *buf = (uint8_t *)malloc((size_t)sz);
+    if (!buf) { fclose(f); return NULL; }
+    if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) { free(buf); fclose(f); return NULL; }
+    fclose(f);
+    if (out_size) *out_size = (size_t)sz;
+    return buf;
 }

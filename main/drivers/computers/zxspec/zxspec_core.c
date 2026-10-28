@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "z80.h"
+#include "z80/z80.h"
 #include "spectrum_tape.h"
 #include "spectrum_snap.h"
 #include "ay8910.h"
@@ -533,7 +533,20 @@ bool zxspec_load_file(zxspec *m, const char *path)
         spectrum_snap_free(&snap);
         return true;
     }
-    return false;
+    /* Web upload (/zx_upload.bin) and unknown names: sniff contents. */
+    FILE *f = fopen(path, "rb");
+    if (!f) return false;
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return false; }
+    long sz = ftell(f);
+    if (sz <= 0 || sz > 8 * 1024 * 1024) { fclose(f); return false; }
+    rewind(f);
+    uint8_t *buf = (uint8_t *)malloc((size_t)sz);
+    if (!buf) { fclose(f); return false; }
+    if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) { free(buf); fclose(f); return false; }
+    fclose(f);
+    bool ok = zxspec_load_mem(m, buf, (size_t)sz, path);
+    free(buf);
+    return ok;
 }
 
 bool zxspec_load_mem(zxspec *m, const uint8_t *data, size_t n, const char *name_hint)

@@ -1,6 +1,6 @@
-# Arcades (y un Sinclair QL) para ESP32 CYD (ST7789), RP2040-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
+# Arcades y ordenadores Sinclair para ESP32 CYD (ST7789), RP2040-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
 
-Diez máquinas (nueve recreativas y el ordenador Sinclair QL) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
+Quince máquinas (nueve recreativas, el Sinclair QL y cinco ZX Spectrum / clones) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -13,18 +13,23 @@ Diez máquinas (nueve recreativas y el ordenador Sinclair QL) en un único árbo
 | Return of the Invaders (Taito, 1985) | `retofinv` | 3 x Z80 + MC68705P5 | 2 x SN76489 | dsp-cpp `retofinv.cpp` → `retofinv/rv_core.c` (detalles verificados con MAME `retofinv.cpp`) |
 | RoboCop (Data East, 1988) | `robocop` | 68000 + HuC6280 + 6502 | YM2203, YM3812, OKI M6295 | dsp-cpp `dec0.cpp` → `robocop/rc_core.c` (detalles verificados con MAME `dec0.cpp`) |
 | Sinclair QL (1984, ROM JS) — ordenador | `ql` | 68008 + 8749 (IPC) | altavoz del IPC | dsp-cpp `ql.cpp` → `drivers/computers/ql/ql_core.c` (detalles verificados con MAME `sinclair/ql.cpp`) |
+| ZX Spectrum 48K — ordenador | `spectrum48` | Z80 | beeper | dsp-cpp `spectrum.cpp` → `drivers/computers/zxspec/` |
+| ZX Spectrum 128K — ordenador | `spectrum128` | Z80 | beeper + AY-3-8912 | dsp-cpp `spectrum_128k.cpp` → `zxspec` (`-DZX_MODEL=ZX_SPEC128`) |
+| ZX Spectrum +3 — ordenador | `plus3` | Z80 | beeper + AY | dsp-cpp `spectrum_3.cpp` → `zxspec` (`ZX_PLUS3`) |
+| Pentagon — clon ZX | `pentagon` | Z80 | beeper + AY | dsp-cpp `zx_clone.cpp` → `zxspec` (`ZX_PENTAGON`) |
+| Scorpion — clon ZX | `scorpion` | Z80 | beeper + AY | dsp-cpp `zx_clone.cpp` → `zxspec` (`ZX_SCORPION`) |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
 
-Cada firmware lleva un solo juego (el del QL lleva también un cartucho de microdrive, el `.mdv` que haya en `roms/ql`). Las ROMs van dentro y cada juego configura el 68000 a su manera. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
+Cada firmware lleva una sola máquina (el del QL lleva también un cartucho de microdrive; los Spectrum cargan `.tap` / `.tzx` / `.sna` desde microSD, arrastrar-y-soltar, diálogo o barra web, igual que el menú de cartucho del QL). Las ROMs van dentro. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
 
 ## Estructura
 
 ```
 CMakeLists.txt            proyecto ESP-IDF (idf.py -DGAME=<juego> build)
 Makefile                  escritorio SDL2 (make GAME=<juego>; TARGET=windows -> .exe)
-build_all.sh              los 20 firmwares (10 máquinas x SPI 40/80 MHz) -> dist/, y los 10 de escritorio
-build_pico.sh             los 10 firmwares de la RP2040-PiZero -> dist/<juego>_rp2040_pizero.uf2
-build_web.sh              los 10 en el navegador (Emscripten) -> build/web/<juego>.html
+build_all.sh              firmwares CYD (máquinas x SPI 40/80 MHz) -> dist/, y los de escritorio
+build_pico.sh             firmwares RP2040-PiZero -> dist/<juego>_rp2040_pizero.uf2
+build_web.sh              navegador (Emscripten) -> build/web/<juego>.html
 build_windows.sh|.bat     escritorio SDL2 para Windows (MinGW) -> build/win/<juego>.exe
 partitions.csv, sdkconfig.defaults
 main/
@@ -38,11 +43,13 @@ main/
     mcs48/                MCS-48 (8035/8039/8049/8749) y UPI-41 (port de dsp-cpp / MAME)
     z80/                  Z80
   sound/                  ym2151, pokey (+pokey_poly17.inc), tms5220, sn76489, vlm5030, emu8950/ (YM3812),
-                          ym2610 (YM2610/YM2610B y YM2203), segapcm (Sega 315-5218), okim6295 (OKI M6295)
+                          ym2610 (YM2610/YM2610B y YM2203), segapcm (Sega 315-5218), okim6295 (OKI M6295),
+                          ay8910 (AY-3-8912 del Spectrum 128K / clones)
   machine/                via6522, slapstic, tc0140syt (buzón Taito 68000 <-> Z80), eeprom93c46,
                           sega_315_5195 (mapeador de memoria de Sega), taito68705 (MCU de Taito),
                           zx8302 (periféricos del QL: reloj, enlace con el IPC, interrupciones,
-                          controlador de microdrives), ql_mdv (microdrive del QL, imágenes QLAY)
+                          controlador de microdrives), ql_mdv (microdrive del QL, imágenes QLAY),
+                          spectrum_tape (.tap/.tzx), spectrum_snap (.sna)
   video/                  atari_mo (objetos móviles Atari, con las SLIP de Gauntlet), tc0180vcu (vídeo del Taito B System),
                           zx8301 (vídeo del QL: modos 4 y 8)
   drivers/arcades/
@@ -69,8 +76,11 @@ main/
   drivers/computers/
     ql/                   ql_core.c/.h (Sinclair QL), ql_view.c/.h (imagen 512x256 en 320x240),
                           ql_cyd.c, ql_sdl.c, ql_pico.c, ql_cart_host (menú de cartucho),
-                          ql_sd_esp/ql_sd_pico (microSD), rom_data.c, m68k_game_conf.h,
-                          m68k_tables.c, ql.lf
+                          ql_sd_esp/ql_sd_pico (microSD compartida con zxspec), rom_data.c,
+                          m68k_game_conf.h, m68k_tables.c, ql.lf
+    zxspec/               zxspec_core.c/.h (48K / 128K / +3 / Pentagon / Scorpion; -DZX_MODEL=…),
+                          zxspec_cyd.c, zxspec_sdl.c, zxspec_pico.c, rom_data.c, zxspec.lf
+                          (GAME=spectrum48|spectrum128|plus3|pentagon|scorpion)
   ports/
     esp32-cyd/            cyd.c/.h (LCD SPI/DMA, táctil XPT2046 y calibración, menú de ajustes en NVS,
                           diagnóstico de cuelgues, arranque), dac_audio (DAC GPIO26 asíncrono),
@@ -83,14 +93,15 @@ main/
                           que compila todos los *_sdl.c a build/web/<juego>.html; shell.html e
                           index.html
 tools/
-  regen.sh <juego>        regenera rom_data.c y m68k_tables.c del juego
+  regen.sh <juego>        regenera rom_data.c (y m68k_tables.c si aplica)
   setup_pico.sh           descarga el Pico SDK y PicoDVI (en deps/pico)
   pico_host.c             la API de la RP2040 en el PC, sin ventana: prueba los frontends *_pico.c
   pico_hot.py, pico_ram.py  manejadores del 68000 en RAM y memoria usada (RP2040)
-  gen_roms_*.{c,py}, gen_m68k_tables.c, m68k_stub.c
-roms/                     indytemp, roadrunn, atarisy1 (BIOS de Indy y Road Runner), gauntlet, outrun, snowbros, trackfld, pbobble,
-                          retofinv, robocop, ql (descomprimidas; en ql, también el cartucho .mdv)
+  gen_roms_*.{c,py}, gen_roms_zxspec.py, gen_m68k_tables.c, m68k_stub.c
+roms/                     indytemp, roadrunn, atarisy1, gauntlet, outrun, snowbros, trackfld, pbobble,
+                          retofinv, robocop, ql (.mdv), spectrum|spectrum48|… (48.rom, 128.rom, plus3-*.rom)
 ```
+
 
 Los núcleos de los juegos (`*_core.c`) no dependen de la plataforma. El frontend CYD, el SDL2, el RP2040 y el web de cada juego usan exactamente el mismo núcleo (en web se reutiliza el `*_sdl.c` con `ports/web`).
 
@@ -267,7 +278,7 @@ ESP-IDF 5.3:
 
 ```
 . $IDF_PATH/export.sh
-idf.py -B build/indytemp -DGAME=indytemp build       # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble / retofinv / robocop / ql
+idf.py -B build/indytemp -DGAME=indytemp build       # o … / ql / spectrum48 / spectrum128 / plus3 / pentagon / scorpion
 LCD_SPI_MHZ=80 idf.py -B build/indytemp-80 -DGAME=indytemp build
 ./build_all.sh                                       # todo -> dist/
 ```
@@ -277,7 +288,7 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o roadrunn / gauntlet / outrun / snowbros / trackfld / pbobble / retofinv / robocop / ql; "make all" para todos -> build/sdl/<juego>
+make GAME=indytemp        # o … / ql / spectrum48 / spectrum128 / plus3 / pentagon / scorpion; "make all" -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
 ./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ./build/sdl/gauntlet      # ROMs incluidas
@@ -311,6 +322,7 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **RoboCop**: cursores = joystick (arriba / abajo apuntan), Z ataque (disparo / puñetazo), X salto.
 - **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
 - **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta** el cartucho actual; **F9** abre el menú (abrir `.mdv` del disco con zenity/kdialog, cartucho del firmware, eyectar); también **arrastra un `.mdv`** a la ventana (en web: barra «Upload» o drag&drop). **F6** es el F1 del QL (F2-F5 los suyos), F12 reinicia. `QL_MOUNT_AT=n` pulsa F1 en el frame n.
+- **ZX Spectrum / clones** (`spectrum48`, `spectrum128`, `plus3`, `pentagon`, `scorpion`): teclado del PC = matriz Spectrum (Ctrl = Symbol Shift, cursors = Caps+5/6/7/8). **F9** menú de media (abrir `.tap`/`.tzx`/`.sna`); **F1** play/stop de cinta; F12 reset; arrastrar un fichero a la ventana (web: barra Upload). En CYD: mantener **MEDIA**/BOOT = menú microSD (raíz / `tape/` / `mdv/`); toque corto = play/stop. En RP2040: F9 lista la microSD por UART; audio PWM en GP22.
 
 Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
 
@@ -326,7 +338,7 @@ python3 -m http.server --directory build/web 8080
 # http://localhost:8080/  → index; http://localhost:8080/robocop.html
 ```
 
-Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. `?frames=n` en la URL corta tras n frames.
+Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum: barra «Upload» `.tap`/`.tzx`/`.sna`, drag&drop o F9. `?frames=n` en la URL corta tras n frames.
 
 ## RP2040-PiZero (HDMI)
 
@@ -342,6 +354,8 @@ Firmware para la [Waveshare RP2040-PiZero](https://www.waveshare.com/wiki/RP2040
 Teclas (teclado USB): `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset. Mando: cruceta o stick, A/B/X = botones 1/2/3, SELECT moneda, START start, SELECT+START reset. Cada juego usa los mismos botones que en el escritorio. En la imagen: los de 336 de ancho (Indy, Road Runner, Gauntlet) muestran las 320 columnas centrales; Return of the Invaders (224x288, vertical) quita una de cada 6 líneas; el resto va centrado.
 
 **Sinclair QL**: el teclado USB es el del QL (Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1** monta / desmonta el cartucho actual; **F9** abre el menú (microSD FAT: `.mdv` en la raíz; cartucho del firmware; eyectar) por el UART. **F6** es el F1 del QL, F11 cambia la vista, F12 reinicia. Audio PWM en GP22 (GP4 es MISO de la SD). Mando: cursores, A = ESPACIO, B = ENTER.
+
+**ZX Spectrum / clones**: teclado USB = matriz Spectrum. **F1** tape play/stop, **F9** menú microSD (`.tap`/`.tzx`/`.sna`), F12 reset. Audio PWM en GP22 (misma SD que el QL). Mando = Kempston.
 
 ### Compilar y flashear
 
@@ -393,6 +407,8 @@ Return of the Invaders usa el set de MAME `retofinv`: `a37__01.ic72` ... `a37__0
 RoboCop usa el set de MAME `robocop` (World, revision 4): `ep05-4.11c`, `ep01-4.11b`, `ep04-3`, `ep00-3` (68000), `ep03-3` (6502), `en_24_mb7124e.a2` (HuC6280), `ep02` (OKI) y `ep06` ... `ep23` (gráficos) en `roms/robocop/` (`tools/gen_roms_robocop.py` comprueba tamaños y CRC; las PROM no hacen falta).
 
 El Sinclair QL usa el set de MAME `ql` (ROM JS): `ql.js 0000.ic33`, `ql.js 8000.ic34` e `ipc8049.ic24` en `roms/ql/`, más el cartucho que se quiera llevar en el firmware: el primer `*.mdv` (imagen QLAY de 174930 bytes) de `roms/ql/` (`tools/gen_roms_ql.py` comprueba tamaños y CRC; `python3 tools/gen_roms_ql.py roms/ql main/drivers/computers/ql/rom_data.c otro.mdv` elige otro).
+
+Los ZX Spectrum / clones comparten `main/drivers/computers/zxspec/` (`tools/regen.sh spectrum48` …). Coloca `48.rom` (16 KB) y, para 128K/clones, `128.rom` (32 KB) o `128-0.rom`+`128-1.rom`; para +3, `plus3-0.rom`…`plus3-3.rom` (64 KB) en `roms/spectrum48` (o `roms/spectrum` / `roms/<GAME>`). Sin ROMs reales el árbol compila con stubs (pantalla negra / sin BASIC).
 
 Puzzle Bobble usa el set de MAME `pbobble` (Taito B System, versión japonesa): `pb-ic18.ic18`, `pb-ic2.ic2`, `pb-ic27.ic27`, `pb-ic14.ic14`, `pb-ic9.ic9`, `pb-ic15.ic15` en `roms/pbobble/` (el script comprueba tamaños y CRC). No sirve el Puzzle Bobble de Neo Geo.
 

@@ -5,7 +5,8 @@
 #   cmake --build build/pico-robocop -j                   -> build/pico-robocop/robocop_pizero.uf2
 #
 # or ./build_pico.sh for all of them (-> dist/). GAME: indytemp, roadrunn,
-# gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql.
+# gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql,
+# spectrum48, spectrum128, plus3, pentagon, scorpion.
 cmake_minimum_required(VERSION 3.13)
 
 get_filename_component(PORT_DIR "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
@@ -27,15 +28,21 @@ endif()
 pico_sdk_init()
 
 if(NOT GAME)
-    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|ql>")
+    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|ql|spectrum48|spectrum128|plus3|pentagon|scorpion>")
 endif()
 if(NOT EXISTS "${PICO_DEPS}/PicoDVI/software/libdvi")
     message(FATAL_ERROR "${PICO_DEPS}/PicoDVI is missing: run tools/setup_pico.sh first")
 endif()
 add_subdirectory(${PICO_DEPS}/PicoDVI/software/libdvi ${CMAKE_BINARY_DIR}/libdvi)
 
+set(ZX_GAMES spectrum48 spectrum128 plus3 pentagon scorpion)
+set(IS_ZXSPEC 0)
+set(QL_DIR ${M}/drivers/computers/ql)
 if(GAME STREQUAL "ql")
     set(D ${M}/drivers/computers/${GAME})
+elseif(GAME IN_LIST ZX_GAMES)
+    set(D ${M}/drivers/computers/zxspec)
+    set(IS_ZXSPEC 1)
 else()
     set(D ${M}/drivers/arcades/${GAME})
 endif()
@@ -99,6 +106,23 @@ elseif(GAME STREQUAL "ql")
     set(RAM_CODE m68kcpu.c.o mcs48.c.o ql_core.c.o zx8302.c.o ql_mdv.c.o)
     # SD MISO is GP4; move PWM audio off that pin for the QL build.
     set(QL_AUDIO_PIN 22)
+elseif(IS_ZXSPEC)
+    set(SRCS ${D}/zxspec_pico.c ${D}/zxspec_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c
+             ${M}/cpu/z80/z80.c ${M}/machine/spectrum_tape.c ${M}/machine/spectrum_snap.c ${M}/sound/ay8910.c)
+    if(GAME STREQUAL "spectrum48")
+        set(DEFS ZX_MODEL=ZX_SPEC48)
+    elseif(GAME STREQUAL "spectrum128")
+        set(DEFS ZX_MODEL=ZX_SPEC128)
+    elseif(GAME STREQUAL "plus3")
+        set(DEFS ZX_MODEL=ZX_PLUS3)
+    elseif(GAME STREQUAL "pentagon")
+        set(DEFS ZX_MODEL=ZX_PENTAGON)
+    else()
+        set(DEFS ZX_MODEL=ZX_SCORPION)
+    endif()
+    set(RAM_CODE z80.c.o zxspec_core.c.o spectrum_tape.c.o ay8910.c.o)
+    # Same SD MISO conflict as QL: keep PWM audio on GP22.
+    set(QL_AUDIO_PIN 22)
 else()
     message(FATAL_ERROR "Unknown GAME '${GAME}'")
 endif()
@@ -114,8 +138,8 @@ endif()
 
 set(EXE ${GAME}_pizero)
 add_executable(${EXE} ${SRCS} ${PORT_DIR}/pico_port.c)
-target_include_directories(${EXE} PRIVATE ${PORT_DIR} ${D} ${AS1} ${M}/cpu ${M}/cpu/m68k ${M}/cpu/m6502
-    ${M}/cpu/mc6809 ${M}/cpu/mcs48 ${M}/sound ${M}/machine ${M}/video)
+target_include_directories(${EXE} PRIVATE ${PORT_DIR} ${D} ${AS1} ${QL_DIR} ${M}/cpu ${M}/cpu/m68k ${M}/cpu/m6502
+    ${M}/cpu/mc6809 ${M}/cpu/mcs48 ${M}/cpu/z80 ${M}/sound ${M}/machine ${M}/video)
 math(EXPR NBUF "${BAND} + 2")
 target_compile_definitions(${EXE} PRIVATE ${DEFS} NDEBUG PICO_BAND=${BAND}
     DVI_VERTICAL_REPEAT=2 DVI_N_TMDS_BUFFERS=${NBUF}

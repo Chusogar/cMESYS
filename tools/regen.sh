@@ -1,13 +1,18 @@
 #!/bin/sh
 # Regenerates a game's generated sources (ROMs as C arrays, Musashi tables):
 #   tools/regen.sh indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | ql
+#                  | spectrum48 | spectrum128 | plus3 | pentagon | scorpion
 # ROMs: roms/indytemp or roms/roadrunn + roms/atarisy1, roms/snowbros, roms/trackfld, roms/pbobble, roms/gauntlet, roms/outrun, roms/retofinv, roms/robocop (unzipped),
-# roms/ql (the QL set unzipped + the .mdv cartridge to build in).
+# roms/ql (the QL set unzipped + the .mdv cartridge to build in),
+# roms/spectrum or roms/<game> (48.rom / 128.rom / plus3-*.rom …).
 set -e
 G=$1
 M=main
 D=$M/drivers/arcades/$G
-[ "$G" = ql ] && D=$M/drivers/computers/$G
+case $G in
+ql) D=$M/drivers/computers/$G ;;
+spectrum48|spectrum128|plus3|pentagon|scorpion) D=$M/drivers/computers/zxspec ;;
+esac
 T=${TMPDIR:-/tmp}/arcade_regen
 mkdir -p $T
 AS1=$M/drivers/arcades/atarisy1
@@ -41,11 +46,17 @@ robocop)
 ql)
     python3 tools/gen_roms_ql.py roms/ql $D/rom_data.c
     CYC=0 ;;
+spectrum48|spectrum128|plus3|pentagon|scorpion)
+    ROMDIR=roms/$G
+    [ -d "$ROMDIR" ] || ROMDIR=roms/spectrum
+    [ -d "$ROMDIR" ] || ROMDIR=roms/zxspectrum
+    python3 tools/gen_roms_zxspec.py "$ROMDIR" $D/rom_data.c $G
+    exit 0 ;;
 trackfld)
     cc -O2 -o $T/gen_roms tools/gen_roms_trackfld.c
     $T/gen_roms roms/trackfld $D/rom_data.c
     exit 0 ;;
-*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|ql"; exit 1 ;;
+*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|ql|spectrum48|spectrum128|plus3|pentagon|scorpion"; exit 1 ;;
 esac
 # Musashi opcode tables in flash, for this game's CPU type
 cc -O1 -w -I$D -I$M/cpu/m68k -DCYC_CPU=$CYC -o $T/gen_m68k tools/gen_m68k_tables.c $M/cpu/m68k/m68kcpu.c \

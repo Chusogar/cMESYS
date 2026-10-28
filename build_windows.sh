@@ -16,7 +16,7 @@
 set -e
 cd "$(dirname "$0")"
 
-GAMES=${*:-"indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop ql"}
+GAMES=${*:-"indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop ql spectrum48 spectrum128 plus3 pentagon scorpion"}
 
 # Prefer an already-MinGW gcc (MSYS2), else the Linux/macOS cross compiler.
 if [ -z "$CC" ]; then
