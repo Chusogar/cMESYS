@@ -1,15 +1,24 @@
-# Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop)
-# or computer (GAME: ql).
+# Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros,
+# trackfld, pbobble, retofinv, robocop) or computer (GAME: ql, spectrum48, spectrum128,
+# plus3, pentagon, scorpion — Spectrum family shares drivers/computers/zxspec).
 idf_build_get_property(GAME GAME)
+set(ZX_GAMES spectrum48 spectrum128 plus3 pentagon scorpion)
+set(IS_ZXSPEC 0)
 if(GAME STREQUAL "ql")
     set(D drivers/computers/${GAME})
+elseif(GAME IN_LIST ZX_GAMES)
+    set(D drivers/computers/zxspec)
+    set(IS_ZXSPEC 1)
 else()
     set(D drivers/arcades/${GAME})
 endif()
 set(AS1 drivers/arcades/atarisy1)
+set(QL_DIR drivers/computers/ql)
 set(PORT ports/esp32-cyd/cyd.c ports/esp32-cyd/dac_audio.c ports/esp32-cyd/nunchuk.c)
 set(M68K cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c)
 set(QL_SD_REQ)
+set(LF_FILE ${D}/${GAME}.lf)
+set(EXTRA_INCLUDES)
 
 if(GAME STREQUAL "indytemp")
     # Atari System 1 core shared with roadrunn (cpu/m6502/dsp6502.c is compiled inside it)
@@ -56,16 +65,33 @@ elseif(GAME STREQUAL "ql")
              cpu/mcs48/mcs48.c machine/zx8302.c machine/ql_mdv.c video/zx8301.c)
     set(DEFS M68K_FLASH_TABLES)
     set(QL_SD_REQ fatfs sdmmc)
+elseif(IS_ZXSPEC)
+    set(SRCS ${D}/zxspec_cyd.c ${D}/zxspec_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_esp.c
+             cpu/z80/z80.c machine/spectrum_tape.c machine/spectrum_snap.c sound/ay8910.c)
+    if(GAME STREQUAL "spectrum48")
+        set(DEFS ZX_MODEL=ZX_SPEC48)
+    elseif(GAME STREQUAL "spectrum128")
+        set(DEFS ZX_MODEL=ZX_SPEC128)
+    elseif(GAME STREQUAL "plus3")
+        set(DEFS ZX_MODEL=ZX_PLUS3)
+    elseif(GAME STREQUAL "pentagon")
+        set(DEFS ZX_MODEL=ZX_PENTAGON)
+    else()
+        set(DEFS ZX_MODEL=ZX_SCORPION)
+    endif()
+    set(QL_SD_REQ fatfs sdmmc)
+    set(LF_FILE ${D}/zxspec.lf)
+    set(EXTRA_INCLUDES ${QL_DIR})
 else()
-    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql)")
+    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql, spectrum48, spectrum128, plus3, pentagon, scorpion)")
 endif()
 
 idf_component_register(
     SRCS ${SRCS} ${PORT}
-    INCLUDE_DIRS ${D} ${AS1} ports/esp32-cyd cpu cpu/m68k cpu/m6502 cpu/mc6809 cpu/mcs48 sound machine video
+    INCLUDE_DIRS ${D} ${AS1} ${EXTRA_INCLUDES} ports/esp32-cyd cpu cpu/m68k cpu/m6502 cpu/mc6809 cpu/mcs48 cpu/z80 sound machine video
     REQUIRES esp_driver_i2c esp_system xtensa esp_lcd esp_driver_spi esp_driver_gpio esp_driver_dac
              esp_driver_uart nvs_flash esp_timer ${QL_SD_REQ}
-    LDFRAGMENTS ${D}/${GAME}.lf)
+    LDFRAGMENTS ${LF_FILE})
 target_compile_definitions(${COMPONENT_LIB} PRIVATE ${DEFS} NDEBUG)
 target_compile_options(${COMPONENT_LIB} PRIVATE -O2 -Wno-unused-variable -Wno-maybe-uninitialized -Wno-uninitialized
     -Wno-unused-function -Wno-implicit-fallthrough -Wno-unused-but-set-variable -Wno-sign-compare -Wno-type-limits

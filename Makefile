@@ -1,8 +1,9 @@
 # Desktop (SDL2) builds of the arcade drivers, from the same sources as the
 # ESP32 CYD firmware.
 #
-#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | ql)  -> build/sdl/<game>
-#                             (ql: the Sinclair QL computer, in main/drivers/computers/ql)
+#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | ql
+#                             | spectrum48 | spectrum128 | plus3 | pentagon | scorpion)  -> build/sdl/<game>
+#                             (ql / spectrum*: computers in main/drivers/computers/)
 #   make TARGET=windows ...   same, but MinGW -> build/win/<game>.exe  (see ./build_windows.sh)
 #   make all                  all of them
 #   make clean
@@ -15,8 +16,11 @@ CC      ?= gcc
 OUT     := build/sdl
 EXE     :=
 M       := main
+ZX_GAMES := spectrum48 spectrum128 plus3 pentagon scorpion
 ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
+else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
+  D     := $(M)/drivers/computers/zxspec
 else
   D     := $(M)/drivers/arcades/$(GAME)
 endif
@@ -24,7 +28,7 @@ AS1     := $(M)/drivers/arcades/atarisy1
 
 CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-maybe-uninitialized
 CFLAGS  += -std=gnu11 -I$(D) -I$(AS1) -I$(M)/ports/sdl2 -I$(M)/cpu -I$(M)/cpu/m68k -I$(M)/cpu/m6502 \
-           -I$(M)/cpu/mc6809 -I$(M)/cpu/mcs48 -I$(M)/sound -I$(M)/machine -I$(M)/video
+           -I$(M)/cpu/mc6809 -I$(M)/cpu/mcs48 -I$(M)/cpu/z80 -I$(M)/sound -I$(M)/machine -I$(M)/video
 
 # SDL2: sdl2-config by default; override with SDL_CFLAGS / SDL_LIBS or SDL2DIR.
 SDL2_CONFIG ?= sdl2-config
@@ -111,8 +115,28 @@ else ifeq ($(GAME),ql)
   SRC  := $(D)/ql_sdl.c $(D)/ql_core.c $(D)/ql_view.c $(D)/ql_cart_host.c $(D)/rom_data.c $(M68K) $(M)/cpu/mcs48/mcs48.c \
           $(M)/machine/zx8302.c $(M)/machine/ql_mdv.c $(M)/video/zx8301.c
   DEFS :=
+else ifeq ($(GAME),spectrum48)
+  SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
+          $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
+  DEFS := -DZX_MODEL=ZX_SPEC48
+else ifeq ($(GAME),spectrum128)
+  SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
+          $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
+  DEFS := -DZX_MODEL=ZX_SPEC128
+else ifeq ($(GAME),plus3)
+  SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
+          $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
+  DEFS := -DZX_MODEL=ZX_PLUS3
+else ifeq ($(GAME),pentagon)
+  SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
+          $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
+  DEFS := -DZX_MODEL=ZX_PENTAGON
+else ifeq ($(GAME),scorpion)
+  SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
+          $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
+  DEFS := -DZX_MODEL=ZX_SCORPION
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop or ql)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql, spectrum48, spectrum128, plus3, pentagon or scorpion)
 endif
 
 # PORT=picohost: the game's RP2040-PiZero frontend (<game>_pico.c) on the
@@ -123,7 +147,11 @@ ifeq ($(PORT),picohost)
   OUT   := build/picohost
   SRC   := $(patsubst %_sdl.c,%_pico.c,$(SRC))
   PORTSRC := tools/pico_host.c
-  CFLAGS += -I$(M)/ports/rp2040-pizero
+  CFLAGS += -I$(M)/ports/rp2040-pizero -I$(M)/drivers/computers/ql
+  # microSD is board-only; stub the API so ql / zxspec *_pico.c link on the host.
+  ifneq ($(filter $(GAME),ql $(ZX_GAMES)),)
+    PORTSRC += tools/ql_sd_host_stub.c
+  endif
   SDL_CFLAGS :=
   SDL_LIBS :=
 else ifeq ($(PORT),web)
@@ -148,6 +176,11 @@ all:
 	$(MAKE) GAME=retofinv TARGET=$(TARGET)
 	$(MAKE) GAME=robocop TARGET=$(TARGET)
 	$(MAKE) GAME=ql TARGET=$(TARGET)
+	$(MAKE) GAME=spectrum48 TARGET=$(TARGET)
+	$(MAKE) GAME=spectrum128 TARGET=$(TARGET)
+	$(MAKE) GAME=plus3 TARGET=$(TARGET)
+	$(MAKE) GAME=pentagon TARGET=$(TARGET)
+	$(MAKE) GAME=scorpion TARGET=$(TARGET)
 
 clean:
 	rm -rf $(OUT)

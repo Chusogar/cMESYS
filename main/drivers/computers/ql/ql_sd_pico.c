@@ -4,6 +4,7 @@
 #include "ql_sd.h"
 #include "ql_mdv.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "pico/stdlib.h"
 #include "hardware/spi.h"
@@ -193,14 +194,39 @@ void ql_sd_unmount(void)
     mounted = false;
 }
 
-static int scan_dir_sector(uint32_t lba, ql_sd_entry *out, int max, int n)
+static int ext_match83(const uint8_t *e, const char *const *exts)
+{
+    char ext[5] = {0};
+    int k = 0;
+    ext[k++] = '.';
+    for (int j = 8; j < 11 && e[j] != ' ' && k < 4; j++) {
+        char c = (char)e[j];
+        if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+        ext[k++] = c;
+    }
+    if (!exts) return 0;
+    for (int i = 0; exts[i]; i++) {
+        char want[5];
+        size_t n = strlen(exts[i]);
+        if (n >= sizeof want) continue;
+        for (size_t j = 0; j <= n; j++) {
+            char c = exts[i][j];
+            if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+            want[j] = c;
+        }
+        if (strcmp(ext, want) == 0) return 1;
+    }
+    return 0;
+}
+
+static int scan_dir_sector(uint32_t lba, ql_sd_entry *out, int max, int n, const char *const *exts)
 {
     if (sd_read_block(lba, sector_buf) != 0) return n;
     for (int i = 0; i < 16 && n < max; i++) {
         const uint8_t *e = sector_buf + i * 32;
         if (e[0] == 0x00) return n;
         if (e[0] == 0xe5 || (e[11] & 0x08) || (e[11] & 0x10)) continue;
-        if (e[8] != 'M' || e[9] != 'D' || e[10] != 'V') continue;
+        if (!ext_match83(e, exts)) continue;
         char nm[13];
         int k = 0;
         for (int j = 0; j < 8 && e[j] != ' '; j++) nm[k++] = (char)e[j];
@@ -213,17 +239,16 @@ static int scan_dir_sector(uint32_t lba, ql_sd_entry *out, int max, int n)
     return n;
 }
 
-int ql_sd_list_mdv(ql_sd_entry *out, int max)
+int ql_sd_list_ext(ql_sd_entry *out, int max, const char *const *exts)
 {
-    if (!mounted || !out || max <= 0) return 0;
+    if (!mounted || !out || max <= 0 || !exts) return 0;
     int n = 0;
     if (!fat32) {
         uint32_t root = data_start - root_secs;
         for (uint32_t s = 0; s < root_secs && n < max; s++)
-            n = scan_dir_sector(root + s, out, max, n);
+            n = scan_dir_sector(root + s, out, max, n, exts);
         return n;
     }
-    // FAT32 root cluster at BPB offset 44
     if (sd_read_block(0, sector_buf) != 0) return 0;
     if (sector_buf[0] != 0xeb && sector_buf[0] != 0xe9) {
         uint32_t bpb = u32(sector_buf + 446 + 8);
@@ -232,7 +257,7 @@ int ql_sd_list_mdv(ql_sd_entry *out, int max)
     uint32_t cl = u32(sector_buf + 44);
     while (cl >= 2 && cl < 0x0ffffff8 && n < max) {
         for (uint8_t s = 0; s < spc && n < max; s++)
-            n = scan_dir_sector((uint32_t)cluster_lba(cl) + s, out, max, n);
+            n = scan_dir_sector((uint32_t)cluster_lba(cl) + s, out, max, n, exts);
         cl = next_cluster(cl);
     }
     return n;
@@ -325,4 +350,68 @@ int ql_sd_read_sector(void *user, unsigned sector, uint8_t dest[686])
     }
     file_pos = want + QL_MDV_SECTOR_BYTES;
     return 0;
+}
+
+uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
+{
+    if (out_size) *out_size = 0;
+    if (!mounted || !name) return NULL;
+    char want[11];
+    make83(name, want);
+    ql_sd_close();
+    uint32_t root = data_start - root_secs, nsec = root_secs, cl = 0;
+    if (fat32) {
+        if (sd_read_block(0, sector_buf) != 0) return NULL;
+        if (sector_buf[0] != 0xeb && sector_buf[0] != 0xe9) {
+            uint32_t bpb = u32(sector_buf + 446 + 8);
+            if (sd_read_block(bpb, sector_buf) != 0) return NULL;
+        }
+        cl = u32(sector_buf + 44);
+    }
+    int found = 0;
+    for (;;) {
+        uint32_t lba, count;
+        if (!fat32) { lba = root; count = nsec; }
+        else {
+            if (cl < 2 || cl >= 0x0ffffff8) break;
+            lba = (uint32_t)cluster_lba(cl); count = spc;
+        }
+        for (uint32_t s = 0; s < count && !found; s++) {
+            if (sd_read_block(lba + s, sector_buf) != 0) return NULL;
+            for (int i = 0; i < 16; i++) {
+                const uint8_t *e = sector_buf + i * 32;
+                if (e[0] == 0x00) return NULL;
+                if (e[0] == 0xe5 || (e[11] & 0x18)) continue;
+                if (memcmp(e, want, 11) != 0) continue;
+                file_size = u32(e + 28);
+                file_start_cluster = fat32 ? (u16(e + 20) << 16) | u16(e + 26) : u16(e + 26);
+                file_open = true;
+                found = 1;
+                break;
+            }
+        }
+        if (found || !fat32) break;
+        cl = next_cluster(cl);
+    }
+    if (!found) return NULL;
+    if (file_size == 0 || file_size > 8 * 1024 * 1024) { ql_sd_close(); return NULL; }
+    uint8_t *buf = (uint8_t *)malloc(file_size);
+    if (!buf) { ql_sd_close(); return NULL; }
+    /* Read whole file via 686-sized path is wrong; read by 512. */
+    uint32_t cl = file_start_cluster, left = file_size;
+    uint8_t *out = buf;
+    uint32_t skip = 0;
+    while (left) {
+        uint32_t lba = (uint32_t)cluster_lba(cl) + (skip / 512);
+        if (sd_read_block(lba, sector_buf) != 0) { free(buf); ql_sd_close(); return NULL; }
+        uint32_t off = skip % 512;
+        uint32_t n = 512 - off;
+        if (n > left) n = left;
+        memcpy(out, sector_buf + off, n);
+        out += n; left -= n; skip += n;
+        if (skip >= (uint32_t)spc * 512) { skip = 0; cl = next_cluster(cl); if (cl < 2 && left) { free(buf); ql_sd_close(); return NULL; } }
+    }
+    ql_sd_close();
+    if (out_size) *out_size = file_size;
+    return buf;
 }
