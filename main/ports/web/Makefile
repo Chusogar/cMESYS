@@ -76,9 +76,13 @@ else ifeq ($(GAME),robocop)
           $(M)/sound/emu8950/emu8950.c $(M)/sound/emu8950/emuadpcm.c
   DEFS :=
 else ifeq ($(GAME),ql)
-  SRC  := $(D)/ql_sdl.c $(D)/ql_core.c $(D)/ql_view.c $(D)/rom_data.c $(M68K) $(M)/cpu/mcs48/mcs48.c \
+  SRC  := $(D)/ql_sdl.c $(D)/ql_core.c $(D)/ql_view.c $(D)/ql_cart_host.c $(D)/rom_data.c $(M68K) $(M)/cpu/mcs48/mcs48.c \
           $(M)/machine/zx8302.c $(M)/machine/ql_mdv.c $(M)/video/zx8301.c
   DEFS :=
+  # MEMFS upload + exported notify for the cartridge menu / drag-drop shell.
+  LDFLAGS += -sFORCE_FILESYSTEM=1 \
+             "-sEXPORTED_FUNCTIONS=['_main','_ql_web_notify_upload']" \
+             "-sEXPORTED_RUNTIME_METHODS=['FS']"
 else
   $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop or ql)
 endif

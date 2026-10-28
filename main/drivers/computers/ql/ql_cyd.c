@@ -13,11 +13,10 @@
 //     MDV   | F1    | F2    | VIEW
 //     LEFT  | UP    | DOWN  | RIGHT
 //     ESC   | SPACE | ENTER | F3
-// MDV (or the BOOT button) mounts / unmounts the cartridge built into the
-// firmware in mdv1: the QL is reset and boots from it (the red LED shows the
-// microdrive motor). Nunchuk: stick = cursor keys, Z = ENTER, C = SPACE,
-// C+Z = ESC. Serial (115200): type on the QL keyboard (arrows, ESC, ESC O P..S
-// = F1..F4, Backspace = CTRL+LEFT).
+// MDV short tap (or BOOT): mount / unmount the current cartridge in mdv1.
+// MDV long-press: cartridge menu (microSD .mdv list, firmware, eject).
+// The red LED shows the microdrive motor. Nunchuk: stick = cursor keys,
+// Z = ENTER, C = SPACE, C+Z = ESC. Serial (115200): type on the QL keyboard.
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -34,6 +33,8 @@
 #include "dac_audio.h"
 #include "nunchuk.h"
 #include "ql_core.h"
+#include "ql_cart_host.h"
+#include "ql_sd.h"
 #include "ql_view.h"
 #include "rom_data.h"
 
@@ -45,7 +46,8 @@ static const char *TAG = "ql";
 // ----------------------------------------------------------------------------
 static volatile int view = QL_VIEW_FIT;
 static volatile uint8_t in_keys[8];          // QL matrix from the input task
-static volatile bool mount_req;               // MDV / BOOT pressed
+static volatile bool mount_req;               // MDV / BOOT short press
+static volatile bool cart_menu_req;           // MDV long-press: SD / firmware menu
 static volatile bool help_req;                // show the zones
 static volatile bool full_redraw;
 static char toast[40];
@@ -90,9 +92,91 @@ static void draw_help(void)
         }
     draw_text_c(160, 4, "SINCLAIR QL - TOUCH ZONES", 1, C_YELLOW, C_DGREY);
     char s[48];
-    snprintf(s, sizeof s, "MDV: %s", ql_mdv_image ? ql_mdv_name : "(none)");
+    snprintf(s, sizeof s, "MDV: %s (hold=menu)", ql_cart_loaded(0) ? ql_cart_host_name() :
+             (ql_mdv_image ? ql_mdv_name : "(none)"));
     draw_text_c(160, 230, s, 1, C_YELLOW, C_DGREY);
     lcd_flush();
+}
+
+// Cartridge picker (microSD + firmware). Runs on the video task.
+static void run_cart_menu(void)
+{
+    ql_sd_entry files[QL_SD_MAX_FILES];
+    int nfiles = 0;
+    bool sd_ok = ql_sd_mount();
+    if (sd_ok) nfiles = ql_sd_list_mdv(files, QL_SD_MAX_FILES);
+    // items: [0..nfiles) SD files, then firmware, eject, close
+    int n = nfiles + 3;
+    int sel = 0, scroll = 0;
+    const int visible = 8;
+    for (;;) {
+        fill_rect(0, 0, 320, 240, C_BLACK);
+        draw_text_c(160, 4, "CARTRIDGE (mdv1)", 1, C_YELLOW, C_BLACK);
+        char cur[48];
+        snprintf(cur, sizeof cur, "Now: %s", ql_cart_loaded(0) ? ql_cart_host_name() : "(empty)");
+        draw_text_c(160, 16, cur, 1, C_CYAN, C_BLACK);
+        if (!sd_ok) draw_text_c(160, 28, "No SD card (FAT32)", 1, C_RED, C_BLACK);
+        else if (!nfiles) draw_text_c(160, 28, "No .mdv in SD root /mdv", 1, C_GREY, C_BLACK);
+        else draw_text_c(160, 28, "SD: tap a .mdv to boot", 1, C_GREY, C_BLACK);
+
+        if (sel < scroll) scroll = sel;
+        if (sel >= scroll + visible) scroll = sel - visible + 1;
+        for (int i = 0; i < visible; i++) {
+            int idx = scroll + i;
+            if (idx >= n) break;
+            char label[40];
+            if (idx < nfiles) snprintf(label, sizeof label, "%.36s", files[idx].name);
+            else if (idx == nfiles) snprintf(label, sizeof label, "Firmware: %.24s",
+                                            ql_mdv_image ? ql_mdv_name : "(none)");
+            else if (idx == nfiles + 1) snprintf(label, sizeof label, "Eject mdv1");
+            else snprintf(label, sizeof label, "Close");
+            uint16_t bg = (idx == sel) ? rgb565(40, 90, 160) : C_DGREY;
+            fill_rect(20, 44 + i * 22, 280, 20, bg);
+            draw_text(28, 48 + i * 22, label, 1, C_WHITE, bg);
+        }
+        draw_text_c(160, 228, "UP/DOWN select  ENTER load  ESC close", 1, C_YELLOW, C_BLACK);
+        lcd_flush();
+
+        // Wait for a tap (or nunchuk / serial is not wired here — touch only)
+        int x = 0, y = 0;
+        while (!touch_get(&x, &y)) vTaskDelay(pdMS_TO_TICKS(20));
+        int row = (y - 44) / 22;
+        if (y >= 44 && row >= 0 && row < visible) {
+            int idx = scroll + row;
+            if (idx >= n) {
+                while (touch_get(&x, &y)) vTaskDelay(pdMS_TO_TICKS(20));
+                continue;
+            }
+            sel = idx;
+            while (touch_get(&x, &y)) vTaskDelay(pdMS_TO_TICKS(20));
+            if (sel < nfiles) {
+                if (ql_sd_open(files[sel].name) &&
+                    ql_cart_host_load_reader(ql_sd_read_sector, NULL, files[sel].name)) {
+                    show_toast(files[sel].name);
+                } else {
+                    show_toast("SD load failed");
+                    ql_sd_close();
+                    continue;
+                }
+            } else if (sel == nfiles) {
+                ql_sd_close();
+                if (!ql_cart_host_firmware()) { show_toast("No firmware cart"); continue; }
+                show_toast(ql_mdv_name);
+            } else if (sel == nfiles + 1) {
+                ql_sd_close();
+                ql_cart_host_eject();
+                show_toast("MDV1: EJECTED");
+            }
+            full_redraw = true;
+            return;
+        } else if (y > 220) {
+            while (touch_get(&x, &y)) vTaskDelay(pdMS_TO_TICKS(20));
+            full_redraw = true;
+            return;
+        } else {
+            while (touch_get(&x, &y)) vTaskDelay(pdMS_TO_TICKS(20));
+        }
+    }
 }
 
 // Serial typing: a queue of keys, each held ~100 ms (modifiers first)
@@ -159,22 +243,33 @@ static void input_task(void *arg)
             if (!touch_was) {
                 touch_zone = z;
                 touch_t0 = now;
-                if (z == Z_MDV) mount_req = true;
             }
             if (touch_zone >= 0) PRESS(touch_zone);
             if (touch_zone == Z_VIEW && now - touch_t0 > 800000 && !help_req) {
                 help_req = true;
                 touch_zone = -3;                  // used up
             }
+            if (touch_zone == Z_MDV && now - touch_t0 > 800000 && !cart_menu_req) {
+                cart_menu_req = true;
+                touch_zone = -3;
+            }
         } else if (touch_was && touch_zone == Z_VIEW) {
             view = (view + 1) % QL_VIEW_N;
             full_redraw = true;
             show_toast(view == QL_VIEW_FIT ? "VIEW: FIT" : view == QL_VIEW_LEFT ? "VIEW: 1:1 LEFT" : "VIEW: 1:1 RIGHT");
+        } else if (touch_was && touch_zone == Z_MDV) {
+            mount_req = true;                     // short tap
         }
         touch_was = t;
-        // BOOT button: MDV
+        // BOOT button: short = toggle, long = menu
         bool boot = gpio_get_level(PIN_BOOT_BTN) == 0;
-        if (boot && !boot_was) mount_req = true;
+        static int64_t boot_t0;
+        if (boot && !boot_was) boot_t0 = now;
+        if (boot && boot_was && now - boot_t0 > 800000 && !cart_menu_req) {
+            cart_menu_req = true;
+            boot_t0 = now + 10000000;             // don't re-trigger
+        }
+        if (!boot && boot_was && now - boot_t0 < 800000) mount_req = true;
         boot_was = boot;
         // Nunchuk
         nunchuk_t nc;
@@ -250,6 +345,11 @@ static void video_task(void *arg)
             help_req = false;
             full_redraw = true;
         }
+        if (cart_menu_req) {
+            run_cart_menu();
+            cart_menu_req = false;
+            full_redraw = true;
+        }
         uint32_t rows[8];
         portENTER_CRITICAL(&dirty_mux);
         memcpy(rows, dirty_rows, sizeof rows);
@@ -315,16 +415,14 @@ static void emu_task(void *arg)
         req = fno == 5;                  // (the BOOT button reads as pressed in QEMU)
 #endif
         if (req) {
-            if (ql_mdv_image) {
-                ql_mount(ql_cart_loaded(0) ? NULL : ql_mdv_image);
-                char s[40];
-                if (ql_cart_loaded(0)) snprintf(s, sizeof s, "MDV1: %.24s", ql_mdv_name);
-                else snprintf(s, sizeof s, "MDV1: EJECTED");
-                show_toast(s);
-                ESP_LOGI(TAG, "%s", s);
-            } else {
-                show_toast("NO CARTRIDGE IN FIRMWARE");
-            }
+            bool was = ql_cart_loaded(0);
+            ql_cart_host_toggle();
+            char s[40];
+            if (ql_cart_loaded(0)) snprintf(s, sizeof s, "MDV1: %.24s", ql_cart_host_name());
+            else if (was) snprintf(s, sizeof s, "MDV1: EJECTED");
+            else snprintf(s, sizeof s, "NO CARTRIDGE");
+            show_toast(s);
+            ESP_LOGI(TAG, "%s", s);
         }
         ql_keys_clear();
         for (int r = 0; r < 8; r++)
@@ -386,7 +484,7 @@ static void *must_alloc(size_t n, const char *what)
 
 void app_main(void)
 {
-    static const cyd_game_t info = { "ql", "SINCLAIR QL", "F1/MDV: MICRODRIVE", {255, 60, 60} };
+    static const cyd_game_t info = { "ql", "SINCLAIR QL", "MDV: CART / HOLD=SD", {255, 60, 60} };
     cyd_boot(&info);
 
     uint8_t *ram[QL_RAM_BLOCKS];

@@ -24,6 +24,8 @@ static uint64_t next_tick, frame_ticks;
 static long frames, quit_after = -1;
 static bool held[SDL_NUM_SCANCODES];
 static int presses[32], np;
+static char *drops[8];
+static int ndrops;
 
 static long url_long(const char *key, long def)
 {
@@ -105,12 +107,37 @@ static uint32_t key_bit(SDL_Scancode sc)
     }
 }
 
+void sdl_port_queue_drop(const char *path)
+{
+    if (!path || ndrops >= 8) return;
+    char *c = (char *)malloc(strlen(path) + 1);
+    if (!c) return;
+    memcpy(c, path, strlen(path) + 1);
+    drops[ndrops++] = c;
+}
+
+char *sdl_port_next_drop(void)
+{
+    if (!ndrops) return NULL;
+    char *p = drops[0];
+    for (int i = 1; i < ndrops; i++) drops[i - 1] = drops[i];
+    ndrops--;
+    return p;
+}
+
 bool sdl_port_poll(bool *reset)
 {
     SDL_Event e;
     if (reset) *reset = false;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) return false;
+        if (e.type == SDL_DROPFILE) {
+            if (e.drop.file) {
+                sdl_port_queue_drop(e.drop.file);
+                SDL_free(e.drop.file);
+            }
+            continue;
+        }
         if (e.type != SDL_KEYDOWN && e.type != SDL_KEYUP) continue;
         bool dn = e.type == SDL_KEYDOWN;
         SDL_Scancode sc = e.key.keysym.scancode;

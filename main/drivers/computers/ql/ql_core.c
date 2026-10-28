@@ -428,11 +428,22 @@ void ql_mount(const uint8_t *image)
     ql_autoboot();
 }
 
+void ql_mount_reader(ql_cart_sector_fn fn, void *user)
+{
+    ql_cart_insert_reader(0, fn, user);
+    ql_reset();
+    ql_autoboot();
+}
+
 bool ql_autobooting(void) { return q.auto_frame >= 0; }
 
 void ql_keys_clear(void) { memset(q.keys, 0, sizeof q.keys); }
 
 void ql_cart_insert(int drive, const uint8_t *image) { ql_mdv_insert(&q.mdv[drive & 1], image); }
+void ql_cart_insert_reader(int drive, ql_cart_sector_fn fn, void *user)
+{
+    ql_mdv_insert_reader(&q.mdv[drive & 1], fn, user);
+}
 bool ql_cart_loaded(int drive) { return ql_mdv_loaded(&q.mdv[drive & 1]); }
 bool ql_cart_motor(int drive) { return q.mdv[drive & 1].motor; }
 

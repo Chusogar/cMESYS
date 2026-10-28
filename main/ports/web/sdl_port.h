@@ -37,6 +37,11 @@ void sdl_port_set_title(const char *title);
 void sdl_port_audio(const int16_t *samples, int n);
 // Shows a width x height 0xRRGGBB picture and waits for the next frame time.
 void sdl_port_present(const uint32_t *rgb);
+// Drag-and-drop: next dropped file path (malloc'd; caller frees), or NULL.
+// On the web, drops are delivered via the shell (Module) into a path queue.
+char *sdl_port_next_drop(void);
+// Web/desktop helper: queue a path as if it had been dropped (shell upload).
+void sdl_port_queue_drop(const char *path);
 
 // Tests: SDL_PORT_FRAMES=n quits after n frames (also ?frames=n in the URL).
 // SDL_PORT_SHOT is a no-op on the web (no local PPM).

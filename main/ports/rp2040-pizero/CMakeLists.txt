@@ -93,10 +93,12 @@ elseif(GAME STREQUAL "robocop")
     set(DEFS M68K_FLASH_TABLES)
     set(RAM_CODE m68kcpu.c.o rc_core.c.o rc_sound.c.o ym2610.c.o emu8950.c.o)
 elseif(GAME STREQUAL "ql")
-    set(SRCS ${D}/ql_pico.c ${D}/ql_core.c ${D}/ql_view.c ${D}/rom_data.c ${M68K} ${M}/cpu/mcs48/mcs48.c
-             ${M}/machine/zx8302.c ${M}/machine/ql_mdv.c ${M}/video/zx8301.c)
+    set(SRCS ${D}/ql_pico.c ${D}/ql_core.c ${D}/ql_view.c ${D}/ql_cart_host.c ${D}/ql_sd_pico.c ${D}/rom_data.c ${M68K}
+             ${M}/cpu/mcs48/mcs48.c ${M}/machine/zx8302.c ${M}/machine/ql_mdv.c ${M}/video/zx8301.c)
     set(DEFS M68K_FLASH_TABLES)
     set(RAM_CODE m68kcpu.c.o mcs48.c.o ql_core.c.o zx8302.c.o ql_mdv.c.o)
+    # SD MISO is GP4; move PWM audio off that pin for the QL build.
+    set(QL_AUDIO_PIN 22)
 else()
     message(FATAL_ERROR "Unknown GAME '${GAME}'")
 endif()
@@ -119,12 +121,15 @@ target_compile_definitions(${EXE} PRIVATE ${DEFS} NDEBUG PICO_BAND=${BAND}
     DVI_VERTICAL_REPEAT=2 DVI_N_TMDS_BUFFERS=${NBUF}
     PICO_MALLOC_PANIC=0 RENDER_NO_OWN_BUFFERS
     PICO_STACK_SIZE=0x1000 PICO_CORE1_STACK_SIZE=0xE00)
+if(DEFINED QL_AUDIO_PIN)
+    target_compile_definitions(${EXE} PRIVATE PICO_AUDIO_PIN=${QL_AUDIO_PIN})
+endif()
 target_compile_definitions(libdvi INTERFACE DVI_VERTICAL_REPEAT=2 DVI_N_TMDS_BUFFERS=${NBUF})
 target_compile_options(${EXE} PRIVATE -O2 -Wno-unused-variable -Wno-unused-function -Wno-sign-compare
     -Wno-maybe-uninitialized -Wno-unused-but-set-variable -Wno-implicit-fallthrough -Wno-psabi)
 set_source_files_properties(${PORT_DIR}/pico_port.c PROPERTIES COMPILE_OPTIONS -fno-tree-loop-distribute-patterns)
 target_link_libraries(${EXE} PRIVATE pico_stdlib pico_multicore pico_sync hardware_dma hardware_pio
-    hardware_pwm hardware_clocks hardware_vreg hardware_interp libdvi tinyusb_host)
+    hardware_pwm hardware_clocks hardware_vreg hardware_interp hardware_spi libdvi tinyusb_host)
 
 # Linker script: the SDK's, with the RAM_CODE objects' .text moved to RAM.
 file(READ ${PICO_SDK_PATH}/src/rp2_common/pico_crt0/rp2040/memmap_default.ld ld)

@@ -68,7 +68,8 @@ main/
                           m68k_tables.c, robocop.lf
   drivers/computers/
     ql/                   ql_core.c/.h (Sinclair QL), ql_view.c/.h (imagen 512x256 en 320x240),
-                          ql_cyd.c, ql_sdl.c, rom_data.c (ROMs + cartucho), m68k_game_conf.h,
+                          ql_cyd.c, ql_sdl.c, ql_pico.c, ql_cart_host (menú de cartucho),
+                          ql_sd_esp/ql_sd_pico (microSD), rom_data.c, m68k_game_conf.h,
                           m68k_tables.c, ql.lf
   ports/
     esp32-cyd/            cyd.c/.h (LCD SPI/DMA, táctil XPT2046 y calibración, menú de ajustes en NVS,
@@ -200,7 +201,7 @@ Táctil en 3x3 zonas sobre la pantalla (se muestran 2,5 s al empezar); la imagen
 
 ### Controles: Sinclair QL
 
-El QL arranca en su pantalla de inicio ("F1...monitor  F2...TV"). **MDV** (zona táctil o el botón **BOOT**) monta el cartucho que lleva el firmware (Psion Chess en el binario entregado) en mdv1, reinicia el QL y pulsa F1 por ti: QDOS carga y ejecuta `mdv1_boot` (unos 30 s, como el QL real; el LED rojo se enciende mientras gira el microdrive). Otra pulsación lo desmonta y vuelve a reiniciar (queda en SuperBASIC).
+El QL arranca en su pantalla de inicio ("F1...monitor  F2...TV"). **MDV** / **BOOT** (pulsación corta) monta o desmonta el cartucho actual en mdv1, reinicia el QL y pulsa F1 por ti: QDOS carga y ejecuta `mdv1_boot` (unos 30 s; el LED rojo se enciende mientras gira el microdrive). **Mantén MDV o BOOT** para el menú de cartucho: lista los `.mdv` de la microSD (FAT32, raíz o carpeta `mdv/`; SPI CS=GPIO5), el cartucho del firmware y «Eyectar».
 
 Táctil en 4x3 zonas invisibles sobre la imagen (se muestran al empezar; mantén VIEW un segundo para volver a verlas):
 
@@ -309,7 +310,7 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **Return of the Invaders**: izquierda / derecha, Z disparo. Se ve en vertical (224x288, como el mueble ROT90).
 - **RoboCop**: cursores = joystick (arriba / abajo apuntan), Z ataque (disparo / puñetazo), X salto.
 - **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
-- **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta el cartucho** en mdv1 y reinicia el QL arrancando desde él; **F6 es el F1 del QL** (F2-F5 son los suyos), F12 reinicia, cerrar la ventana sale. El título de la ventana dice si hay cartucho. Para pruebas, `QL_MOUNT_AT=n` pulsa F1 en el frame n.
+- **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta** el cartucho actual; **F9** abre el menú (abrir `.mdv` del disco con zenity/kdialog, cartucho del firmware, eyectar); también **arrastra un `.mdv`** a la ventana (en web: barra «Upload» o drag&drop). **F6** es el F1 del QL (F2-F5 los suyos), F12 reinicia. `QL_MOUNT_AT=n` pulsa F1 en el frame n.
 
 Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
 
@@ -325,7 +326,7 @@ python3 -m http.server --directory build/web 8080
 # http://localhost:8080/  → index; http://localhost:8080/robocop.html
 ```
 
-Controles: los mismos que en SDL2. `?frames=n` en la URL (o `SDL_PORT_FRAMES`) corta tras n frames (útil en pruebas).
+Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. `?frames=n` en la URL corta tras n frames.
 
 ## RP2040-PiZero (HDMI)
 
@@ -340,7 +341,7 @@ Firmware para la [Waveshare RP2040-PiZero](https://www.waveshare.com/wiki/RP2040
 
 Teclas (teclado USB): `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset. Mando: cruceta o stick, A/B/X = botones 1/2/3, SELECT moneda, START start, SELECT+START reset. Cada juego usa los mismos botones que en el escritorio. En la imagen: los de 336 de ancho (Indy, Road Runner, Gauntlet) muestran las 320 columnas centrales; Return of the Invaders (224x288, vertical) quita una de cada 6 líneas; el resto va centrado.
 
-**Sinclair QL**: el teclado USB es el del QL (Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta el cartucho** del firmware en mdv1 y reinicia el QL arrancando desde él, como en el CYD y el escritorio; **F6 es el F1 del QL**, F11 cambia la vista (entera promediada a 320x240, o 1:1 mitad izquierda / derecha), F12 reinicia. Un mando USB da los cursores, A = ESPACIO, B = ENTER.
+**Sinclair QL**: el teclado USB es el del QL (Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1** monta / desmonta el cartucho actual; **F9** abre el menú (microSD FAT: `.mdv` en la raíz; cartucho del firmware; eyectar) por el UART. **F6** es el F1 del QL, F11 cambia la vista, F12 reinicia. Audio PWM en GP22 (GP4 es MISO de la SD). Mando: cursores, A = ESPACIO, B = ENTER.
 
 ### Compilar y flashear
 

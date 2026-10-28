@@ -8,6 +8,7 @@
 void ql_mdv_init(ql_mdv *m)
 {
     memset(m, 0, sizeof *m);
+    m->sec_cached = -1;
 }
 
 void ql_mdv_reset(ql_mdv *m)
@@ -27,20 +28,49 @@ void ql_mdv_insert(ql_mdv *m, const uint8_t *image)
 {
     drop_written(m);
     m->image = image;
+    m->read_sector = NULL;
+    m->read_user = NULL;
+    m->sec_cached = -1;
     m->bit = 0;
     m->pair = 0;
     if (!image) m->motor = false;
 }
 
+void ql_mdv_insert_reader(ql_mdv *m, ql_mdv_sector_fn fn, void *user)
+{
+    drop_written(m);
+    m->image = NULL;
+    m->read_sector = fn;
+    m->read_user = user;
+    m->sec_cached = -1;
+    m->bit = 0;
+    m->pair = 0;
+    if (!fn) m->motor = false;
+}
+
+static const uint8_t *sector_bytes(ql_mdv *m, int sector)
+{
+    if (m->image) return m->image + (size_t)sector * QL_MDV_SECTOR_BYTES;
+    if (!m->read_sector) return NULL;
+    if (m->sec_cached != sector) {
+        if (m->read_sector(m->read_user, (unsigned)sector, m->sec_cache) != 0) {
+            m->sec_cached = -1;
+            return NULL;
+        }
+        m->sec_cached = sector;
+    }
+    return m->sec_cache;
+}
+
 // What the tape holds at `pair`: a sector's 14 header pairs (when its
 // preamble is valid) and, after a gap, its 269 block pairs; erased elsewhere.
-static ql_mdv_pair pair_at(const ql_mdv *m, int pair)
+static ql_mdv_pair pair_at(ql_mdv *m, int pair)
 {
     const int sector = pair / QL_MDV_PAIRS_SECTOR, off = pair % QL_MDV_PAIRS_SECTOR;
     const ql_mdv_pair erased = {0, 0, 1};
     if (m->written[sector]) return m->written[sector][off];
-    if (!m->image) return erased;
-    const uint8_t *sec = m->image + (size_t)sector * QL_MDV_SECTOR_BYTES;
+    const uint8_t *sec = sector_bytes(m, sector);
+    if (!sec) return erased;
     if (sec[10] != 0xff || sec[11] != 0xff) return erased;
     if (off < QL_MDV_PAIRS_HEADER) { ql_mdv_pair p = {sec[2 * off], sec[2 * off + 1], 0}; return p; }
     const int block = off - QL_MDV_PAIRS_HEADER - QL_MDV_PAIRS_GAP1;
@@ -67,7 +97,7 @@ void ql_mdv_clk_w(ql_mdv *m, int state)
     const bool level = state != 0;
     if (m->clk && !level) {
         m->comms_out = m->comms_in;
-        m->motor = m->comms_out && m->image;
+        m->motor = m->comms_out && ql_mdv_loaded(m);
     }
     m->clk = level;
 }
@@ -91,22 +121,22 @@ void ql_mdv_tick_bit(ql_mdv *m)
     }
 }
 
-int ql_mdv_data1(const ql_mdv *m)
+int ql_mdv_data1(ql_mdv *m)
 {
     if (!m->comms_out || m->write) return 0;
     const ql_mdv_pair p = pair_at(m, m->pair);
     return p.erased ? 0 : (p.left >> (7 - m->bit)) & 1;
 }
 
-int ql_mdv_data2(const ql_mdv *m)
+int ql_mdv_data2(ql_mdv *m)
 {
     if (!m->comms_out || m->write) return 0;
     const ql_mdv_pair p = pair_at(m, m->pair);
     return p.erased ? 0 : (p.right >> (7 - m->bit)) & 1;
 }
 
-int ql_mdv_gap(const ql_mdv *m)
+int ql_mdv_gap(ql_mdv *m)
 {
-    if (!m->comms_out || !m->image) return 1;
+    if (!m->comms_out || !ql_mdv_loaded(m)) return 1;
     return pair_at(m, m->pair).erased ? 1 : 0;
 }

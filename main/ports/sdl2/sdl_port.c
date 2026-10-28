@@ -16,6 +16,8 @@ static uint64_t next_tick, frame_ticks;
 static long frames, quit_after = -1, shot_at = -1;
 static bool held[SDL_NUM_SCANCODES];
 static int presses[32], np;
+static char *drops[8];
+static int ndrops;
 
 bool sdl_port_open(const sdl_port_cfg *c)
 {
@@ -24,6 +26,7 @@ bool sdl_port_open(const sdl_port_cfg *c)
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return false;
     }
+    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
     win = SDL_CreateWindow(cfg.title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                            cfg.width * cfg.scale, cfg.height * cfg.scale, SDL_WINDOW_RESIZABLE);
     ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
@@ -80,12 +83,39 @@ static uint32_t key_bit(SDL_Scancode sc)
     }
 }
 
+void sdl_port_queue_drop(const char *path)
+{
+    if (!path || ndrops >= 8) return;
+    size_t n = 0;
+    while (path[n]) n++;
+    char *c = (char *)malloc(n + 1);
+    if (!c) return;
+    for (size_t i = 0; i <= n; i++) c[i] = path[i];
+    drops[ndrops++] = c;
+}
+
+char *sdl_port_next_drop(void)
+{
+    if (!ndrops) return NULL;
+    char *p = drops[0];
+    for (int i = 1; i < ndrops; i++) drops[i - 1] = drops[i];
+    ndrops--;
+    return p;
+}
+
 bool sdl_port_poll(bool *reset)
 {
     SDL_Event e;
     if (reset) *reset = false;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) return false;
+        if (e.type == SDL_DROPFILE) {
+            if (e.drop.file) {
+                sdl_port_queue_drop(e.drop.file);
+                SDL_free(e.drop.file);
+            }
+            continue;
+        }
         if (e.type != SDL_KEYDOWN && e.type != SDL_KEYUP) continue;
         bool dn = e.type == SDL_KEYDOWN;
         SDL_Scancode sc = e.key.keysym.scancode;
