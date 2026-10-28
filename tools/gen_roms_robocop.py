@@ -15,9 +15,10 @@ Run by tools/regen.sh robocop.
 Graphics are stored decoded with MAME's gfx layouts (dec0.cpp charlayout /
 tilelayout) as rows of 4-bit pens: pixel x in bits 4x..4x+3 of a 32-bit word
 (8x8: one word a row; 16x16: two words a row, left half first).
+
+Pure Python 3 (no numpy).
 """
 import os, sys, zlib
-import numpy as np
 
 ROMS = {  # name: (size, crc32)
     "ep05-4.11c": (0x10000, 0x29c35379), "ep01-4.11b": (0x10000, 0x77507c69),
@@ -56,27 +57,39 @@ def region(size, parts):
     return bytes(r)
 
 
+def bit_at(rom, bitoff):
+    """MSB-first bit, like MAME / numpy.unpackbits."""
+    return (rom[bitoff >> 3] >> (7 - (bitoff & 7))) & 1
+
+
 def decode(rom, w, h, planes, xoffs, yoffs, inc):
     """MAME gfx_layout decode (planes MSB first, RGN_FRAC(1,4) elements)
-    -> array [tile][y][x] of pens."""
-    bits = np.unpackbits(np.frombuffer(rom, dtype=np.uint8))       # MSB first, like MAME
+    -> list pens[tile][y][x]."""
     total = (len(rom) * 8 // 4) // inc
-    base = np.arange(total)[:, None, None] * inc
-    off = np.array(yoffs)[None, :, None] + np.array(xoffs)[None, None, :]
-    pens = np.zeros((total, h, w), dtype=np.uint32)
-    for p in planes:
-        pens = (pens << 1) | bits[base + p + off]
+    pens = [[[0] * w for _ in range(h)] for _ in range(total)]
+    for code in range(total):
+        base = code * inc
+        for y in range(h):
+            for x in range(w):
+                pen = 0
+                off = yoffs[y] + xoffs[x]
+                for p in planes:
+                    pen = (pen << 1) | bit_at(rom, base + p + off)
+                pens[code][y][x] = pen
     return pens
 
 
 def words(pens):
     """[tile][y][x] pens -> 32-bit words, 8 pixels each (pixel x in bits 4x)."""
-    t, h, w = pens.shape
-    p = pens.reshape(t, h, w // 8, 8)
-    v = np.zeros((t, h, w // 8), dtype=np.uint32)
-    for x in range(8):
-        v |= p[:, :, :, x] << (4 * x)
-    return [int(x) for x in v.reshape(-1)]
+    out = []
+    for tile in pens:
+        for row in tile:
+            for group in range(0, len(row), 8):
+                v = 0
+                for x in range(8):
+                    v |= (row[group + x] & 15) << (4 * x)
+                out.append(v)
+    return out
 
 
 def carray(f, ctype, name, data, per_line, fmt):
@@ -87,6 +100,8 @@ def carray(f, ctype, name, data, per_line, fmt):
 
 
 def main():
+    if len(sys.argv) < 3:
+        sys.exit("usage: %s <romdir> <out.c>" % sys.argv[0])
     d, out = sys.argv[1], sys.argv[2]
     prog = bytearray(0x40000)
     for name, off in (("ep05-4.11c", 0), ("ep01-4.11b", 1), ("ep04-3", 0x20000), ("ep00-3", 0x20001)):
@@ -113,8 +128,8 @@ def main():
     yo = [y * 8 for y in range(16)]
 
     def tiles(rom):
-        F = len(rom) * 8 // 4
-        return decode(rom, 16, 16, [F, 3 * F, 0, 2 * F], xo, yo, 256)
+        Ff = len(rom) * 8 // 4
+        return decode(rom, 16, 16, [Ff, 3 * Ff, 0, 2 * Ff], xo, yo, 256)
 
     chw = words(ch)
     t1w = words(tiles(tiles1))
