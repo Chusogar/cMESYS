@@ -12,8 +12,7 @@
 #include "spectrum_snap.h"
 #include "ay8910.h"
 
-#define ZX_FULL_W       352
-#define ZX_FULL_H       296
+/* Full ULA picture 352x296; output is centre crop ZX_W x ZX_H. */
 #define ZX_PAPER_X      48
 #define ZX_PAPER_Y      48
 #define ZX_CROP_X       16
@@ -22,6 +21,10 @@
 #define ZX_BANK_SIZE    0x4000
 #define ZX_AY_CLOCK     1750000u
 #define ZX_BEEPER_AMP   4096
+
+_Static_assert(ZX_CROP_X + ZX_W <= 352, "crop width");
+_Static_assert(ZX_CROP_Y + ZX_H <= 296, "crop height");
+_Static_assert(ZX_PAPER_X + 256 <= 352 && ZX_PAPER_Y + 192 <= 296, "paper");
 
 /* Classic Spectrum ink/paper 0..15 as 0x00RRGGBB. */
 static const uint32_t k_palette[16] = {
