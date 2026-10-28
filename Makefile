@@ -3,14 +3,17 @@
 #
 #   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | ql)  -> build/sdl/<game>
 #                             (ql: the Sinclair QL computer, in main/drivers/computers/ql)
+#   make TARGET=windows ...   same, but MinGW -> build/win/<game>.exe  (see ./build_windows.sh)
 #   make all                  all of them
 #   make clean
 #
 # The firmware is built with ESP-IDF instead:  idf.py -DGAME=<game> build
 
 GAME    ?= indytemp
+TARGET  ?=
 CC      ?= gcc
 OUT     := build/sdl
+EXE     :=
 M       := main
 ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
@@ -22,8 +25,41 @@ AS1     := $(M)/drivers/arcades/atarisy1
 CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-maybe-uninitialized
 CFLAGS  += -std=gnu11 -I$(D) -I$(AS1) -I$(M)/ports/sdl2 -I$(M)/cpu -I$(M)/cpu/m68k -I$(M)/cpu/m6502 \
            -I$(M)/cpu/mc6809 -I$(M)/cpu/mcs48 -I$(M)/sound -I$(M)/machine -I$(M)/video
-SDL_CFLAGS := $(shell sdl2-config --cflags 2>/dev/null)
-SDL_LIBS   := $(shell sdl2-config --libs 2>/dev/null || echo -lSDL2)
+
+# SDL2: sdl2-config by default; override with SDL_CFLAGS / SDL_LIBS or SDL2DIR.
+SDL2_CONFIG ?= sdl2-config
+
+ifeq ($(TARGET),windows)
+  OUT := build/win
+  EXE := .exe
+  # Prefer an explicit MinGW SDL2 prefix (needed when cross-compiling from Linux).
+  ifneq ($(strip $(SDL2DIR)),)
+    SDL_CFLAGS := -I"$(SDL2DIR)/include" -I"$(SDL2DIR)/include/SDL2"
+    SDL_LIBS   := -L"$(SDL2DIR)/lib" -lmingw32 -lSDL2main -lSDL2
+  endif
+endif
+
+SDL_CFLAGS  ?= $(shell $(SDL2_CONFIG) --cflags 2>/dev/null)
+SDL_LIBS    ?= $(shell $(SDL2_CONFIG) --libs 2>/dev/null)
+
+ifeq ($(TARGET),windows)
+  # Fallback when there is no matching sdl2-config (SDL.org zip / MSYS2 paths).
+  ifeq ($(strip $(SDL_LIBS)),)
+    ifneq (,$(wildcard /mingw64/include/SDL2/SDL.h))
+      SDL_CFLAGS := -I/mingw64/include -I/mingw64/include/SDL2
+      SDL_LIBS   := -L/mingw64/lib -lmingw32 -lSDL2main -lSDL2
+    else ifneq (,$(wildcard /mingw32/include/SDL2/SDL.h))
+      SDL_CFLAGS := -I/mingw32/include -I/mingw32/include/SDL2
+      SDL_LIBS   := -L/mingw32/lib -lmingw32 -lSDL2main -lSDL2
+    else
+      SDL_LIBS := -lmingw32 -lSDL2main -lSDL2
+    endif
+  endif
+endif
+
+ifeq ($(strip $(SDL_LIBS)),)
+  SDL_LIBS := -lSDL2
+endif
 
 M68K := $(M)/cpu/m68k/m68kcpu.c $(M)/cpu/m68k/m68kops.c $(M)/cpu/m68k/m68kopac.c \
         $(M)/cpu/m68k/m68kopdm.c $(M)/cpu/m68k/m68kopnz.c
@@ -97,21 +133,21 @@ else
   PORTSRC := $(M)/ports/sdl2/sdl_port.c
 endif
 
-$(OUT)/$(GAME): $(SRC) $(PORTSRC) $(wildcard $(D)/*.h) $(wildcard $(AS1)/*.h) Makefile
+$(OUT)/$(GAME)$(EXE): $(SRC) $(PORTSRC) $(wildcard $(D)/*.h) $(wildcard $(AS1)/*.h) Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) $(DEFS) $(SDL_CFLAGS) -o $@ $(SRC) $(PORTSRC) $(SDL_LIBS) -lm
 
 all:
-	$(MAKE) GAME=indytemp
-	$(MAKE) GAME=roadrunn
-	$(MAKE) GAME=gauntlet
-	$(MAKE) GAME=outrun
-	$(MAKE) GAME=snowbros
-	$(MAKE) GAME=trackfld
-	$(MAKE) GAME=pbobble
-	$(MAKE) GAME=retofinv
-	$(MAKE) GAME=robocop
-	$(MAKE) GAME=ql
+	$(MAKE) GAME=indytemp TARGET=$(TARGET)
+	$(MAKE) GAME=roadrunn TARGET=$(TARGET)
+	$(MAKE) GAME=gauntlet TARGET=$(TARGET)
+	$(MAKE) GAME=outrun TARGET=$(TARGET)
+	$(MAKE) GAME=snowbros TARGET=$(TARGET)
+	$(MAKE) GAME=trackfld TARGET=$(TARGET)
+	$(MAKE) GAME=pbobble TARGET=$(TARGET)
+	$(MAKE) GAME=retofinv TARGET=$(TARGET)
+	$(MAKE) GAME=robocop TARGET=$(TARGET)
+	$(MAKE) GAME=ql TARGET=$(TARGET)
 
 clean:
 	rm -rf $(OUT)
