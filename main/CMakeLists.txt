@@ -1,8 +1,9 @@
 # Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros,
 # trackfld, pbobble, retofinv, robocop) or computer (GAME: ql, spectrum48, spectrum128,
-# plus3, pentagon, scorpion — Spectrum family shares drivers/computers/zxspec).
+# plus3, pentagon, pentagon1024, scorpion — Spectrum family shares drivers/computers/zxspec
+# core; each model has its own rom_data_<GAME>.c from roms/<GAME>/).
 idf_build_get_property(GAME GAME)
-set(ZX_GAMES spectrum48 spectrum128 plus3 pentagon scorpion)
+set(ZX_GAMES spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion)
 set(IS_ZXSPEC 0)
 if(GAME STREQUAL "ql")
     set(D drivers/computers/${GAME})
@@ -66,7 +67,7 @@ elseif(GAME STREQUAL "ql")
     set(DEFS M68K_FLASH_TABLES)
     set(QL_SD_REQ fatfs sdmmc)
 elseif(IS_ZXSPEC)
-    set(SRCS ${D}/zxspec_cyd.c ${D}/zxspec_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_esp.c
+    set(SRCS ${D}/zxspec_cyd.c ${D}/zxspec_core.c ${D}/rom_data_${GAME}.c ${QL_DIR}/ql_sd_esp.c
              cpu/z80/z80.c machine/spectrum_tape.c machine/spectrum_snap.c sound/ay8910.c)
     if(GAME STREQUAL "spectrum48")
         set(DEFS ZX_MODEL=ZX_SPEC48)
@@ -76,6 +77,8 @@ elseif(IS_ZXSPEC)
         set(DEFS ZX_MODEL=ZX_PLUS3)
     elseif(GAME STREQUAL "pentagon")
         set(DEFS ZX_MODEL=ZX_PENTAGON)
+    elseif(GAME STREQUAL "pentagon1024")
+        set(DEFS ZX_MODEL=ZX_PENTAGON1024)
     else()
         set(DEFS ZX_MODEL=ZX_SCORPION)
     endif()
@@ -83,7 +86,7 @@ elseif(IS_ZXSPEC)
     set(LF_FILE ${D}/zxspec.lf)
     set(EXTRA_INCLUDES ${QL_DIR})
 else()
-    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql, spectrum48, spectrum128, plus3, pentagon, scorpion)")
+    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion)")
 endif()
 
 idf_component_register(

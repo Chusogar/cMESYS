@@ -1,17 +1,36 @@
 #!/usr/bin/env python3
-"""Pack ZX Spectrum ROMs into main/drivers/computers/zxspec/rom_data.c.
+"""Pack one ZX Spectrum / clone model's ROMs into a dedicated rom_data_*.c.
 
-Usage:  tools/gen_roms_zxspec.py <romdir> <out.c> [model]
+Usage:
+  tools/gen_roms_zxspec.py <romdir> <out.c> <model>
+  tools/gen_roms_zxspec.py --stub <out.c> <model>
 
-model: spectrum48 | spectrum128 | plus3 | pentagon | scorpion (default spectrum48)
+Each model must use its own romdir (roms/<model>/) and its own out.c
+(main/drivers/computers/zxspec/rom_data_<model>.c). No shared fallbacks.
 
-Looks in romdir (and common MAME zip layouts) for:
-  48K:  48.rom / spectrum.rom / 48k.rom (16 KB)
-  128K: 128.rom or 128-0.rom+128-1.rom (32 KB)
-  +3:   plus3-0..3 or similar (64 KB)
-  Pentagon: 128p-0/1 or zx128
+Models and expected files in <romdir>:
+  spectrum48     48.rom (16 KB) — also spectrum.rom / 48k.rom / zx48.rom
+  spectrum128    48.rom (16 KB) + 128.rom (32 KB) or 128-0.rom+128-1.rom
+  plus3          48.rom (optional) + plus3-0..3.rom (4 x 16 KB = 64 KB)
+  pentagon       48.rom + 128.rom / 128p-0+128p-1 (Pentagon 128)
+  pentagon1024   48.rom + 64 KB ROM set (gluk*.rom / pentagon*.rom / 4 x 16 KB)
+  scorpion       48.rom + 64 KB (scorpion.rom / scor*.rom / 4 x 16 KB)
 """
-import os, sys, glob
+from __future__ import print_function
+import os
+import sys
+
+MODELS = (
+    "spectrum48",
+    "spectrum128",
+    "plus3",
+    "pentagon",
+    "pentagon1024",
+    "scorpion",
+)
+
+ROM48_NAMES = ("48.rom", "spectrum.rom", "48k.rom", "zx48.rom", "48e.rom")
+
 
 def read(path, size=None):
     with open(path, "rb") as f:
@@ -20,66 +39,61 @@ def read(path, size=None):
         raise SystemExit("%s: got %d bytes, need %d" % (path, len(b), size))
     return b[:size] if size else b
 
-def find(dir, names, size):
+
+def find(dirpath, names, size):
+    if not os.path.isdir(dirpath):
+        return None
+    listing = os.listdir(dirpath)
+    lower = {f.lower(): f for f in listing}
     for n in names:
-        p = os.path.join(dir, n)
+        p = os.path.join(dirpath, n)
         if os.path.isfile(p):
             return read(p, size)
-        # case-insensitive
-        for f in os.listdir(dir) if os.path.isdir(dir) else []:
-            if f.lower() == n.lower():
-                return read(os.path.join(dir, f), size)
+        real = lower.get(n.lower())
+        if real:
+            return read(os.path.join(dirpath, real), size)
     return None
+
+
+def find_concat(dirpath, name_pairs, part_size):
+    for a_name, b_name in name_pairs:
+        a = find(dirpath, [a_name], part_size)
+        b = find(dirpath, [b_name], part_size)
+        if a and b:
+            return a + b
+    return None
+
+
+def find_parts(dirpath, names, part_size):
+    parts = []
+    for n in names:
+        p = find(dirpath, [n], part_size)
+        if not p:
+            return None
+        parts.append(p)
+    return b"".join(parts)
+
 
 def c_array(f, name, data, width=16):
     f.write("const uint8_t %s[%d] = {\n" % (name, len(data)))
     for i in range(0, len(data), width):
-        chunk = data[i:i+width]
+        chunk = data[i:i + width]
         f.write("  " + ", ".join("0x%02x" % b for b in chunk) + ",\n")
     f.write("};\n")
 
-def main():
-    if len(sys.argv) < 3:
-        sys.exit("usage: %s <romdir> <out.c> [model]" % sys.argv[0])
-    d, out = sys.argv[1], sys.argv[2]
-    model = sys.argv[3] if len(sys.argv) > 3 else "spectrum48"
 
-    rom48 = find(d, ["48.rom", "spectrum.rom", "48k.rom", "zx48.rom", "48e.rom"], 0x4000)
-    if rom48 is None:
-        # try nested
-        for sub in ("spectrum", "spec128", "pentagon", "scorpio", ""):
-            dd = os.path.join(d, sub) if sub else d
-            rom48 = find(dd, ["48.rom", "spectrum.rom"], 0x4000)
-            if rom48: break
-    if rom48 is None:
-        sys.exit("48.rom (16 KB) not found in %s" % d)
-
-    rom128 = None
-    if model in ("spectrum128", "plus3", "pentagon", "scorpion"):
-        rom128 = find(d, ["128.rom", "zx128.rom"], 0x8000)
-        if rom128 is None:
-            a = find(d, ["128-0.rom", "128p-0.rom", "zx128_0.rom"], 0x4000)
-            b = find(d, ["128-1.rom", "128p-1.rom", "zx128_1.rom"], 0x4000)
-            if a and b:
-                rom128 = a + b
-        if model == "plus3":
-            parts = []
-            for n in ("plus3-0.rom", "plus3-1.rom", "plus3-2.rom", "plus3-3.rom"):
-                p = find(d, [n], 0x4000)
-                if not p: break
-                parts.append(p)
-            if len(parts) == 4:
-                rom128 = b"".join(parts)
-            elif rom128 is None:
-                print("warning: +3 ROMs missing, falling back to 128K if present", file=sys.stderr)
-        if rom128 is None:
-            print("warning: no 128K ROM; machine will only have 48K BASIC", file=sys.stderr)
-
+def write_rom_data(out, model, rom48, rom128):
+    os.makedirs(os.path.dirname(os.path.abspath(out)) or ".", exist_ok=True)
     with open(out, "w") as f:
-        f.write("// Generated by tools/gen_roms_zxspec.py — do not edit.\n")
+        f.write("// Generated by tools/gen_roms_zxspec.py for model %s — do not edit.\n" % model)
+        f.write("// Source directory must be roms/%s/ (exclusive to this model).\n" % model)
         f.write('#include "rom_data.h"\n')
         f.write("#include <stddef.h>\n")
-        c_array(f, "zx_rom48", rom48)
+        if rom48 is None:
+            f.write("// Empty stub: run tools/regen.sh %s after placing ROMs in roms/%s/\n" % (model, model))
+            f.write("const uint8_t zx_rom48[0x4000];\n")
+        else:
+            c_array(f, "zx_rom48", rom48)
         if rom128:
             c_array(f, "zx_rom128_data", rom128)
             f.write("const uint8_t *const zx_rom128 = zx_rom128_data;\n")
@@ -88,7 +102,152 @@ def main():
             f.write("const uint8_t *const zx_rom128 = 0;\n")
             f.write("const size_t zx_rom128_bytes = 0;\n")
         f.write('const char zx_rom_name[] = "%s";\n' % model)
-    print("wrote %s (%s, 48K%s)" % (out, model, (" + %dK 128" % (len(rom128)//1024)) if rom128 else ""))
+
+
+def load_model_roms(dirpath, model):
+    if not os.path.isdir(dirpath):
+        raise SystemExit("ROM directory not found: %s (expected roms/%s/)" % (dirpath, model))
+
+    rom48 = find(dirpath, ROM48_NAMES, 0x4000)
+    rom128 = None
+
+    if model == "spectrum48":
+        if rom48 is None:
+            raise SystemExit("%s: need 48.rom (16 KB) in %s" % (model, dirpath))
+        return rom48, None
+
+    if model == "spectrum128":
+        if rom48 is None:
+            raise SystemExit("%s: need 48.rom (16 KB) in %s" % (model, dirpath))
+        rom128 = find(dirpath, ["128.rom", "zx128.rom"], 0x8000)
+        if rom128 is None:
+            rom128 = find_concat(dirpath, [
+                ("128-0.rom", "128-1.rom"),
+                ("zx128_0.rom", "zx128_1.rom"),
+            ], 0x4000)
+        if rom128 is None:
+            raise SystemExit("%s: need 128.rom (32 KB) or 128-0.rom+128-1.rom in %s" % (model, dirpath))
+        return rom48, rom128
+
+    if model == "plus3":
+        rom128 = find_parts(dirpath, (
+            "plus3-0.rom", "plus3-1.rom", "plus3-2.rom", "plus3-3.rom"
+        ), 0x4000)
+        if rom128 is None:
+            rom128 = find(dirpath, ["plus3.rom", "plus2a.rom"], 0x10000)
+        if rom128 is None:
+            raise SystemExit("%s: need plus3-0..3.rom (4x16 KB) or plus3.rom (64 KB) in %s" % (model, dirpath))
+        if rom48 is None:
+            # +3 ROM bank 3 is typically 48K BASIC; keep a dedicated 48.rom if present,
+            # else use the last 16 KB of the +3 set as the 48K view.
+            rom48 = rom128[0xC000:0x10000]
+        return rom48, rom128
+
+    if model == "pentagon":
+        if rom48 is None:
+            raise SystemExit("%s: need 48.rom (16 KB) in %s" % (model, dirpath))
+        rom128 = find(dirpath, ["128.rom", "pentagon.rom", "zx128.rom"], 0x8000)
+        if rom128 is None:
+            rom128 = find_concat(dirpath, [
+                ("128p-0.rom", "128p-1.rom"),
+                ("128-0.rom", "128-1.rom"),
+                ("pentagon-0.rom", "pentagon-1.rom"),
+            ], 0x4000)
+        if rom128 is None:
+            raise SystemExit("%s: need 128.rom / pentagon.rom (32 KB) in %s" % (model, dirpath))
+        return rom48, rom128
+
+    if model == "pentagon1024":
+        # 64 KB ROM (4 banks): TR-DOS / BASIC128 / BASIC48 layout varies by dump.
+        rom128 = find(dirpath, [
+            "pentagon1024.rom", "glukrom.rom", "gluk.rom", "pentagon.rom"
+        ], 0x10000)
+        if rom128 is None:
+            rom128 = find_parts(dirpath, (
+                "pentagon-0.rom", "pentagon-1.rom", "pentagon-2.rom", "pentagon-3.rom"
+            ), 0x4000)
+        if rom128 is None:
+            rom128 = find_parts(dirpath, (
+                "rom0.rom", "rom1.rom", "rom2.rom", "rom3.rom"
+            ), 0x4000)
+        if rom128 is None:
+            raise SystemExit(
+                "%s: need 64 KB ROM (pentagon1024.rom or pentagon-0..3.rom) in %s" % (model, dirpath)
+            )
+        if rom48 is None:
+            rom48 = rom128[0xC000:0x10000]
+        return rom48, rom128
+
+    if model == "scorpion":
+        rom128 = find(dirpath, ["scorpion.rom", "scorpio.rom", "scorp.rom"], 0x10000)
+        if rom128 is None:
+            rom128 = find_parts(dirpath, (
+                "scorpion-0.rom", "scorpion-1.rom", "scorpion-2.rom", "scorpion-3.rom"
+            ), 0x4000)
+        if rom128 is None:
+            rom128 = find_parts(dirpath, (
+                "rom0.rom", "rom1.rom", "rom2.rom", "rom3.rom"
+            ), 0x4000)
+        if rom128 is None:
+            raise SystemExit("%s: need scorpion.rom (64 KB) or scorpion-0..3.rom in %s" % (model, dirpath))
+        if rom48 is None:
+            rom48 = rom128[0xC000:0x10000]
+        return rom48, rom128
+
+    raise SystemExit("unknown model %r (want: %s)" % (model, ", ".join(MODELS)))
+
+
+def write_stub(out, model):
+    write_rom_data(out, model, None, None)
+    print("wrote stub %s (%s)" % (out, model))
+
+
+def main():
+    args = sys.argv[1:]
+    if not args:
+        sys.exit(
+            "usage: %s <romdir> <out.c> <model>\n"
+            "       %s --stub <out.c> <model>\n"
+            "       %s --stub-all <zxspec_dir>\n"
+            "models: %s" % (sys.argv[0], sys.argv[0], sys.argv[0], ", ".join(MODELS))
+        )
+
+    if args[0] == "--stub-all":
+        if len(args) != 2:
+            sys.exit("usage: %s --stub-all <zxspec_dir>" % sys.argv[0])
+        base = args[1]
+        for model in MODELS:
+            write_stub(os.path.join(base, "rom_data_%s.c" % model), model)
+        return
+
+    if args[0] == "--stub":
+        if len(args) != 3:
+            sys.exit("usage: %s --stub <out.c> <model>" % sys.argv[0])
+        out, model = args[1], args[2]
+        if model not in MODELS:
+            sys.exit("unknown model %r (want: %s)" % (model, ", ".join(MODELS)))
+        write_stub(out, model)
+        return
+
+    if len(args) != 3:
+        sys.exit("usage: %s <romdir> <out.c> <model>" % sys.argv[0])
+    romdir, out, model = args
+    if model not in MODELS:
+        sys.exit("unknown model %r (want: %s)" % (model, ", ".join(MODELS)))
+
+    # Refuse accidental shared directories: each model owns roms/<model>/.
+    base = os.path.basename(os.path.normpath(romdir))
+    if base != model:
+        print(
+            "warning: romdir basename %r != model %r; expected roms/%s/" % (base, model, model),
+            file=sys.stderr,
+        )
+
+    rom48, rom128 = load_model_roms(romdir, model)
+    write_rom_data(out, model, rom48, rom128)
+    extra = (" + %dK banked" % (len(rom128) // 1024)) if rom128 else ""
+    print("wrote %s from %s (%s, 48K%s)" % (out, romdir, model, extra))
+
 
 if __name__ == "__main__":
     main()
