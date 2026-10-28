@@ -91,10 +91,9 @@ $(OUT)/$(GAME).html: $(SRC) $(PORTSRC) $(M)/ports/web/shell.html $(M)/ports/web/
 	$(EMCC) $(CFLAGS) $(DEFS) -o $@ $(SRC) $(PORTSRC) $(LDFLAGS) -lm
 	@cp -f $(M)/ports/web/index.html $(OUT)/index.html
 
+# Prefer ./build_web.sh: it skips games whose rom_data.c is still a stub.
 all:
-	@for g in $(GAMES); do $(MAKE) -f $(M)/ports/web/Makefile GAME=$$g || exit 1; done
-	@cp -f $(M)/ports/web/index.html $(OUT)/index.html
-	@echo "web builds in $(OUT)/"
+	@$(ROOT)/build_web.sh
 
 serve: all
 	python3 -m http.server --directory $(OUT) 8080
