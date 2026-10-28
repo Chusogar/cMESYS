@@ -2,7 +2,7 @@
 # ESP32 CYD firmware.
 #
 #   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | ql
-#                             | spectrum48 | spectrum128 | plus3 | pentagon | scorpion)  -> build/sdl/<game>
+#                             | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion)  -> build/sdl/<game>
 #                             (ql / spectrum*: computers in main/drivers/computers/)
 #   make TARGET=windows ...   same, but MinGW -> build/win/<game>.exe  (see ./build_windows.sh)
 #   make all                  all of them
@@ -16,7 +16,7 @@ CC      ?= gcc
 OUT     := build/sdl
 EXE     :=
 M       := main
-ZX_GAMES := spectrum48 spectrum128 plus3 pentagon scorpion
+ZX_GAMES := spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion
 ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
@@ -25,6 +25,8 @@ else
   D     := $(M)/drivers/arcades/$(GAME)
 endif
 AS1     := $(M)/drivers/arcades/atarisy1
+ZX_SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data_$(GAME).c $(M)/cpu/z80/z80.c \
+           $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
 
 CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-maybe-uninitialized
 CFLAGS  += -std=gnu11 -I$(D) -I$(AS1) -I$(M)/ports/sdl2 -I$(M)/cpu -I$(M)/cpu/m68k -I$(M)/cpu/m6502 \
@@ -116,27 +118,25 @@ else ifeq ($(GAME),ql)
           $(M)/machine/zx8302.c $(M)/machine/ql_mdv.c $(M)/video/zx8301.c
   DEFS :=
 else ifeq ($(GAME),spectrum48)
-  SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
-          $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
+  SRC  := $(ZX_SRC)
   DEFS := -DZX_MODEL=ZX_SPEC48
 else ifeq ($(GAME),spectrum128)
-  SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
-          $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
+  SRC  := $(ZX_SRC)
   DEFS := -DZX_MODEL=ZX_SPEC128
 else ifeq ($(GAME),plus3)
-  SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
-          $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
+  SRC  := $(ZX_SRC)
   DEFS := -DZX_MODEL=ZX_PLUS3
 else ifeq ($(GAME),pentagon)
-  SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
-          $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
+  SRC  := $(ZX_SRC)
   DEFS := -DZX_MODEL=ZX_PENTAGON
+else ifeq ($(GAME),pentagon1024)
+  SRC  := $(ZX_SRC)
+  DEFS := -DZX_MODEL=ZX_PENTAGON1024
 else ifeq ($(GAME),scorpion)
-  SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
-          $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
+  SRC  := $(ZX_SRC)
   DEFS := -DZX_MODEL=ZX_SCORPION
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql, spectrum48, spectrum128, plus3, pentagon or scorpion)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024 or scorpion)
 endif
 
 # PORT=picohost: the game's RP2040-PiZero frontend (<game>_pico.c) on the
@@ -180,6 +180,7 @@ all:
 	$(MAKE) GAME=spectrum128 TARGET=$(TARGET)
 	$(MAKE) GAME=plus3 TARGET=$(TARGET)
 	$(MAKE) GAME=pentagon TARGET=$(TARGET)
+	$(MAKE) GAME=pentagon1024 TARGET=$(TARGET)
 	$(MAKE) GAME=scorpion TARGET=$(TARGET)
 
 clean:

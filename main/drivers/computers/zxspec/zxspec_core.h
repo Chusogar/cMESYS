@@ -21,6 +21,7 @@ typedef enum {
     ZX_SPEC128,
     ZX_PLUS3,
     ZX_PENTAGON,
+    ZX_PENTAGON1024,
     ZX_SCORPION
 } zx_model_t;
 

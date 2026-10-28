@@ -1,6 +1,6 @@
 # Arcades y ordenadores Sinclair para ESP32 CYD (ST7789), RP2040-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
 
-Quince máquinas (nueve recreativas, el Sinclair QL y cinco ZX Spectrum / clones) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
+Dieciséis máquinas (nueve recreativas, el Sinclair QL y seis ZX Spectrum / clones) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -17,6 +17,7 @@ Quince máquinas (nueve recreativas, el Sinclair QL y cinco ZX Spectrum / clones
 | ZX Spectrum 128K — ordenador | `spectrum128` | Z80 | beeper + AY-3-8912 | dsp-cpp `spectrum_128k.cpp` → `zxspec` (`-DZX_MODEL=ZX_SPEC128`) |
 | ZX Spectrum +3 — ordenador | `plus3` | Z80 | beeper + AY | dsp-cpp `spectrum_3.cpp` → `zxspec` (`ZX_PLUS3`) |
 | Pentagon — clon ZX | `pentagon` | Z80 | beeper + AY | dsp-cpp `zx_clone.cpp` → `zxspec` (`ZX_PENTAGON`) |
+| Pentagon 1024 — clon ZX | `pentagon1024` | Z80 | beeper + AY | dsp-cpp `zx_clone.cpp` → `zxspec` (`ZX_PENTAGON1024`); ROMs en `roms/pentagon1024/` |
 | Scorpion — clon ZX | `scorpion` | Z80 | beeper + AY | dsp-cpp `zx_clone.cpp` → `zxspec` (`ZX_SCORPION`) |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
 
@@ -78,9 +79,9 @@ main/
                           ql_cyd.c, ql_sdl.c, ql_pico.c, ql_cart_host (menú de cartucho),
                           ql_sd_esp/ql_sd_pico (microSD compartida con zxspec), rom_data.c,
                           m68k_game_conf.h, m68k_tables.c, ql.lf
-    zxspec/               zxspec_core.c/.h (48K / 128K / +3 / Pentagon / Scorpion; -DZX_MODEL=…),
-                          zxspec_cyd.c, zxspec_sdl.c, zxspec_pico.c, rom_data.c, zxspec.lf
-                          (GAME=spectrum48|spectrum128|plus3|pentagon|scorpion)
+    zxspec/               zxspec_core.c/.h (48K / 128K / +3 / Pentagon / Pentagon1024 / Scorpion;
+                          -DZX_MODEL=…), zxspec_cyd.c, zxspec_sdl.c, zxspec_pico.c, zxspec.lf,
+                          rom_data_<modelo>.c (uno por GAME; generado desde roms/<modelo>/)
   ports/
     esp32-cyd/            cyd.c/.h (LCD SPI/DMA, táctil XPT2046 y calibración, menú de ajustes en NVS,
                           diagnóstico de cuelgues, arranque), dac_audio (DAC GPIO26 asíncrono),
@@ -99,7 +100,9 @@ tools/
   pico_hot.py, pico_ram.py  manejadores del 68000 en RAM y memoria usada (RP2040)
   gen_roms_*.{c,py}, gen_roms_zxspec.py, gen_m68k_tables.c, m68k_stub.c
 roms/                     indytemp, roadrunn, atarisy1, gauntlet, outrun, snowbros, trackfld, pbobble,
-                          retofinv, robocop, ql (.mdv), spectrum|spectrum48|… (48.rom, 128.rom, plus3-*.rom)
+                          retofinv, robocop, ql (.mdv),
+                          spectrum48/, spectrum128/, plus3/, pentagon/, pentagon1024/, scorpion/
+                          (cada modelo Spectrum lee solo su directorio)
 ```
 
 
@@ -278,7 +281,7 @@ ESP-IDF 5.3:
 
 ```
 . $IDF_PATH/export.sh
-idf.py -B build/indytemp -DGAME=indytemp build       # o … / ql / spectrum48 / spectrum128 / plus3 / pentagon / scorpion
+idf.py -B build/indytemp -DGAME=indytemp build       # o … / ql / spectrum48 / spectrum128 / plus3 / pentagon / pentagon1024 / scorpion
 LCD_SPI_MHZ=80 idf.py -B build/indytemp-80 -DGAME=indytemp build
 ./build_all.sh                                       # todo -> dist/
 ```
@@ -288,7 +291,7 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o … / ql / spectrum48 / spectrum128 / plus3 / pentagon / scorpion; "make all" -> build/sdl/<juego>
+make GAME=indytemp        # o … / ql / spectrum48 / … / pentagon1024 / scorpion; "make all" -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
 ./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ./build/sdl/gauntlet      # ROMs incluidas
@@ -322,7 +325,7 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **RoboCop**: cursores = joystick (arriba / abajo apuntan), Z ataque (disparo / puñetazo), X salto.
 - **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
 - **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta** el cartucho actual; **F9** abre el menú (abrir `.mdv` del disco con zenity/kdialog, cartucho del firmware, eyectar); también **arrastra un `.mdv`** a la ventana (en web: barra «Upload» o drag&drop). **F6** es el F1 del QL (F2-F5 los suyos), F12 reinicia. `QL_MOUNT_AT=n` pulsa F1 en el frame n.
-- **ZX Spectrum / clones** (`spectrum48`, `spectrum128`, `plus3`, `pentagon`, `scorpion`): teclado del PC = matriz Spectrum (Ctrl = Symbol Shift, cursors = Caps+5/6/7/8). **F9** menú de media (abrir `.tap`/`.tzx`/`.sna`); **F1** play/stop de cinta; F12 reset; arrastrar un fichero a la ventana (web: barra Upload). En CYD: mantener **MEDIA**/BOOT = menú microSD (raíz / `tape/` / `mdv/`); toque corto = play/stop. En RP2040: F9 lista la microSD por UART; audio PWM en GP22.
+- **ZX Spectrum / clones** (`spectrum48`, `spectrum128`, `plus3`, `pentagon`, `pentagon1024`, `scorpion`): teclado del PC = matriz Spectrum (Ctrl = Symbol Shift, cursors = Caps+5/6/7/8). **F9** menú de media (abrir `.tap`/`.tzx`/`.sna`); **F1** play/stop de cinta; F12 reset; arrastrar un fichero a la ventana (web: barra Upload). En CYD: mantener **MEDIA**/BOOT = menú microSD (raíz / `tape/` / `mdv/`); toque corto = play/stop. En RP2040: F9 lista la microSD por UART; audio PWM en GP22.
 
 Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
 
@@ -408,7 +411,18 @@ RoboCop usa el set de MAME `robocop` (World, revision 4): `ep05-4.11c`, `ep01-4.
 
 El Sinclair QL usa el set de MAME `ql` (ROM JS): `ql.js 0000.ic33`, `ql.js 8000.ic34` e `ipc8049.ic24` en `roms/ql/`, más el cartucho que se quiera llevar en el firmware: el primer `*.mdv` (imagen QLAY de 174930 bytes) de `roms/ql/` (`tools/gen_roms_ql.py` comprueba tamaños y CRC; `python3 tools/gen_roms_ql.py roms/ql main/drivers/computers/ql/rom_data.c otro.mdv` elige otro).
 
-Los ZX Spectrum / clones comparten `main/drivers/computers/zxspec/` (`tools/regen.sh spectrum48` …). Coloca `48.rom` (16 KB) y, para 128K/clones, `128.rom` (32 KB) o `128-0.rom`+`128-1.rom`; para +3, `plus3-0.rom`…`plus3-3.rom` (64 KB) en `roms/spectrum48` (o `roms/spectrum` / `roms/<GAME>`). Sin ROMs reales el árbol compila con stubs (pantalla negra / sin BASIC).
+Los ZX Spectrum / clones comparten el núcleo en `main/drivers/computers/zxspec/`, pero **cada modelo tiene su propio directorio de ROMs y su propio `rom_data_<modelo>.c`**:
+
+| `GAME` / `tools/regen.sh …` | Lee solo | Genera | Ficheros típicos |
+|---|---|---|---|
+| `spectrum48` | `roms/spectrum48/` | `…/zxspec/rom_data_spectrum48.c` | `48.rom` (16 KB) |
+| `spectrum128` | `roms/spectrum128/` | `rom_data_spectrum128.c` | `48.rom` + `128.rom` (32 KB) o `128-0`+`128-1` |
+| `plus3` | `roms/plus3/` | `rom_data_plus3.c` | `plus3-0..3.rom` (64 KB) |
+| `pentagon` | `roms/pentagon/` | `rom_data_pentagon.c` | `48.rom` + `128.rom` / `pentagon.rom` |
+| `pentagon1024` | `roms/pentagon1024/` | `rom_data_pentagon1024.c` | `pentagon1024.rom` o `pentagon-0..3` (64 KB) |
+| `scorpion` | `roms/scorpion/` | `rom_data_scorpion.c` | `scorpion.rom` (64 KB) o `scorpion-0..3` |
+
+No hay directorio compartido `roms/spectrum`: regenerar un modelo no pisa el `rom_data` de otro. Sin ROMs reales el árbol compila con stubs vacíos (`python3 tools/gen_roms_zxspec.py --stub-all main/drivers/computers/zxspec`).
 
 Puzzle Bobble usa el set de MAME `pbobble` (Taito B System, versión japonesa): `pb-ic18.ic18`, `pb-ic2.ic2`, `pb-ic27.ic27`, `pb-ic14.ic14`, `pb-ic9.ic9`, `pb-ic15.ic15` en `roms/pbobble/` (el script comprueba tamaños y CRC). No sirve el Puzzle Bobble de Neo Geo.
 
