@@ -6,7 +6,7 @@
 #
 # or ./build_pico.sh for all of them (-> dist/). GAME: indytemp, roadrunn,
 # gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql,
-# spectrum48, spectrum128, plus3, pentagon, scorpion.
+# spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion.
 cmake_minimum_required(VERSION 3.13)
 
 get_filename_component(PORT_DIR "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
@@ -28,14 +28,14 @@ endif()
 pico_sdk_init()
 
 if(NOT GAME)
-    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|ql|spectrum48|spectrum128|plus3|pentagon|scorpion>")
+    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion>")
 endif()
 if(NOT EXISTS "${PICO_DEPS}/PicoDVI/software/libdvi")
     message(FATAL_ERROR "${PICO_DEPS}/PicoDVI is missing: run tools/setup_pico.sh first")
 endif()
 add_subdirectory(${PICO_DEPS}/PicoDVI/software/libdvi ${CMAKE_BINARY_DIR}/libdvi)
 
-set(ZX_GAMES spectrum48 spectrum128 plus3 pentagon scorpion)
+set(ZX_GAMES spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion)
 set(IS_ZXSPEC 0)
 set(QL_DIR ${M}/drivers/computers/ql)
 if(GAME STREQUAL "ql")
@@ -107,7 +107,7 @@ elseif(GAME STREQUAL "ql")
     # SD MISO is GP4; move PWM audio off that pin for the QL build.
     set(QL_AUDIO_PIN 22)
 elseif(IS_ZXSPEC)
-    set(SRCS ${D}/zxspec_pico.c ${D}/zxspec_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c
+    set(SRCS ${D}/zxspec_pico.c ${D}/zxspec_core.c ${D}/rom_data_${GAME}.c ${QL_DIR}/ql_sd_pico.c
              ${M}/cpu/z80/z80.c ${M}/machine/spectrum_tape.c ${M}/machine/spectrum_snap.c ${M}/sound/ay8910.c)
     if(GAME STREQUAL "spectrum48")
         set(DEFS ZX_MODEL=ZX_SPEC48)
@@ -117,6 +117,8 @@ elseif(IS_ZXSPEC)
         set(DEFS ZX_MODEL=ZX_PLUS3)
     elseif(GAME STREQUAL "pentagon")
         set(DEFS ZX_MODEL=ZX_PENTAGON)
+    elseif(GAME STREQUAL "pentagon1024")
+        set(DEFS ZX_MODEL=ZX_PENTAGON1024)
     else()
         set(DEFS ZX_MODEL=ZX_SCORPION)
     endif()

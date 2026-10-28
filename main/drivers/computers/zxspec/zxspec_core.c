@@ -88,7 +88,8 @@ struct zxspec {
 
 static bool is_128_class(zx_model_t m)
 {
-    return m == ZX_SPEC128 || m == ZX_PLUS3 || m == ZX_PENTAGON || m == ZX_SCORPION;
+    return m == ZX_SPEC128 || m == ZX_PLUS3 || m == ZX_PENTAGON ||
+           m == ZX_PENTAGON1024 || m == ZX_SCORPION;
 }
 
 static void update_memory_map(zxspec *m)
@@ -634,9 +635,10 @@ const char *zxspec_title(zx_model_t model)
         case ZX_SPEC48:   return "ZX Spectrum 48K";
         case ZX_SPEC128:  return "ZX Spectrum 128K";
         case ZX_PLUS3:    return "ZX Spectrum +3";
-        case ZX_PENTAGON: return "Pentagon";
-        case ZX_SCORPION: return "Scorpion";
-        default:          return "ZX Spectrum";
+        case ZX_PENTAGON:     return "Pentagon";
+        case ZX_PENTAGON1024: return "Pentagon 1024";
+        case ZX_SCORPION:     return "Scorpion";
+        default:              return "ZX Spectrum";
     }
 }
 
