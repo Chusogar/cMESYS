@@ -21,10 +21,11 @@ Cada firmware lleva un solo juego (el del QL lleva también un cartucho de micro
 
 ```
 CMakeLists.txt            proyecto ESP-IDF (idf.py -DGAME=<juego> build)
-Makefile                  escritorio SDL2 (make GAME=<juego>)
+Makefile                  escritorio SDL2 (make GAME=<juego>; TARGET=windows -> .exe)
 build_all.sh              los 20 firmwares (10 máquinas x SPI 40/80 MHz) -> dist/, y los 10 de escritorio
 build_pico.sh             los 10 firmwares de la RP2040-PiZero -> dist/<juego>_rp2040_pizero.uf2
 build_web.sh              los 10 en el navegador (Emscripten) -> build/web/<juego>.html
+build_windows.sh|.bat     escritorio SDL2 para Windows (MinGW) -> build/win/<juego>.exe
 partitions.csv, sdkconfig.defaults
 main/
   CMakeLists.txt          elige las fuentes del juego
@@ -284,6 +285,19 @@ make GAME=indytemp        # o roadrunn / gauntlet / outrun / snowbros / trackfld
 ./build/sdl/robocop       # ROMs incluidas
 ./build/sdl/ql            # ROMs y cartucho incluidos; o ./build/sdl/ql <cartucho.mdv>
 ```
+
+### Windows (MinGW)
+
+Mismos fuentes y `Makefile`; salida en `build/win/<juego>.exe`. En [MSYS2](https://www.msys2.org/) (shell **MinGW64**):
+
+```
+pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-SDL2 make
+./build_windows.sh              # todos -> build/win/*.exe
+./build_windows.sh robocop ql   # algunos
+# o desde cmd.exe: build_windows.bat
+```
+
+También sirve para cruzar desde Linux/macOS con `mingw-w64` y un SDL2 MinGW (`SDL2DIR` al prefijo `x86_64-w64-mingw32` del zip de [libsdl.org](https://libsdl.org/download-2.0.php), o `*-sdl2-config` en el PATH). Copia `SDL2.dll` junto al `.exe` para ejecutarlo.
 
 Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset, P pausa, ESC salir.
 - **Indy**: Z látigo, X salto. La EEPROM se guarda en `indytemp.eep`.
