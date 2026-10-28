@@ -305,14 +305,12 @@ Mismo frontend `*_sdl.c` y mismos núcleos; el puerto está en `main/ports/web/`
 
 ```
 source "$EMSDK/emsdk_env.sh"          # emcc en el PATH
-tools/regen.sh <juego>                # ROMs en rom_data.c (obligatorio; el repo solo trae stubs)
-./build_web.sh                        # solo los que ya tienen regen; o: ./build_web.sh robocop
-# también: make -C main/ports/web GAME=robocop
+./build_web.sh                        # o: ./build_web.sh robocop / make -C main/ports/web GAME=robocop
 python3 -m http.server --directory build/web 8080
 # http://localhost:8080/  → index; http://localhost:8080/robocop.html
 ```
 
-Si falla con `tiles_bank*` / símbolos de ROM indefinidos, falta `tools/regen.sh <juego>` (p. ej. indytemp necesita `roms/indytemp/` + `roms/atarisy1/`). Controles: los mismos que en SDL2. `?frames=n` en la URL corta tras n frames.
+Sin ROMs el binario compila (stubs vacíos) pero la partida no tiene sentido: `tools/regen.sh <juego>` con el set en `roms/<juego>/` (indytemp/roadrunn también necesitan `roms/atarisy1/`). Controles: los mismos que en SDL2. `?frames=n` en la URL corta tras n frames.
 
 ## RP2040-PiZero (HDMI)
 
