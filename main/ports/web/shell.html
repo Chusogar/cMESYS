@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cMESYS</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin: 0; height: 100%; background: #0b0d10; color: #e8eaed;
+      font: 14px/1.4 system-ui, sans-serif; }
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+    canvas.emscripten { display: block; background: #000; image-rendering: pixelated;
+      max-width: 100vw; max-height: 85vh; }
+    #status { opacity: .7; min-height: 1.2em; }
+    #controls { opacity: .55; font-size: 12px; text-align: center; max-width: 40rem; }
+    a { color: #8ab4f8; }
+  </style>
+</head>
+<body>
+  <div id="status">Loading…</div>
+  <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  <div id="controls">
+    Keys: 5/6 coin · 1/2 start · arrows · Z/X/C buttons · P pause · F3 reset · Esc quit
+    · <a href="index.html">all games</a>
+  </div>
+  <script>
+    var Module = {
+      canvas: (function(){ return document.getElementById('canvas'); })(),
+      print: function(t){ console.log(t); },
+      printErr: function(t){ console.error(t); },
+      setStatus: function(t){ var s = document.getElementById('status'); if (s) s.textContent = t || ''; },
+      monitorRunDependencies: function(left){
+        this.setStatus(left ? ('Preparing… (' + left + ')') : '');
+      },
+      onRuntimeInitialized: function(){ this.setStatus(''); }
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

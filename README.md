@@ -1,6 +1,6 @@
-# Arcades (y un Sinclair QL) para ESP32 CYD (ST7789), RP2040-PiZero (HDMI) y escritorio (SDL2)
+# Arcades (y un Sinclair QL) para ESP32 CYD (ST7789), RP2040-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
 
-Diez máquinas (nueve recreativas y el ordenador Sinclair QL) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI) o como programa de escritorio con SDL2:
+Diez máquinas (nueve recreativas y el ordenador Sinclair QL) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -24,6 +24,7 @@ CMakeLists.txt            proyecto ESP-IDF (idf.py -DGAME=<juego> build)
 Makefile                  escritorio SDL2 (make GAME=<juego>)
 build_all.sh              los 20 firmwares (10 máquinas x SPI 40/80 MHz) -> dist/, y los 10 de escritorio
 build_pico.sh             los 10 firmwares de la RP2040-PiZero -> dist/<juego>_rp2040_pizero.uf2
+build_web.sh              los 10 en el navegador (Emscripten) -> build/web/<juego>.html
 partitions.csv, sdkconfig.defaults
 main/
   CMakeLists.txt          elige las fuentes del juego
@@ -76,6 +77,9 @@ main/
                           CMakeLists.txt (proyecto Pico SDK, una máquina por compilación), tusb_config.h
     sdl2/                 sdl_port.c/.h (ventana, cola de audio, teclado, ritmo, capturas; modo
                           "ordenador": todas las teclas van a la máquina)
+    web/                  mismo API que sdl2 para Emscripten (USE_SDL=2 + ASYNCIFY); Makefile
+                          que compila todos los *_sdl.c a build/web/<juego>.html; shell.html e
+                          index.html
 tools/
   regen.sh <juego>        regenera rom_data.c y m68k_tables.c del juego
   setup_pico.sh           descarga el Pico SDK y PicoDVI (en deps/pico)
@@ -86,7 +90,7 @@ roms/                     indytemp, roadrunn, atarisy1 (BIOS de Indy y Road Runn
                           retofinv, robocop, ql (descomprimidas; en ql, también el cartucho .mdv)
 ```
 
-Los núcleos de los juegos (`*_core.c`) no dependen de la plataforma. El frontend CYD y el SDL2 de cada juego usan exactamente el mismo núcleo.
+Los núcleos de los juegos (`*_core.c`) no dependen de la plataforma. El frontend CYD, el SDL2, el RP2040 y el web de cada juego usan exactamente el mismo núcleo (en web se reutiliza el `*_sdl.c` con `ports/web`).
 
 Las funciones del 68000 que van en IRAM (las más usadas, medidas en cada juego) se eligen en el `.lf` del juego. El código de Musashi no se toca. La tabla de ciclos de Musashi también es de cada juego: 68010 en Indy, 68000 en Snow Bros.
 
@@ -294,6 +298,20 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta el cartucho** en mdv1 y reinicia el QL arrancando desde él; **F6 es el F1 del QL** (F2-F5 son los suyos), F12 reinicia, cerrar la ventana sale. El título de la ventana dice si hay cartucho. Para pruebas, `QL_MOUNT_AT=n` pulsa F1 en el frame n.
 
 Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
+
+## Web (Emscripten)
+
+Mismo frontend `*_sdl.c` y mismos núcleos; el puerto está en `main/ports/web/` (API idéntica a `ports/sdl2`, SDL2 de Emscripten + ASYNCIFY para el bucle).
+
+```
+source "$EMSDK/emsdk_env.sh"          # emcc en el PATH
+tools/regen.sh <juego>                # ROMs en rom_data.c, como en escritorio
+./build_web.sh                        # o: make -C main/ports/web GAME=robocop
+python3 -m http.server --directory build/web 8080
+# http://localhost:8080/  → index; http://localhost:8080/robocop.html
+```
+
+Controles: los mismos que en SDL2. `?frames=n` en la URL (o `SDL_PORT_FRAMES`) corta tras n frames (útil en pruebas).
 
 ## RP2040-PiZero (HDMI)
 
