@@ -398,7 +398,8 @@ uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
     uint8_t *buf = (uint8_t *)malloc(file_size);
     if (!buf) { ql_sd_close(); return NULL; }
     /* Read whole file via 686-sized path is wrong; read by 512. */
-    uint32_t cl = file_start_cluster, left = file_size;
+    uint32_t left = file_size;
+    cl = file_start_cluster;
     uint8_t *out = buf;
     uint32_t skip = 0;
     while (left) {

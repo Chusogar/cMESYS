@@ -6,7 +6,7 @@
 #   ./build_pico.sh robocop ql   some of them
 set -e
 mkdir -p dist
-GAMES=${*:-"indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop ql spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion"}
+GAMES=${*:-"indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion"}
 for g in $GAMES; do
     cmake -S main/ports/rp2040-pizero -B build/pico-$g -DGAME=$g >/dev/null
     cmake --build build/pico-$g -j"$(nproc 2>/dev/null || echo 4)"

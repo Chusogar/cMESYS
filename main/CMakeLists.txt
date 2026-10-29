@@ -1,5 +1,5 @@
 # Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros,
-# trackfld, pbobble, retofinv, robocop) or computer (GAME: ql, spectrum48, spectrum128,
+# trackfld, pbobble, retofinv, robocop, polepos, polepos2) or computer (GAME: ql, spectrum48, spectrum128,
 # plus3, pentagon, pentagon1024, scorpion — Spectrum family shares drivers/computers/zxspec
 # core; each model has its own rom_data_<GAME>.c from roms/<GAME>/).
 idf_build_get_property(GAME GAME)
@@ -15,6 +15,7 @@ else()
 endif()
 set(AS1 drivers/arcades/atarisy1)
 set(QL_DIR drivers/computers/ql)
+set(PP drivers/arcades/polepos)
 set(PORT ports/esp32-cyd/cyd.c ports/esp32-cyd/dac_audio.c ports/esp32-cyd/nunchuk.c)
 set(M68K cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c)
 set(QL_SD_REQ)
@@ -61,6 +62,11 @@ elseif(GAME STREQUAL "robocop")
              cpu/h6280/h6280.c sound/ym2610.c sound/okim6295.c
              sound/emu8950/emu8950.c sound/emu8950/emuadpcm.c)
     set(DEFS M68K_FLASH_TABLES)
+elseif(GAME STREQUAL "polepos" OR GAME STREQUAL "polepos2")
+    # Pole Position core (in polepos/) shared by both games
+    set(SRCS ${D}/${GAME}_cyd.c ${PP}/pp_core.c ${PP}/pp_video.c ${D}/rom_data.c cpu/z80/z80.c
+             cpu/z8002/z8002.c cpu/z8002/z8002_tab.c cpu/mb88xx/mb88xx.c machine/namco5x.c sound/polepos_snd.c)
+    set(DEFS)
 elseif(GAME STREQUAL "ql")
     set(SRCS ${D}/ql_cyd.c ${D}/ql_core.c ${D}/ql_view.c ${D}/ql_cart_host.c ${D}/ql_sd_esp.c ${D}/rom_data.c ${D}/m68k_tables.c ${M68K}
              cpu/mcs48/mcs48.c machine/zx8302.c machine/ql_mdv.c video/zx8301.c)
@@ -86,12 +92,12 @@ elseif(IS_ZXSPEC)
     set(LF_FILE ${D}/zxspec.lf)
     set(EXTRA_INCLUDES ${QL_DIR})
 else()
-    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion)")
+    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion)")
 endif()
 
 idf_component_register(
     SRCS ${SRCS} ${PORT}
-    INCLUDE_DIRS ${D} ${AS1} ${EXTRA_INCLUDES} ports/esp32-cyd cpu cpu/m68k cpu/m6502 cpu/mc6809 cpu/mcs48 cpu/z80 sound machine video
+    INCLUDE_DIRS ${D} ${AS1} ${EXTRA_INCLUDES} ${PP} ports/esp32-cyd cpu cpu/m68k cpu/m6502 cpu/mc6809 cpu/mcs48 cpu/z80 sound machine video
     REQUIRES esp_driver_i2c esp_system xtensa esp_lcd esp_driver_spi esp_driver_gpio esp_driver_dac
              esp_driver_uart nvs_flash esp_timer ${QL_SD_REQ}
     LDFRAGMENTS ${LF_FILE})
