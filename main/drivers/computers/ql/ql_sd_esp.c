@@ -175,3 +175,30 @@ uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
     if (out_size) *out_size = (size_t)sz;
     return buf;
 }
+
+bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user)
+{
+    if (!mounted || !name || !name[0] || !fn) return false;
+    char path[96];
+    snprintf(path, sizeof path, SD_MOUNT "/%s", name);
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        snprintf(path, sizeof path, SD_MOUNT "/mdv/%s", name);
+        f = fopen(path, "rb");
+    }
+    if (!f) return false;
+    long sz = -1;
+    if (fseek(f, 0, SEEK_END) == 0) sz = ftell(f);
+    rewind(f);
+    uint8_t *buf = (uint8_t *)malloc(4096);
+    bool ok = sz > 0 && buf;
+    size_t left = ok ? (size_t)sz : 0;
+    while (ok && left) {
+        size_t k = left < 4096 ? left : 4096;
+        ok = fread(buf, 1, k, f) == k && fn(user, (size_t)sz, buf, k);
+        left -= k;
+    }
+    free(buf);
+    fclose(f);
+    return ok;
+}

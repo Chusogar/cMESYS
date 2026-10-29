@@ -1,5 +1,10 @@
 // zxspec_cyd.c - ZX Spectrum family on the ESP32 CYD.
-// Build with -DZX_MODEL=ZX_SPEC48|ZX_SPEC128|ZX_PLUS3|ZX_PENTAGON|ZX_SCORPION
+// Build with -DZX_MODEL=ZX_SPEC48|ZX_SPEC128|ZX_PLUS3|ZX_PENTAGON|ZX_PENTAGON1024|ZX_SCORPION
+//
+// Media from the SD card (hold MEDIA): .tap .tzx .cdt .csw .pzx .sna .z80
+// .rzx .trd .scl .dsk .rom .if2. The menu also toggles TURBO (as dsp-cpp's
+// F12: no speed limit, no sound, every 4th frame shown); on the serial
+// console F12 (ESC [ 2 4 ~) or Ctrl-T toggles it too, F5 is the magic button.
 //
 //   Core 1 : Z80 + ULA + tape/AY -> DAC GPIO26
 //   Core 0 : 320x240 RGB565 -> ST7789, XPT2046 touch, Nunchuk, BOOT, serial
@@ -24,7 +29,7 @@
 #include "nunchuk.h"
 #include "zxspec_core.h"
 #include "rom_data.h"
-#include "../ql/ql_sd.h"
+#include "zxspec_sd.h"
 
 #ifndef ZX_MODEL
 #define ZX_MODEL ZX_SPEC48
@@ -35,7 +40,7 @@ static zxspec *cpu_m;
 static char media_name[40];
 static char toast[40];
 static volatile int64_t toast_until;
-static volatile bool media_menu_req, help_req, tape_toggle_req, full_redraw;
+static volatile bool media_menu_req, help_req, tape_toggle_req, full_redraw, turbo, magic_req;
 static volatile uint8_t in_keys[8];
 static volatile uint8_t in_joy;
 static SemaphoreHandle_t frame_ready;
@@ -90,31 +95,30 @@ static void draw_help(void)
 
 static bool load_sd_name(const char *name)
 {
-    size_t sz = 0;
-    uint8_t *buf = ql_sd_load_file(name, &sz);
-    if (!buf) return false;
-    bool ok = zxspec_load_mem(cpu_m, buf, sz, name);
-    free(buf);
+    bool ok = zx_sd_load(cpu_m, name);
     if (ok) {
         snprintf(media_name, sizeof media_name, "%s", name);
         show_toast(media_name);
+    } else {
+        const char *e = zxspec_last_error(cpu_m);
+        show_toast(e[0] ? e : "SD: no memory / read error");
     }
     return ok;
 }
 
 static void run_media_menu(void)
 {
-    static const char *const exts[] = { ".tap", ".tzx", ".sna", NULL };
+    static const char *const exts[] = ZX_MEDIA_EXTS;
     static ql_sd_entry files[QL_SD_MAX_FILES];      // (2.5 KB: not on the 4 KB task stack)
     int nfiles = 0;
     bool sd_ok = ql_sd_mount();
     if (sd_ok) nfiles = ql_sd_list_ext(files, QL_SD_MAX_FILES, exts);
-    int n = nfiles + 2;
+    int n = nfiles + 3;
     int sel = 0, scroll = 0;
     const int visible = 8;
     for (;;) {
         fill_rect(0, 0, 320, 240, C_BLACK);
-        draw_text_c(160, 4, "MEDIA (.tap/.tzx/.sna)", 1, C_YELLOW, C_BLACK);
+        draw_text_c(160, 4, "MEDIA: TAP TZX CSW PZX SNA Z80 RZX TRD SCL DSK", 1, C_YELLOW, C_BLACK);
         char cur[96];
         snprintf(cur, sizeof cur, "Now: %s%s", media_name[0] ? media_name : "(none)",
                  zxspec_tape_playing(cpu_m) ? " [PLAY]" : "");
@@ -130,7 +134,8 @@ static void run_media_menu(void)
             if (idx >= n) break;
             char label[40];
             if (idx < nfiles) snprintf(label, sizeof label, "%.36s", files[idx].name);
-            else if (idx == nfiles) snprintf(label, sizeof label, "Tape play / stop");
+            else if (idx == nfiles) snprintf(label, sizeof label, "Tape play / pause");
+            else if (idx == nfiles + 1) snprintf(label, sizeof label, "TURBO %s", turbo ? "off" : "on");
             else snprintf(label, sizeof label, "Close");
             uint16_t bg = (idx == sel) ? rgb565(40, 90, 160) : C_DGREY;
             fill_rect(20, 44 + i * 22, 280, 20, bg);
@@ -156,16 +161,14 @@ static void run_media_menu(void)
                     continue;
                 }
             } else if (sel == nfiles) {
-                if (zxspec_tape_playing(cpu_m)) {
-                    zxspec_tape_stop(cpu_m);
-                    show_toast("Tape stopped");
-                } else if (zxspec_tape_loaded(cpu_m)) {
-                    zxspec_tape_play(cpu_m);
-                    show_toast("Tape playing");
-                } else {
+                if (!zxspec_tape_loaded(cpu_m)) {
                     show_toast("No tape loaded");
                     continue;
                 }
+                tape_toggle_req = true;
+            } else if (sel == nfiles + 1) {
+                turbo = !turbo;
+                show_toast(turbo ? "TURBO on" : "TURBO off");
             }
             full_redraw = true;
             return;
@@ -249,7 +252,22 @@ static void input_task(void *arg)
         }
 
         uint8_t ch;
+        static char esc[8];
+        static int nesc;
         while (uart_read_bytes(UART_NUM_0, &ch, 1, 0) == 1) {
+            // F12 = ESC [ 2 4 ~ (TURBO), F5 = ESC [ 1 5 ~ (magic button)
+            if (ch == 0x1b) { nesc = 1; esc[0] = 0x1b; continue; }
+            if (nesc) {
+                if (nesc < (int)sizeof esc - 1) esc[nesc++] = (char)ch;
+                esc[nesc] = 0;
+                if (ch == '~' || nesc >= (int)sizeof esc - 1) {
+                    if (!strcmp(esc, "\x1b[24~")) { turbo = !turbo; show_toast(turbo ? "TURBO on" : "TURBO off"); }
+                    if (!strcmp(esc, "\x1b[15~")) magic_req = true;
+                    nesc = 0;
+                }
+                continue;
+            }
+            if (ch == 0x14) { turbo = !turbo; show_toast(turbo ? "TURBO on" : "TURBO off"); continue; }
             if (ch >= 'a' && ch <= 'z') ch = (uint8_t)(ch - 'a' + 'A');
             static const struct { char c; int k; } map[] = {
                 { 'Z', ZXK_Z }, { 'X', ZXK_X }, { 'C', ZXK_C }, { 'V', ZXK_V },
@@ -341,15 +359,16 @@ static void emu_task(void *arg)
     for (;;) {
         if (tape_toggle_req) {
             tape_toggle_req = false;
-            if (zxspec_tape_playing(cpu_m)) {
-                zxspec_tape_stop(cpu_m);
-                show_toast("Tape stopped");
-            } else if (zxspec_tape_loaded(cpu_m)) {
-                zxspec_tape_play(cpu_m);
-                show_toast("Tape playing");
+            if (zxspec_tape_loaded(cpu_m)) {
+                zxspec_tape_toggle(cpu_m);
+                show_toast(zxspec_tape_playing(cpu_m) ? "Tape playing" : "Tape paused");
             } else {
                 show_toast("No tape");
             }
+        }
+        if (magic_req) {
+            magic_req = false;
+            zxspec_magic(cpu_m);
         }
         /* Copy host matrix (active-low bits) into core. */
         zxspec_keys_clear(cpu_m);
@@ -371,8 +390,15 @@ static void emu_task(void *arg)
         stat_busy += (uint32_t)(esp_timer_get_time() - t0);
         stat_frames++;
         diag_emu_frames++;
-        xSemaphoreGive(frame_ready);
-        dac_audio_push(a8, n);
+        if (turbo) {
+            // dsp-cpp TURBO: no sound (nothing paces us), every 4th frame shown
+            static unsigned tc;
+            if ((++tc & 3) == 0) xSemaphoreGive(frame_ready);
+            if ((tc & 15) == 0) vTaskDelay(1);          // (the idle task / watchdog)
+        } else {
+            xSemaphoreGive(frame_ready);
+            dac_audio_push(a8, n);
+        }
 
         int64_t now = esp_timer_get_time();
         if (now - stat_t >= 5000000) {

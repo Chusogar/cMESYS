@@ -1,0 +1,1 @@
+Pon aquí el set de MAME "plus3" (plus3.zip, tal cual o descomprimido) y ejecuta tools/regen.sh plus3

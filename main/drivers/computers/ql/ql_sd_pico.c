@@ -352,19 +352,18 @@ int ql_sd_read_sector(void *user, unsigned sector, uint8_t dest[686])
     return 0;
 }
 
-uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
+static bool ql_sd_find(const char *name, size_t *out_size)
 {
-    if (out_size) *out_size = 0;
-    if (!mounted || !name) return NULL;
+    if (!mounted || !name) return false;
     char want[11];
     make83(name, want);
     ql_sd_close();
     uint32_t root = data_start - root_secs, nsec = root_secs, cl = 0;
     if (fat32) {
-        if (sd_read_block(0, sector_buf) != 0) return NULL;
+        if (sd_read_block(0, sector_buf) != 0) return false;
         if (sector_buf[0] != 0xeb && sector_buf[0] != 0xe9) {
             uint32_t bpb = u32(sector_buf + 446 + 8);
-            if (sd_read_block(bpb, sector_buf) != 0) return NULL;
+            if (sd_read_block(bpb, sector_buf) != 0) return false;
         }
         cl = u32(sector_buf + 44);
     }
@@ -377,10 +376,10 @@ uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
             lba = (uint32_t)cluster_lba(cl); count = spc;
         }
         for (uint32_t s = 0; s < count && !found; s++) {
-            if (sd_read_block(lba + s, sector_buf) != 0) return NULL;
+            if (sd_read_block(lba + s, sector_buf) != 0) return false;
             for (int i = 0; i < 16; i++) {
                 const uint8_t *e = sector_buf + i * 32;
-                if (e[0] == 0x00) return NULL;
+                if (e[0] == 0x00) return false;
                 if (e[0] == 0xe5 || (e[11] & 0x18)) continue;
                 if (memcmp(e, want, 11) != 0) continue;
                 file_size = u32(e + 28);
@@ -393,13 +392,21 @@ uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
         if (found || !fat32) break;
         cl = next_cluster(cl);
     }
-    if (!found) return NULL;
-    if (file_size == 0 || file_size > 8 * 1024 * 1024) { ql_sd_close(); return NULL; }
+    if (!found || file_size == 0 || file_size > 8 * 1024 * 1024) { ql_sd_close(); return false; }
+    *out_size = file_size;
+    return true;
+}
+
+uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
+{
+    if (out_size) *out_size = 0;
+    size_t fsz = 0;
+    if (!ql_sd_find(name, &fsz)) return NULL;
     uint8_t *buf = (uint8_t *)malloc(file_size);
     if (!buf) { ql_sd_close(); return NULL; }
     /* Read whole file via 686-sized path is wrong; read by 512. */
     uint32_t left = file_size;
-    cl = file_start_cluster;
+    uint32_t cl = file_start_cluster;
     uint8_t *out = buf;
     uint32_t skip = 0;
     while (left) {
@@ -415,4 +422,29 @@ uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
     ql_sd_close();
     if (out_size) *out_size = file_size;
     return buf;
+}
+
+bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user)
+{
+    // (finds the file as ql_sd_load_file does, then reads it 512 bytes at a time)
+    size_t size = 0;
+    if (!mounted || !name || !fn || !ql_sd_find(name, &size)) return false;
+    uint32_t left = (uint32_t)size, skip = 0, cl = file_start_cluster;
+    bool ok = true;
+    while (ok && left) {
+        uint32_t lba = (uint32_t)cluster_lba(cl) + (skip / 512);
+        if (sd_read_block(lba, sector_buf) != 0) { ok = false; break; }
+        uint32_t n = 512;
+        if (n > left) n = left;
+        ok = fn(user, size, sector_buf, n);
+        left -= n;
+        skip += n;
+        if (skip >= (uint32_t)spc * 512) {
+            skip = 0;
+            cl = next_cluster(cl);
+            if (cl < 2 && left) ok = false;
+        }
+    }
+    ql_sd_close();
+    return ok;
 }

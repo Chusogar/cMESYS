@@ -35,3 +35,7 @@ void ql_sd_close(void);
 int ql_sd_read_sector(void *user, unsigned sector, uint8_t dest[686]);
 // Load an entire file into a malloc'd buffer (*out_size set). Caller frees.
 uint8_t *ql_sd_load_file(const char *name, size_t *out_size);
+// Read a file a piece at a time: fn gets the file size and each piece in
+// order (false from fn stops). False if the file cannot be read to the end.
+typedef bool (*ql_sd_piece_fn)(void *user, size_t size, const uint8_t *data, size_t n);
+bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user);

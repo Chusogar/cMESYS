@@ -15,15 +15,15 @@ Dieciocho máquinas (once recreativas, el Sinclair QL y seis ZX Spectrum / clone
 | Pole Position II (Namco, 1983) | `polepos2` | igual que Pole Position | igual | el mismo núcleo que `polepos` |
 | RoboCop (Data East, 1988) | `robocop` | 68000 + HuC6280 + 6502 | YM2203, YM3812, OKI M6295 | dsp-cpp `dec0.cpp` → `robocop/rc_core.c` (detalles verificados con MAME `dec0.cpp`) |
 | Sinclair QL (1984, ROM JS) — ordenador | `ql` | 68008 + 8749 (IPC) | altavoz del IPC | dsp-cpp `ql.cpp` → `drivers/computers/ql/ql_core.c` (detalles verificados con MAME `sinclair/ql.cpp`) |
-| ZX Spectrum 48K — ordenador | `spectrum48` | Z80 | beeper | dsp-cpp `spectrum.cpp` → `drivers/computers/zxspec/` |
-| ZX Spectrum 128K — ordenador | `spectrum128` | Z80 | beeper + AY-3-8912 | dsp-cpp `spectrum_128k.cpp` → `zxspec` (`-DZX_MODEL=ZX_SPEC128`) |
-| ZX Spectrum +3 — ordenador | `plus3` | Z80 | beeper + AY | dsp-cpp `spectrum_3.cpp` → `zxspec` (`ZX_PLUS3`) |
-| Pentagon — clon ZX | `pentagon` | Z80 | beeper + AY | dsp-cpp `zx_clone.cpp` → `zxspec` (`ZX_PENTAGON`) |
-| Pentagon 1024 — clon ZX | `pentagon1024` | Z80 | beeper + AY | dsp-cpp `zx_clone.cpp` → `zxspec` (`ZX_PENTAGON1024`); ROMs en `roms/pentagon1024/` |
-| Scorpion — clon ZX | `scorpion` | Z80 | beeper + AY | dsp-cpp `zx_clone.cpp` → `zxspec` (`ZX_SCORPION`) |
+| ZX Spectrum 48K — ordenador | `spectrum48` | Z80 | beeper | migración de dsp-cpp `spectrum.cpp` (Spectrum48k) → `zxspec/zx48.c` |
+| ZX Spectrum 128K — ordenador | `spectrum128` | Z80 | beeper + 2 AY-3-8912 (turbosound) | dsp-cpp `spectrum_128k.cpp` → `zxspec/zx128.c` (`-DZX_MODEL=ZX_SPEC128`) |
+| ZX Spectrum +3 — ordenador | `plus3` | Z80 | beeper + 2 AY, uPD765 | dsp-cpp `spectrum_3.cpp` + `nec765` → `zxspec/zx128.c` (`ZX_PLUS3`) |
+| Pentagon 128 — clon ZX | `pentagon` | Z80 | beeper + AY, Beta 128 | dsp-cpp `zx_clone.cpp` (ZxClone) → `zxspec/zxclone.c` (`ZX_PENTAGON`) |
+| Pentagon 1024 — clon ZX | `pentagon1024` | Z80 | beeper + AY, Beta 128 | dsp-cpp `zx_clone.cpp` → `zxclone.c` (`ZX_PENTAGON1024`); ROMs en `roms/pentagon1024/` |
+| Scorpion ZS-256 — clon ZX | `scorpion` | Z80 | beeper + AY, Beta 128 | dsp-cpp `zx_clone.cpp` → `zxclone.c` (`ZX_SCORPION`) |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
 
-Cada firmware lleva una sola máquina (el del QL lleva también un cartucho de microdrive; los Spectrum cargan `.tap` / `.tzx` / `.sna` desde microSD, arrastrar-y-soltar, diálogo o barra web, igual que el menú de cartucho del QL). Las ROMs van dentro. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
+Cada firmware lleva una sola máquina (el del QL lleva también un cartucho de microdrive; los Spectrum cargan cintas, snapshots, RZX y discos (ver «ZX Spectrum: migración de dsp-cpp») desde microSD, arrastrar-y-soltar, diálogo o barra web, igual que el menú de cartucho del QL). Las ROMs van dentro. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
 
 ## Estructura
 
@@ -56,7 +56,9 @@ main/
                           sega_315_5195 (mapeador de memoria de Sega), taito68705 (MCU de Taito),
                           zx8302 (periféricos del QL: reloj, enlace con el IPC, interrupciones,
                           controlador de microdrives), ql_mdv (microdrive del QL, imágenes QLAY),
-                          spectrum_tape (.tap/.tzx), spectrum_snap (.sna),
+                          zx_tape (.tap/.tzx/.cdt/.csw/.pzx), zx_snap (.sna/.z80), zx_rzx (.rzx),
+                          zx_inflate (zlib de CSW y RZX), zx_beta (Beta 128 + WD1793 + .trd/.scl),
+                          zx_nec765 (uPD765 + .dsk), todos de dsp-cpp,
                           namco5x (MCU Namco 51xx, 52xx, 53xx y 54xx)
   video/                  atari_mo (objetos móviles Atari, con las SLIP de Gauntlet), tc0180vcu (vídeo del Taito B System),
                           zx8301 (vídeo del QL: modos 4 y 8)
@@ -91,8 +93,9 @@ main/
                           ql_cyd.c, ql_sdl.c, ql_pico.c, ql_cart_host (menú de cartucho),
                           ql_sd_esp/ql_sd_pico (microSD compartida con zxspec), rom_data.c,
                           m68k_game_conf.h, m68k_tables.c, ql.lf
-    zxspec/               zxspec_core.c/.h (48K / 128K / +3 / Pentagon / Pentagon1024 / Scorpion;
-                          -DZX_MODEL=…), zxspec_cyd.c, zxspec_sdl.c, zxspec_pico.c, zxspec.lf,
+    zxspec/               zxspec_core.c/.h (API, ULA común, imagen, sonido, media), zx48.c, zx128.c
+                          (128K y +3), zxclone.c (Pentagon / Pentagon1024 / Scorpion), zx_internal.h;
+                          -DZX_MODEL=…; zxspec_cyd.c, zxspec_sdl.c, zxspec_pico.c, zxspec_sd.h, zxspec.lf,
                           rom_data_<modelo>.c (uno por GAME; generado desde roms/<modelo>/)
   ports/
     esp32-cyd/            cyd.c/.h (LCD SPI/DMA, táctil XPT2046 y calibración, menú de ajustes en NVS,
@@ -351,7 +354,7 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **RoboCop**: cursores = joystick (arriba / abajo apuntan), Z ataque (disparo / puñetazo), X salto.
 - **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
 - **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta** el cartucho actual; **F9** abre el menú (abrir `.mdv` del disco con zenity/kdialog, cartucho del firmware, eyectar); también **arrastra un `.mdv`** a la ventana (en web: barra «Upload» o drag&drop). **F6** es el F1 del QL (F2-F5 los suyos), F12 reinicia. `QL_MOUNT_AT=n` pulsa F1 en el frame n.
-- **ZX Spectrum / clones** (`spectrum48`, `spectrum128`, `plus3`, `pentagon`, `pentagon1024`, `scorpion`): teclado del PC = matriz Spectrum (Ctrl = Symbol Shift, cursors = Caps+5/6/7/8). **F9** menú de media (abrir `.tap`/`.tzx`/`.sna`); **F1** play/stop de cinta; F12 reset; arrastrar un fichero a la ventana (web: barra Upload). En CYD: mantener **MEDIA**/BOOT = menú microSD (raíz / `tape/` / `mdv/`); toque corto = play/stop. En RP2040: F9 lista la microSD por UART; audio PWM en GP22.
+- **ZX Spectrum / clones** (`spectrum48`, `spectrum128`, `plus3`, `pentagon`, `pentagon1024`, `scorpion`): teclado del PC = matriz Spectrum (Ctrl = Symbol Shift, cursores = Caps+5/6/7/8, Retroceso = DELETE, teclado numérico = Kempston). **F9** menú de media (abrir cualquier fichero admitido); **F1** o **F6** play/pausa de cinta; **F3** reset; **F5** botón mágico (NMI) en Pentagon / Scorpion; **F12 TURBO** como en dsp-cpp (sin límite de velocidad, sin sonido, se dibuja uno de cada 4 frames; «[TURBO]» en el título); arrastrar un fichero a la ventana (web: barra Upload). En CYD: mantener **MEDIA**/BOOT = menú microSD (raíz / `mdv/`), con «TURBO on/off»; toque corto = play/pausa; por la consola serie F12 o Ctrl-T = TURBO, F5 = botón mágico. En RP2040: F9 lista la microSD por UART, las mismas teclas F; audio PWM en GP22.
 
 Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
 
@@ -367,7 +370,7 @@ python3 -m http.server --directory build/web 8080
 # http://localhost:8080/  → index; http://localhost:8080/robocop.html
 ```
 
-Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum: barra «Upload» `.tap`/`.tzx`/`.sna`, drag&drop o F9. `?frames=n` en la URL corta tras n frames.
+Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum: barra «Upload» (todos los formatos), drag&drop o F9; F12 = TURBO. `?frames=n` en la URL corta tras n frames.
 
 ## RP2040-PiZero (HDMI)
 
@@ -384,7 +387,7 @@ Teclas (teclado USB): `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón
 
 **Sinclair QL**: el teclado USB es el del QL (Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1** monta / desmonta el cartucho actual; **F9** abre el menú (microSD FAT: `.mdv` en la raíz; cartucho del firmware; eyectar) por el UART. **F6** es el F1 del QL, F11 cambia la vista, F12 reinicia. Audio PWM en GP22 (GP4 es MISO de la SD). Mando: cursores, A = ESPACIO, B = ENTER.
 
-**ZX Spectrum / clones**: teclado USB = matriz Spectrum. **F1** tape play/stop, **F9** menú microSD (`.tap`/`.tzx`/`.sna`), F12 reset. Audio PWM en GP22 (misma SD que el QL). Mando = Kempston.
+**ZX Spectrum / clones**: teclado USB = matriz Spectrum. **F1**/**F6** cinta play/pausa, **F9** menú microSD (todos los formatos), **F3** reset, **F5** botón mágico, **F12 TURBO** (sin sonido ni límite de velocidad). Audio PWM en GP22 (misma SD que el QL). Mando = Kempston.
 
 ### Compilar y flashear
 
@@ -453,7 +456,36 @@ Los ZX Spectrum / clones comparten el núcleo en `main/drivers/computers/zxspec/
 
 `tools/gen_roms_zxspec.py` comprueba los CRC de MAME (si no coinciden solo avisa) y sigue aceptando los nombres antiguos (`48.rom`, `128.rom`, `pentagon.rom` de 32 KB…).
 
-**TR-DOS**: en el Pentagon, el Pentagon 1024 y el Scorpion la ROM de TR-DOS (banco 3) entra al ejecutar en 3D00-3DFF con el BASIC 48K seleccionado y sale al ejecutar a partir de 4000, como la interfaz Beta Disk en MAME. No hay unidad de disco: el WD1793 responde «sin disco», así que TR-DOS arranca hasta su prompt `A>` pero no lee discos. **Scorpion ZS-256**: su ROM comprueba los 256 KB de RAM al arrancar; en el escritorio y la web los tiene, pero en el CYD y la RP2040 no hay memoria para más de 128 KB y la ROM se para en esa prueba (borde verde).
+**TR-DOS**: en el Pentagon, el Pentagon 1024 y el Scorpion la ROM de TR-DOS (banco 3) entra al ejecutar en 3D00-3DFF con el BASIC 48K seleccionado y sale al ejecutar desde la RAM, y la interfaz Beta 128 (WD1793) lee y escribe discos `.trd` / `.scl` (ver más abajo). **Scorpion ZS-256**: su ROM comprueba los 256 KB de RAM al arrancar; en el escritorio y la web los tiene, pero en el CYD y la RP2040 no hay memoria para más de 128 KB y la ROM se para en esa prueba (borde verde). **Pentagon 1024**: 1 MB de RAM (64 páginas, puerto #DFFD) en el escritorio y la web; en las placas, 128 KB.
+
+### ZX Spectrum: migración de dsp-cpp
+
+Los seis modelos son una migración a C de los drivers de [dsp-cpp](https://github.com/Chusogar/dsp-cpp) (`spectrum`, `spectrum_128k`, `spectrum_3`, `zx_clone`) con su Z80 (`cpu/z80dsp/`, el de dsp-cpp con los ganchos que necesita su ULA) y sus módulos de `machine/`:
+
+| | 48K | 128K | +3 | Pentagon / Pentagon 1024 / Scorpion |
+|---|---|---|---|---|
+| Reloj, T/línea × líneas | 3,5 MHz, 224 × 312 | 3,5469 MHz, 228 × 311 | igual que el 128K | 3,5 MHz, 224 × 320 |
+| Contención | Fuse: memoria, puertos y T internos | tabla del 128K (14361, 6-5-4-3-2-1-0-0), puertos | memoria (sin puertos) | ninguna |
+| Bus flotante | Fuse | el de spectrum_128k.pas | igual | — |
+| Sonido | beeper ±8192 | beeper ±4096 + 2 AY 1,7734 MHz (turbosound) | igual | beeper ±4096 + AY 1,75 MHz |
+| Extras | ULA+ | ULA+, cartuchos Interface 2 | ULA+, paginación #1FFD, disquetera uPD765 | Beta 128 / TR-DOS, #DFFD (1 MB) o #1FFD, Gluk, botón mágico |
+
+**Borde y sonido como en dsp-cpp**: el color del borde se guarda por cada T-state (dos líneas de 228 T, no un frame entero) y cada línea se dibuja al salir el haz, con el borde izquierdo tomado de los últimos T de la línea anterior (T 200-223; 203-226 en el 128K/+3) y el derecho de T 128-151; el papel usa los latches de la ULA tomados cada 4 T (multicolor 8×1). El beeper y los AY se muestrean a 44.100 Hz en el escritorio y la web (22.050 Hz en las placas) con el mismo acumulador que dsp-cpp. Comprobado contra el propio dsp-cpp compilado: con las mismas ROMs, cintas y snapshots, el 48K, el 128K y el +3 dan **la misma imagen y el mismo sonido frame a frame**; los clones, el mismo sonido (dsp-cpp redibuja a veces la imagen del clon al final del frame y deja sin pintar su última línea; aquí se dibuja siempre al paso del haz, como en sus otros drivers).
+
+**Ficheros** (por extensión o, sin ella, por contenido):
+
+| Tipo | Extensiones | Modelos |
+|---|---|---|
+| Cinta | `.tap`, `.tzx`, `.cdt` (todos los bloques de dsp-cpp: 0x10-0x15, 0x18 CSW, 0x19 generalizado, saltos, bucles, llamadas, 0x2B nivel, 0x4B…), `.csw` (v1 y v2, RLE o zlib), `.pzx` | todos |
+| Snapshot | `.sna` (48K y 128K), `.z80` (v1, v2, v3) | todos |
+| Grabación | `.rzx` (snapshot embebido + entradas, zlib) | todos |
+| Disco TR-DOS | `.trd`, `.scl` | Pentagon, Pentagon 1024, Scorpion |
+| Disco +3 | `.dsk`, `.dsk` extendido (con los parches de protección de dsp-cpp) | +3 (solo lectura, como en dsp-cpp) |
+| Cartucho | `.rom`, `.bin`, `.if2` (Interface 2, 16 o 32 KB; reinicia la máquina) | 128K, +3 |
+
+La cinta se arranca sola cuando la ROM entra en LD-BYTES (como en dsp-cpp); F6/F1 la pausan o la siguen. Un bloque «stop the tape» la deja en pausa en el bloque siguiente (dsp-cpp la rebobina), así que los juegos multicarga siguen. Para arrancar un disco: en el Pentagon 128, menú → TR-DOS y `RUN` (R + ENTER); en el Pentagon 1024, «GLUK BOOT» y el fichero; en el Scorpion, «128 TR-DOS»; en el +3, «Loader».
+
+**Memoria en las placas**: la imagen es de 320×240 a 4 bits (38 KB, el `set_picture_limit` de dsp-cpp; con ULA+ se ven los colores de su primer banco); las cintas y los `.dsk` se guardan sin segunda copia del fichero; los `.trd` se leen de la microSD pista a pista y solo se guardan las pistas con datos (cabe un disco medio vacío, no uno de 640 KB lleno); CSW y el piloto de los bloques 0x19 se reproducen desde sus longitudes, sin expandirlos. En el CYD quedan ~100 KB libres con 128 KB de RAM emulada: un `.dsk` del +3 de 190 KB no cabe (en el escritorio y la web, sí).
 
 No hay directorio compartido `roms/spectrum`: regenerar un modelo no pisa el `rom_data` de otro. Sin ROMs reales el árbol compila con stubs vacíos (`python3 tools/gen_roms_zxspec.py --stub-all main/drivers/computers/zxspec`).
 

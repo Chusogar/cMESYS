@@ -23,3 +23,8 @@ uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
     if (out_size) *out_size = 0;
     return NULL;
 }
+bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user)
+{
+    (void)name; (void)fn; (void)user;
+    return false;
+}

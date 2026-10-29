@@ -1,44 +1,25 @@
-// zxspec_core.c - ZX Spectrum 48K / 128K / +3 / Pentagon / Scorpion (C11).
-// Practical port of dsp-cpp spectrum / spectrum_128k / spectrum_3 / zx_clone.
+// zxspec_core.c - ZX Spectrum family: the public API, the parts of the ULA
+// the dsp-cpp drivers share (per-T-state border rows, paper latches, the
+// picture, beeper / AY mixing, tape motor), the frame loops and the media.
+// The models themselves are in zx48.c, zx128.c and zxclone.c.
 #ifdef ESP_PLATFORM
 #include "esp_heap_caps.h"
 #endif
-#include "zxspec_core.h"
+#include "zx_internal.h"
 
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "z80/z80.h"
-#include "spectrum_tape.h"
-#include "spectrum_snap.h"
-#include "ay8910.h"
-
-/* Full ULA picture 352x296; output is centre crop ZX_W x ZX_H. */
-#define ZX_PAPER_X      48
-#define ZX_PAPER_Y      48
-#define ZX_CROP_X       16
-#define ZX_CROP_Y       28
-#define ZX_IRQ_HOLD_T   32
-#define ZX_BANK_SIZE    0x4000
-#define ZX_AY_CLOCK     1750000u
-#define ZX_BEEPER_AMP   4096
-
-_Static_assert(ZX_CROP_X + ZX_W <= 352, "crop width");
-_Static_assert(ZX_CROP_Y + ZX_H <= 296, "crop height");
-_Static_assert(ZX_PAPER_X + 256 <= 352 && ZX_PAPER_Y + 192 <= 296, "paper");
-
-/* Classic Spectrum ink/paper 0..15 as 0x00RRGGBB. */
+// Spectrum ink / paper 0-15 (dsp-cpp kPalette), 0x00RRGGBB
 static const uint32_t k_palette[16] = {
-    0x00000000, 0x000000CD, 0x00CD0000, 0x00CD00CD,
-    0x0000CD00, 0x0000CDCD, 0x00CDCD00, 0x00CDCDCD,
-    0x00000000, 0x000000FF, 0x00FF0000, 0x00FF00FF,
-    0x0000FF00, 0x0000FFFF, 0x00FFFF00, 0x00FFFFFF,
+    0x000000, 0x0000C0, 0xC00000, 0xC000C0, 0x00C000, 0x00C0C0, 0xC0C000, 0xC0C0C0,
+    0x000000, 0x0000FF, 0xFF0000, 0xFF00FF, 0x00FF00, 0x00FFFF, 0xFFFF00, 0xFFFFFF,
 };
 
-/* spectrum.h kScrTable — pixel line offsets within the 6K bitmap. */
-static const uint16_t k_scr_table[192] = {
+// Pixel line offsets within the 6 KB bitmap (dsp-cpp kScrTable)
+const uint16_t zx_scr_table[192] = {
     0,    256, 512, 768, 1024, 1280, 1536, 1792, 32,   288, 544, 800, 1056, 1312, 1568, 1824,
     64,   320, 576, 832, 1088, 1344, 1600, 1856, 96,   352, 608, 864, 1120, 1376, 1632, 1888,
     128,  384, 640, 896, 1152, 1408, 1664, 1920, 160,  416, 672, 928, 1184, 1440, 1696, 1952,
@@ -50,453 +31,420 @@ static const uint16_t k_scr_table[192] = {
     4096, 4352, 4608, 4864, 5120, 5376, 5632, 5888, 4128, 4384, 4640, 4896, 5152, 5408, 5664, 5920,
     4160, 4416, 4672, 4928, 5184, 5440, 5696, 5952, 4192, 4448, 4704, 4960, 5216, 5472, 5728, 5984,
     4224, 4480, 4736, 4992, 5248, 5504, 5760, 6016, 4256, 4512, 4768, 5024, 5280, 5536, 5792, 6048,
-    4288, 4544, 4800, 5056, 5312, 5568, 5824, 6080, 4320, 4576, 4832, 5088, 5344, 5600, 5856, 6112
-};
+    4288, 4544, 4800, 5056, 5312, 5568, 5824, 6080, 4320, 4576, 4832, 5088, 5344, 5600, 5856, 6112};
 
-struct zxspec {
-    zx_model_t model;
-    z80 cpu;
-    spectrum_tape tape;
-    ay8910 ay;
-    bool has_ay;
+const uint8_t zx_empty_page[ZX_BANK];
 
-    uint8_t *ram[16];   /* 16 KB banks: 8 (128K), 16 on the Scorpion (256K) when they fit */
-    uint8_t bank_mask;  /* banks - 1 */
-    const uint8_t *rom48;
-    const uint8_t *rom128;
-    size_t rom128_bytes;
-
-    /* 16K page map: slots 0..3. Slot 0 may be ROM (slot0_rom). */
-    uint8_t page[4];
-    bool slot0_rom;
-    uint8_t rom_sel;
-    bool dos;           /* TR-DOS ROM paged in (Beta Disk interface; ROM bank 3) */
-    uint8_t pantalla;
-    uint8_t port_7ffd;
-    uint8_t port_1ffd;
-    bool paging_locked;
-    bool special_paging;
-
-    uint8_t border;
-    uint8_t speaker;    /* bit6 echo on FE read: 0x00 / 0x40 */
-    uint8_t ear;        /* tape EAR: 0x00 / 0x40 */
-    uint8_t keys[8];
-    uint8_t joy;
-    bool flash;
-    int flash_count;
-
-    int16_t beeper_level;
-    int64_t audio_acc;
-    int16_t audio[ZX_AUDIO_MAX + 8];
-    int naudio;
-};
-
-static bool is_128_class(zx_model_t m)
+static uint16_t to565(uint32_t c)
 {
-    return m == ZX_SPEC128 || m == ZX_PLUS3 || m == ZX_PENTAGON ||
-           m == ZX_PENTAGON1024 || m == ZX_SCORPION;
+    return (uint16_t)((((c >> 16) & 0xf8) << 8) | (((c >> 8) & 0xfc) << 3) | ((c & 0xff) >> 3));
 }
 
-static void update_memory_map(zxspec *m)
+static void set_colour(zxspec *m, int i, uint32_t rgb)
 {
-    m->pantalla = (m->port_7ffd & 0x08) ? 7 : 5;
-    m->special_paging = false;
-    m->slot0_rom = true;
+    m->palette_ext[i] = rgb;
+    m->pal565[i] = to565(rgb);
+}
 
-    if (m->model == ZX_SPEC48) {
-        m->page[0] = 0;
-        m->page[1] = 5;
-        m->page[2] = 2;
-        m->page[3] = 0;
-        m->rom_sel = 0;
-        m->pantalla = 5;
-        return;
+// ---------------------------------------------------------------------------
+// ULA+ (spectrum_48k.pas set_pal_color: GRB332)
+// ---------------------------------------------------------------------------
+static uint32_t ulaplus_decode(uint8_t v)
+{
+    const uint32_t b = 0x21u * (v & 1) + 0x47u * (v & 1) + 0x97u * ((v >> 1) & 1);
+    const uint32_t r = 0x21u * ((v >> 2) & 1) + 0x47u * ((v >> 3) & 1) + 0x97u * ((v >> 4) & 1);
+    const uint32_t g = 0x21u * ((v >> 5) & 1) + 0x47u * ((v >> 6) & 1) + 0x97u * ((v >> 7) & 1);
+    return ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
+}
+
+static void ulaplus_reset(zxspec *m)
+{
+    m->ulaplus_active = false;
+    m->ulaplus_mode = 0;
+    m->ulaplus_last_reg = 0;
+    memset(m->ulaplus_pal, 0, sizeof m->ulaplus_pal);
+    for (int i = 0; i < 16; i++) set_colour(m, i, k_palette[i]);
+    for (int i = 16; i < 80; i++) set_colour(m, i, 0);
+}
+
+void zx_ulaplus_out(zxspec *m, uint16_t port, uint8_t value)
+{
+    if (!m->ulaplus_enabled) return;
+    if (port == 0xbf3b) {
+        m->ulaplus_mode = (uint8_t)(value >> 6);
+        if (m->ulaplus_mode == 0) m->ulaplus_last_reg = value & 0x3f;
     }
-
-    if (m->model == ZX_PLUS3 && (m->port_1ffd & 0x01)) {
-        static const uint8_t k_ram[4][4] = {
-            {0, 1, 2, 3},
-            {4, 5, 6, 7},
-            {4, 5, 6, 3},
-            {4, 7, 6, 3},
-        };
-        const int cfg = (m->port_1ffd >> 1) & 3;
-        for (int i = 0; i < 4; i++) m->page[i] = k_ram[cfg][i];
-        m->slot0_rom = false;
-        m->special_paging = true;
-        return;
-    }
-
-    if (m->model == ZX_SCORPION && (m->port_1ffd & 0x01)) {
-        m->page[0] = 0;
-        m->page[1] = 5;
-        m->page[2] = 2;
-        m->page[3] = (uint8_t)(m->port_7ffd & 7);
-        m->slot0_rom = false;
-        return;
-    }
-
-    m->page[1] = 5;
-    m->page[2] = 2;
-    m->page[3] = (uint8_t)(m->port_7ffd & 7);
-    if (m->model == ZX_SCORPION)
-        m->page[3] = (uint8_t)((m->port_7ffd & 7) | ((m->port_1ffd & 0x10) >> 1));   /* 0-15 */
-
-    if (m->model == ZX_PLUS3)
-        m->rom_sel = (uint8_t)(((m->port_7ffd >> 4) & 1) | ((m->port_1ffd >> 1) & 2));
-    else if (m->model == ZX_SCORPION && (m->port_1ffd & 0x02))
-        m->rom_sel = 2;
-    else
-        m->rom_sel = (uint8_t)((m->port_7ffd >> 4) & 1);
-
-    m->slot0_rom = true;
-    m->page[0] = 0;
-}
-
-static void apply_7ffd(zxspec *m, uint8_t value)
-{
-    if (m->model == ZX_SPEC48) return;
-    if (m->paging_locked) return;
-    m->port_7ffd = value;
-    m->paging_locked = (value & 0x20) != 0;
-    update_memory_map(m);
-}
-
-static void apply_1ffd(zxspec *m, uint8_t value)
-{
-    if (m->model != ZX_PLUS3 && m->model != ZX_SCORPION) return;
-    m->port_1ffd = value;
-    update_memory_map(m);
-}
-
-static const uint8_t *vram(const zxspec *m)
-{
-    return m->ram[m->pantalla & 7];
-}
-
-/* Pentagon / Scorpion: TR-DOS (the Beta Disk ROM, bank 3 of the generated
- * ROM set) pages in when an instruction is fetched from 3D00-3DFF with the
- * 48K BASIC ROM selected, and out at the first fetch from 4000 up (as in
- * MAME's pentagon.cpp / scorpion.cpp). There is no disk drive: the
- * WD1793 ports answer "no disk". */
-static bool has_trdos(const zxspec *m)
-{
-    return (m->model == ZX_PENTAGON || m->model == ZX_PENTAGON1024 || m->model == ZX_SCORPION) &&
-           m->rom128 && m->rom128_bytes >= 4 * ZX_BANK_SIZE;
-}
-
-static uint8_t rom_read(const zxspec *m, uint16_t off)
-{
-    const bool sys = m->model == ZX_SCORPION && (m->port_1ffd & 0x02);     /* service ROM wins */
-    size_t base = (size_t)(m->dos && !sys ? 3 : m->rom_sel) * ZX_BANK_SIZE;
-    if (m->rom128 && base + off < m->rom128_bytes)
-        return m->rom128[base + off];
-    if (m->rom48) return m->rom48[off];
-    return 0xff;
-}
-
-static uint8_t mem_read(void *ud, uint16_t addr)
-{
-    zxspec *m = (zxspec *)ud;
-    const int slot = addr >> 14;
-    const uint16_t off = (uint16_t)(addr & 0x3fff);
-    if (addr == (uint16_t)(m->cpu.pc - 1) && has_trdos(m)) {    /* instruction fetch */
-        if (!m->dos && (addr & 0xff00) == 0x3d00 && m->slot0_rom && m->rom_sel == 1)
-            m->dos = true;
-        else if (m->dos && addr >= 0x4000)
-            m->dos = false;
-    }
-    if (slot == 0) {
-        if (m->slot0_rom) return rom_read(m, off);
-        return m->ram[m->page[0] & m->bank_mask][off];
-    }
-    if (m->page[slot] > m->bank_mask) return 0xff;            /* a bank this build has no room for */
-    return m->ram[m->page[slot]][off];
-}
-
-static void mem_write(void *ud, uint16_t addr, uint8_t value)
-{
-    zxspec *m = (zxspec *)ud;
-    const int slot = addr >> 14;
-    const uint16_t off = (uint16_t)(addr & 0x3fff);
-    if (slot == 0) {
-        if (m->slot0_rom) return;
-        m->ram[m->page[0] & m->bank_mask][off] = value;
-        return;
-    }
-    if (m->page[slot] > m->bank_mask) return;
-    m->ram[m->page[slot]][off] = value;
-}
-
-static uint8_t port_in(z80 *z, uint16_t port)
-{
-    zxspec *m = (zxspec *)z->userdata;
-    uint8_t result = 0xff;
-
-    if ((port & 1) == 0) {
-        uint8_t keys = 0x1f;
-        if ((port & 0x8000) == 0) keys &= m->keys[7];
-        if ((port & 0x4000) == 0) keys &= m->keys[6];
-        if ((port & 0x2000) == 0) keys &= m->keys[5];
-        if ((port & 0x1000) == 0) keys &= m->keys[4];
-        if ((port & 0x0800) == 0) keys &= m->keys[3];
-        if ((port & 0x0400) == 0) keys &= m->keys[2];
-        if ((port & 0x0200) == 0) keys &= m->keys[1];
-        if ((port & 0x0100) == 0) keys &= m->keys[0];
-        result = (uint8_t)((keys & 0x1f) | 0xa0);
-        result = (uint8_t)((result & 0xbf) | m->ear | m->speaker);
-    }
-
-    /* Kempston: classic $1F (and A5=0, A0=1 style). */
-    if ((port & 0xff) == 0x1f || (port & 0x21) == 0x01)
-        result = (uint8_t)(m->joy & 0x1f);
-
-    if (m->has_ay && (port & 0xc002) == 0xc000)
-        result = ay8910_data_r(&m->ay);
-
-    /* Beta Disk (only while TR-DOS is paged in): no drive. WD1793 status
-     * "not ready", system register INTRQ set (command done). */
-    if (m->dos) {
-        switch (port & 0xff) {
-        case 0x1f: result = 0x80; break;
-        case 0x3f: case 0x5f: case 0x7f: result = 0x00; break;
-        case 0xff: result = 0x80; break;
-        default: break;
-        }
-    }
-
-    return result;
-}
-
-static void port_out(z80 *z, uint16_t port, uint8_t value)
-{
-    zxspec *m = (zxspec *)z->userdata;
-
-    if ((port & 1) == 0) {
-        m->border = (uint8_t)(value & 7);
-        m->speaker = (value & 0x10) ? 0x40 : 0x00;
-        m->beeper_level = (value & 0x10) ? (int16_t)ZX_BEEPER_AMP : (int16_t)(-ZX_BEEPER_AMP);
-    }
-
-    if (m->model == ZX_SPEC48) return;
-
-    /* $7FFD banking (A15 low-ish, A1=0, A0=1). */
-    if ((port & 0x8002) == 0 && (port & 1) != 0) {
-        if (m->model == ZX_PLUS3 || m->model == ZX_SCORPION) {
-            if ((port & 0xff00) == 0x1f00) {
-                apply_1ffd(m, value);
-                return;
-            }
-        }
-        apply_7ffd(m, value);
-    }
-
-    /* +3 / Scorpion also accept exact $1FFD. */
-    if ((m->model == ZX_PLUS3 || m->model == ZX_SCORPION) && port == 0x1ffd)
-        apply_1ffd(m, value);
-
-    if (m->has_ay) {
-        if ((port & 0xc002) == 0xc000)
-            ay8910_address_w(&m->ay, value);
-        else if ((port & 0xc002) == 0x8000)
-            ay8910_data_w(&m->ay, value);
-    }
-}
-
-static void maybe_start_tape_from_rom(zxspec *m)
-{
-    if (!tape_loaded(&m->tape) || tape_playing(&m->tape)) return;
-    const uint16_t pc = m->cpu.pc;
-    if ((pc >= 0x04c2 && pc < 0x0800) || (pc >= 0x056c && pc < 0x0600))
-        tape_play(&m->tape);
-}
-
-static void on_cycles(zxspec *m, int cycles)
-{
-    if (cycles <= 0) return;
-
-    maybe_start_tape_from_rom(m);
-    if (tape_playing(&m->tape))
-        m->ear = tape_ear_bit(&m->tape, cycles) ? 0x40 : 0x00;
-
-    m->audio_acc += (int64_t)cycles * ZX_AUDIO_RATE;
-    while (m->audio_acc >= (int64_t)ZX_CLOCK) {
-        m->audio_acc -= (int64_t)ZX_CLOCK;
-        int32_t sample = m->beeper_level;
-        if (m->has_ay) sample += ay8910_render(&m->ay);
-        if (sample > 32767) sample = 32767;
-        if (sample < -32768) sample = -32768;
-        if (m->naudio < ZX_AUDIO_MAX)
-            m->audio[m->naudio++] = (int16_t)sample;
-    }
-}
-
-static void apply_snap(zxspec *m, const spectrum_snap *s)
-{
-    m->cpu.a = s->a;
-    m->cpu.f = s->f;
-    m->cpu.b = s->b;
-    m->cpu.c = s->c;
-    m->cpu.d = s->d;
-    m->cpu.e = s->e;
-    m->cpu.h = s->h;
-    m->cpu.l = s->l;
-    m->cpu.a_ = s->a2;
-    m->cpu.f_ = s->f2;
-    m->cpu.b_ = s->b2;
-    m->cpu.c_ = s->c2;
-    m->cpu.d_ = s->d2;
-    m->cpu.e_ = s->e2;
-    m->cpu.h_ = s->h2;
-    m->cpu.l_ = s->l2;
-    m->cpu.ix = s->ix;
-    m->cpu.iy = s->iy;
-    m->cpu.sp = s->sp;
-    m->cpu.i = s->i;
-    m->cpu.r = s->r;
-    m->cpu.interrupt_mode = s->im;
-    m->cpu.iff1 = s->iff1;
-    m->cpu.iff2 = s->iff2;
-    m->cpu.pc = s->pc;
-    m->cpu.halted = false;
-    z80_clr_irq(&m->cpu);
-
-    m->border = (uint8_t)(s->border & 7);
-
-    if (s->is_128) {
-        for (int b = 0; b < 8; b++) {
-            if (s->banks[b])
-                memcpy(m->ram[b], s->banks[b], ZX_BANK_SIZE);
-        }
-        m->paging_locked = false;
-        apply_7ffd(m, s->port_7ffd);
-        if (m->model == ZX_PLUS3 || m->model == ZX_SCORPION)
-            apply_1ffd(m, s->port_1ffd);
-    } else {
-        if (s->ram48) {
-            memcpy(m->ram[5], s->ram48, ZX_BANK_SIZE);
-            memcpy(m->ram[2], s->ram48 + ZX_BANK_SIZE, ZX_BANK_SIZE);
-            memcpy(m->ram[0], s->ram48 + 2 * ZX_BANK_SIZE, ZX_BANK_SIZE);
-        }
-        m->paging_locked = false;
-        if (is_128_class(m->model)) {
-            /* Force 48K-compatible paging on a 128K-class machine. */
-            apply_7ffd(m, 0x10);
-        } else {
-            update_memory_map(m);
+    if (port == 0xff3b) {
+        if (m->ulaplus_mode == 0) {
+            m->ulaplus_pal[m->ulaplus_last_reg & 63] = value;
+            set_colour(m, 16 + (m->ulaplus_last_reg & 63), ulaplus_decode(value));
+        } else if (m->ulaplus_mode == 1) {
+            m->ulaplus_active = (value & 1) != 0;
         }
     }
 }
 
-static bool ends_with_ci(const char *path, const char *ext)
+bool zx_ulaplus_in(zxspec *m, uint16_t port, uint8_t *result)
 {
-    if (!path || !ext) return false;
-    size_t n = strlen(path), e = strlen(ext);
-    if (n < e) return false;
-    for (size_t i = 0; i < e; i++) {
-        unsigned char a = (unsigned char)path[n - e + i];
-        unsigned char b = (unsigned char)ext[i];
-        if (tolower(a) != tolower(b)) return false;
-    }
+    if (port != 0xff3b || !m->ulaplus_enabled) return false;
+    if (m->ulaplus_mode == 0) *result = m->ulaplus_pal[m->ulaplus_last_reg & 63];
+    else if (m->ulaplus_mode == 1) *result = m->ulaplus_active ? 1 : 0;
+    else return false;
     return true;
 }
 
-static uint32_t pixel_at(const zxspec *m, int full_x, int full_y)
+static bool ulaplus_on(const zxspec *m)
 {
-    const uint32_t border = k_palette[m->border & 7];
-    if (full_x < ZX_PAPER_X || full_x >= ZX_PAPER_X + 256 ||
-        full_y < ZX_PAPER_Y || full_y >= ZX_PAPER_Y + 192)
-        return border;
+    return m->kind != ZK_CLONE && m->ulaplus_active && m->ulaplus_enabled;
+}
 
-    const int y = full_y - ZX_PAPER_Y;
-    const int x = full_x - ZX_PAPER_X;
-    const uint8_t *v = vram(m);
-    const uint8_t pixels = v[k_scr_table[y] + (x >> 3)];
-    const uint8_t attrib = v[0x1800 + ((y >> 3) << 5) + (x >> 3)];
-    int ink = attrib & 7;
-    int paper = (attrib >> 3) & 7;
-    if (attrib & 0x40) {
-        ink += 8;
-        paper += 8;
+uint8_t zx_border_index(const zxspec *m)
+{
+    return ulaplus_on(m) ? (uint8_t)(16 + (m->border & 7)) : (uint8_t)(m->border & 7);
+}
+
+// ---------------------------------------------------------------------------
+// keyboard (port $FE)
+// ---------------------------------------------------------------------------
+uint8_t zx_keys_read(const zxspec *m, uint16_t port)
+{
+    uint8_t keys = 0x1f;
+    for (int row = 0; row < 8; row++) {
+        if (port & (0x100 << row)) continue;
+        uint8_t k = m->keys[row];
+        if (row == 4) k &= (uint8_t)~m->sinclair;     // 128K: Interface 2 right stick on 6-0
+        keys &= k;
     }
-    if ((attrib & 0x80) && m->flash) {
-        int tmp = ink;
-        ink = paper;
-        paper = tmp;
+    return keys;
+}
+
+// ---------------------------------------------------------------------------
+// border rows, paper latches, the picture (render_line of the drivers)
+// ---------------------------------------------------------------------------
+void zx_start_border_frame(zxspec *m)
+{
+    // Lines the beam does not reach keep the colour the frame started with.
+    m->border_seed = zx_border_index(m);
+    memset(m->border_cur, m->border_seed, (size_t)m->t_line);
+    memset(m->border_prev, m->border_seed, (size_t)m->t_line);
+}
+
+void zx_next_border_line(zxspec *m)
+{
+    uint8_t *t = m->border_cur;
+    m->border_cur = m->border_prev;
+    m->border_prev = t;
+    memset(m->border_cur, m->border_seed, (size_t)m->t_line);
+}
+
+static inline void latch_column(zxspec *m, int col)
+{
+    const int y = m->line - m->paper_first;
+    const uint8_t *vram = m->ram[m->pantalla];
+    m->latch_pix[col] = vram[zx_scr_table[y] + col];
+    m->latch_attr[col] = vram[0x1800 + ((y >> 3) << 5) + col];
+    m->latch_mask |= 1u << col;
+}
+
+// The paper's ink / paper indices of a cell
+static inline void cell_colours(const zxspec *m, uint8_t attrib, bool uplus, uint8_t *c_ink, uint8_t *c_paper)
+{
+    if (uplus) {
+        const int bank = ((((attrib & 0x80) >> 6) + ((attrib & 0x40) >> 6)) << 4) + 16;
+        *c_ink = (uint8_t)(bank + (attrib & 7));
+        *c_paper = (uint8_t)(bank + ((attrib >> 3) & 7) + 8);
+    } else {
+        int ink = attrib & 7, paper = (attrib >> 3) & 7;
+        if (attrib & 0x40) { ink += 8; paper += 8; }
+        if ((attrib & 0x80) && m->flash) { int t = ink; ink = paper; paper = t; }
+        *c_ink = (uint8_t)ink;
+        *c_paper = (uint8_t)paper;
     }
-    const int bit = 7 - (x & 7);
-    return k_palette[(pixels & (1 << bit)) ? ink : paper];
 }
 
-static uint16_t to_rgb565(uint32_t c)
+// The boards' 320x240 picture, 4 bits a pixel: the same as below, written
+// two pixels a byte straight away (crop_x = 16: left border T 8-23, right
+// border T 128-143).
+static void ZX_HOT emit_packed(zxspec *m, int line, int row, uint8_t *out)
 {
-    unsigned r = (c >> 16) & 0xff;
-    unsigned g = (c >> 8) & 0xff;
-    unsigned b = c & 0xff;
-    return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
-}
-
-/* ---- public API --------------------------------------------------------- */
-
-void zxspec_init(zxspec *m, zx_model_t model)
-{
-    if (!m) return;
-    /* Preserve any RAM banks already allocated by zxspec_create. */
-    uint8_t *banks[16];
-    for (int b = 0; b < 16; b++) banks[b] = m->ram[b];
-    const uint8_t mask = m->bank_mask ? m->bank_mask : 7;
-    memset(m, 0, sizeof *m);
-    for (int b = 0; b < 16; b++) m->ram[b] = banks[b];
-    m->bank_mask = mask;
-    m->model = model;
-    m->has_ay = is_128_class(model);
-    m->border = 7;
-    memset(m->keys, 0xff, sizeof m->keys);
-    tape_init(&m->tape);
-    z80_init(&m->cpu);
-    m->cpu.read_byte = mem_read;
-    m->cpu.write_byte = mem_write;
-    m->cpu.port_in = port_in;
-    m->cpu.port_out = port_out;
-    m->cpu.userdata = m;
-    if (m->has_ay)
-        ay8910_init(&m->ay, ZX_AY_CLOCK, ZX_AUDIO_RATE);
-    update_memory_map(m);
-}
-
-void zxspec_set_rom(zxspec *m, const uint8_t *rom48, const uint8_t *rom128, size_t rom128_bytes)
-{
-    if (!m) return;
-    m->rom48 = rom48;
-    m->rom128 = rom128;
-    m->rom128_bytes = rom128_bytes;
-}
-
-void zxspec_reset(zxspec *m)
-{
-    if (!m) return;
-    for (int b = 0; b <= m->bank_mask; b++) {
-        if (m->ram[b]) memset(m->ram[b], 0, ZX_BANK_SIZE);
+    // left border: T left_t+8 .. left_t+23 of the previous line
+    if (m->kind == ZK_CLONE && row == 0) {
+        memset(out, (m->border & 7) * 0x11, 16);
+    } else {
+        const uint8_t *prev = m->border_prev + m->left_t + 8;
+        for (int f = 0; f < 16; f++) out[f] = (uint8_t)((prev[f] & 15) * 0x11);
     }
-    m->port_7ffd = 0;
-    m->port_1ffd = 0;
-    m->dos = false;
-    m->paging_locked = false;
-    m->special_paging = false;
-    update_memory_map(m);
-    z80_reset(&m->cpu);
-    if (m->has_ay) ay8910_reset(&m->ay);
-    m->border = 7;
-    m->speaker = 0;
-    m->ear = 0;
-    memset(m->keys, 0xff, sizeof m->keys);
-    m->joy = 0;
-    m->flash = false;
-    m->flash_count = 0;
-    m->beeper_level = 0;
-    m->audio_acc = 0;
-    m->naudio = 0;
-    tape_stop(&m->tape);
+    const uint8_t *brow = m->border_cur;
+    for (int f = 0; f < 16; f++) out[144 + f] = (uint8_t)((brow[128 + f] & 15) * 0x11);
+    if (line >= m->paper_first && line < m->paper_first + 192) {
+        const int y = line - m->paper_first;
+        const uint8_t *vram = m->ram[m->pantalla];
+        const uint16_t pix_base = zx_scr_table[y];
+        const int attr_row = (y >> 3) << 5;
+        const bool uplus = ulaplus_on(m);
+        uint8_t *cell = out + 16;
+        for (int col = 0; col < 32; col++, cell += 4) {
+            const bool latched = (m->latch_mask >> col) & 1;
+            const uint8_t attrib = latched ? m->latch_attr[col] : vram[0x1800 + attr_row + col];
+            const uint8_t pix = latched ? m->latch_pix[col] : vram[pix_base + col];
+            uint8_t ci, cp;
+            cell_colours(m, attrib, uplus, &ci, &cp);
+            ci &= 15;
+            cp &= 15;
+            const uint8_t lut[4] = { (uint8_t)(cp | cp << 4), (uint8_t)(cp | ci << 4),
+                                     (uint8_t)(ci | cp << 4), (uint8_t)(ci | ci << 4) };
+            cell[0] = lut[(pix >> 6) & 3];
+            cell[1] = lut[(pix >> 4) & 3];
+            cell[2] = lut[(pix >> 2) & 3];
+            cell[3] = lut[pix & 3];
+        }
+    } else {
+        for (int f = 0; f < 128; f++) out[16 + f] = (uint8_t)((brow[f] & 15) * 0x11);
+    }
+}
+
+void ZX_HOT zx_emit_line(zxspec *m, int line)
+{
+    const int row = line - m->pic_first;
+    if (row < 0 || row >= ZX_FULL_H) return;
+    const int sy = row - m->crop_y;
+    if (sy < 0 || sy >= m->pic_h) return;
+    if (m->packed && m->crop_x == 16 && m->pic_w == 320) {
+        emit_packed(m, line, row, m->pic + (size_t)sy * 160u);
+        return;
+    }
+    uint8_t *dst = m->line_px;
+
+    // left border: T left_t..left_t+23 of the previous line
+    if (m->kind == ZK_CLONE && row == 0) {
+        memset(dst, m->border & 7, 48);
+    } else {
+        const uint8_t *prev = m->border_prev + m->left_t;
+        for (int f = 0; f < 24; f++) dst[2 * f] = dst[2 * f + 1] = prev[f];
+    }
+    // right border: T 128..151
+    const uint8_t *brow = m->border_cur;
+    for (int f = 0; f < 24; f++) dst[304 + 2 * f] = dst[304 + 2 * f + 1] = brow[128 + f];
+
+    if (line >= m->paper_first && line < m->paper_first + 192) {
+        // paper: the ULA latches (fetch-time bytes) for 8x1 multicolour
+        const int y = line - m->paper_first;
+        const uint8_t *vram = m->ram[m->pantalla];
+        const uint16_t pix_base = zx_scr_table[y];
+        const int attr_row = (y >> 3) << 5;
+        const bool uplus = ulaplus_on(m);
+        for (int col = 0; col < 32; col++) {
+            const bool latched = (m->latch_mask >> col) & 1;
+            const uint8_t attrib = latched ? m->latch_attr[col] : vram[0x1800 + attr_row + col];
+            uint8_t pix = latched ? m->latch_pix[col] : vram[pix_base + col];
+            uint8_t c_ink, c_paper;
+            cell_colours(m, attrib, uplus, &c_ink, &c_paper);
+            uint8_t *cell = dst + 48 + col * 8;
+            for (int b = 0; b < 8; b++, pix <<= 1) cell[b] = (pix & 0x80) ? c_ink : c_paper;
+        }
+    } else {
+        // top / bottom border: T 0..127
+        for (int f = 0; f < 128; f++) dst[48 + 2 * f] = dst[48 + 2 * f + 1] = brow[f];
+    }
+
+    const uint8_t *src = dst + m->crop_x;
+    if (m->packed) {
+        uint8_t *out = m->pic + (size_t)sy * (size_t)(m->pic_w / 2);
+        for (int x = 0; x < m->pic_w; x += 2) out[x / 2] = (uint8_t)((src[x] & 15) | (src[x + 1] << 4));
+    } else {
+        memcpy(m->pic + (size_t)sy * (size_t)m->pic_w, src, (size_t)m->pic_w);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// tape motor, sound
+// ---------------------------------------------------------------------------
+// Start the tape when the ROM enters LD-BYTES / SA-BYTES ($04C2-$07FF), so
+// it cannot run through before LOAD "" does (dsp-cpp: whatever ROM is paged;
+// the 128K starts and advances it in the same step, the others start it).
+static inline bool at_tape_routines(const zxspec *m)
+{
+    const uint16_t pc = m->cpu.pc;
+    return pc >= 0x04c2 && pc < 0x0800;
+}
+
+void ZX_HOT zx_tape_cycles(zxspec *m, int cycles)
+{
+    if (m->kind == ZK_128) {
+        if (zt_is_loaded(&m->tape) && !zt_is_playing(&m->tape) && !m->tape_held && at_tape_routines(m))
+            zt_play(&m->tape, !zt_is_paused(&m->tape));
+        if (zt_is_playing(&m->tape)) m->ear = zt_advance(&m->tape, cycles) ? 0x40 : 0x00;
+        return;
+    }
+    if (zt_is_playing(&m->tape)) {
+        m->ear = zt_advance(&m->tape, cycles) ? 0x40 : 0x00;
+    } else if (zt_is_loaded(&m->tape) && !m->tape_held && at_tape_routines(m)) {
+        zt_play(&m->tape, !zt_is_paused(&m->tape));
+    }
+}
+
+static void ZX_HOT audio_samples(zxspec *m)
+{
+    while (m->audio_acc >= (int64_t)m->clock) {
+        m->audio_acc -= m->clock;
+        int32_t s = m->beeper_level;
+        if (m->nay) {
+            s += ay8910_render(&m->ay[0]);
+            if (m->ay1_used) s += ay8910_render(&m->ay[1]);
+        }
+        if (s > 32767) s = 32767;
+        if (s < -32768) s = -32768;
+        if (m->naudio < ZX_AUDIO_MAX) m->audio[m->naudio++] = (int16_t)s;
+    }
+}
+
+void ZX_HOT zx_push_audio(zxspec *m, int cycles)
+{
+    m->audio_acc += (int64_t)cycles * m->audio_rate;
+    if (m->audio_acc >= (int64_t)m->clock) audio_samples(m);
+}
+
+// on_cycles of the drivers: the border colour for every elapsed T-state, the
+// paper latches every 4 T-states, a line drawn as the beam leaves it.
+void ZX_HOT zx_on_cycles(zxspec *m, int cycles)
+{
+    for (int left = cycles; left > 0;) {
+        // waits can take the beam past the frame before the Z80 has run it
+        if (m->frame_t >= m->t_frame) {
+            m->frame_t += left;
+            break;
+        }
+        int n = m->t_line - m->t_in_line;
+        if (n > left) n = left;
+        const int end = m->t_in_line + n;
+        if (m->line >= m->paper_first && m->line < m->paper_first + 192 && m->t_in_line < 128) {
+            const int stop = end < 128 ? end : 128;
+            for (int t = (m->t_in_line + 3) & ~3; t < stop; t += 4) latch_column(m, t >> 2);
+        }
+        {
+            uint8_t *b = m->border_cur + m->t_in_line;
+            const uint8_t c = zx_border_index(m);
+            if (n <= 8) for (int k = 0; k < n; k++) b[k] = c;
+            else memset(b, c, (size_t)n);
+        }
+        m->t_in_line = end;
+        m->frame_t += n;
+        left -= n;
+        if (m->t_in_line >= m->t_line) {
+            m->t_in_line -= m->t_line;
+            zx_emit_line(m, m->line);
+            m->latch_mask = 0;
+            m->line++;
+            zx_next_border_line(m);
+        }
+    }
+    if (m->tape.loaded) zx_tape_cycles(m, cycles);
+    if (m->if2_rom && !m->if2_switched) {
+        m->if2_delay += cycles;
+        if (m->if2_delay > 10500000) m->if2_switched = true;
+    }
+    m->audio_acc += (int64_t)cycles * m->audio_rate;
+    if (m->audio_acc >= (int64_t)m->clock) audio_samples(m);
+}
+
+// Brings the beam to the T-state inside the current instruction (Fuse-style
+// interleaved timing) and returns the frame T-state.
+int ZX_HOT zx_ula_time(zxspec *m)
+{
+    const int delta = zd_t_in_instruction(&m->cpu) - m->instr_t_flushed;
+    if (delta > 0) {
+        zx_on_cycles(m, delta);
+        m->instr_t_flushed += delta;
+    }
+    return m->frame_t;
+}
+
+void ZX_HOT zx_sync_to(zxspec *m, int t_in_instr)
+{
+    const int delta = t_in_instr - m->instr_t_flushed;
+    if (delta > 0) {
+        zx_on_cycles(m, delta);
+        m->instr_t_flushed += delta;
+    }
+}
+
+void ZX_HOT zx_on_insn_cycles(void *user, int cycles)
+{
+    zxspec *m = (zxspec *)user;
+    const int rem = cycles - m->instr_t_flushed;
+    m->instr_t_flushed = 0;
+    if (rem > 0) zx_on_cycles(m, rem);
+}
+
+// ---------------------------------------------------------------------------
+// frames
+// ---------------------------------------------------------------------------
+static void frame_begin(zxspec *m)
+{
+    m->line = 0;
+    m->t_in_line = 0;
+    m->frame_t = 0;
+    m->instr_t_flushed = 0;
+    m->latch_mask = 0;
+    zx_start_border_frame(m);
+}
+
+void zx_finish_frame(zxspec *m)
+{
+    // Lines the beam did not reach (never re-draw one: that would wipe the
+    // per-T-state border); latches belong to the line the beam stopped in.
+    while (m->line < m->lines) {
+        zx_emit_line(m, m->line);
+        m->latch_mask = 0;
+        m->line++;
+        zx_next_border_line(m);
+    }
+    m->line = 0;
+    m->t_in_line = 0;
+    m->frame_t = 0;
+    m->instr_t_flushed = 0;
+    m->flash_count = (m->flash_count + 1) & 0x0f;
+    if (m->flash_count == 0) m->flash = !m->flash;
+}
+
+static void run_rzx_frame(zxspec *m)
+{
+    if (!zx_rzx_begin_frame(&m->rzx)) return;
+    frame_begin(m);
+    zd_set_irq(&m->cpu, ZD_HOLD, 0xff);
+    // until the frame's fetch budget is spent (one interrupt per RZX frame)
+    int safety = m->t_frame * 4;
+    while (m->rzx.fetches_left > 0 && safety-- > 0) {
+        if (zd_run(&m->cpu, 1) <= 0) break;
+        if (m->frame_t >= 32) zd_set_irq(&m->cpu, ZD_CLEAR, 0xff);
+    }
+    zx_finish_frame(m);
+}
+
+static void run_frame(zxspec *m)
+{
+    frame_begin(m);
+    zd_set_irq(&m->cpu, ZD_HOLD, 0xff);
+    if (m->kind == ZK_CLONE) {
+        // no contention: driven by the Z80's cycles
+        int remaining = m->t_frame;
+        while (remaining > 0) {
+            const int ran = zd_run(&m->cpu, remaining < m->t_line ? remaining : m->t_line);
+            if (ran <= 0) break;
+            remaining -= ran;
+            if (remaining < m->t_frame - 32) zd_set_irq(&m->cpu, ZD_CLEAR, 0xff);
+        }
+    } else {
+        // driven by ULA time: contended waits advance the beam
+        while (m->frame_t < m->t_frame) {
+            const int left = m->t_frame - m->frame_t;
+            int ask = left > 64 ? (left - 32 < m->t_line ? left - 32 : m->t_line) : 1;
+            if (ask < 1) ask = 1;
+            if (zd_run(&m->cpu, ask) <= 0) break;
+            if (m->frame_t >= 32) zd_set_irq(&m->cpu, ZD_CLEAR, 0xff);
+        }
+    }
+    zx_finish_frame(m);
 }
 
 int zxspec_run_frame(zxspec *m, const int16_t **audio)
@@ -506,234 +454,523 @@ int zxspec_run_frame(zxspec *m, const int16_t **audio)
         return 0;
     }
     m->naudio = 0;
-
-    z80_assert_irq(&m->cpu, 0xff);
-    int frame_t = 0;
-    while (frame_t < ZX_T_FRAME) {
-        unsigned left = (unsigned)(ZX_T_FRAME - frame_t);
-        unsigned ask = left > 64u ? (left > (unsigned)ZX_T_LINE ? (unsigned)ZX_T_LINE : left) : 1u;
-        unsigned ran = z80_step_n(&m->cpu, ask);
-        if (ran == 0) {
-            ran = z80_step(&m->cpu);
-            if (ran == 0) break;
-        }
-        frame_t += (int)ran;
-        on_cycles(m, (int)ran);
-        if (frame_t >= ZX_IRQ_HOLD_T)
-            z80_clr_irq(&m->cpu);
-    }
-
-    m->flash_count = (m->flash_count + 1) & 0x0f;
-    if (m->flash_count == 0) m->flash = !m->flash;
-
+    if (m->rzx.playing) run_rzx_frame(m);
+    else run_frame(m);
     if (audio) *audio = m->audio;
     return m->naudio;
 }
 
-void zxspec_key(zxspec *m, int code, bool down)
-{
-    if (!m) return;
-    int row = (code >> 3) & 7;
-    int bit = code & 7;
-    if (bit > 4) return;
-    if (down)
-        m->keys[row] = (uint8_t)(m->keys[row] & ~(1u << bit));
-    else
-        m->keys[row] = (uint8_t)(m->keys[row] | (1u << bit));
-}
-
-void zxspec_keys_clear(zxspec *m)
-{
-    if (!m) return;
-    memset(m->keys, 0xff, sizeof m->keys);
-}
-
-void zxspec_joy(zxspec *m, uint8_t kempston)
-{
-    if (!m) return;
-    m->joy = (uint8_t)(kempston & 0x1f);
-}
-
-bool zxspec_load_file(zxspec *m, const char *path)
-{
-    if (!m || !path) return false;
-    if (ends_with_ci(path, ".tap") || ends_with_ci(path, ".tzx")) {
-        if (!tape_load_file(&m->tape, path)) return false;
-        tape_stop(&m->tape);
-        return true;
-    }
-    if (ends_with_ci(path, ".sna")) {
-        spectrum_snap snap;
-        spectrum_snap_init(&snap);
-        if (!spectrum_snap_load_file(&snap, path)) {
-            spectrum_snap_free(&snap);
-            return false;
-        }
-        apply_snap(m, &snap);
-        spectrum_snap_free(&snap);
-        return true;
-    }
-    /* Web upload (/zx_upload.bin) and unknown names: sniff contents. */
-    FILE *f = fopen(path, "rb");
-    if (!f) return false;
-    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return false; }
-    long sz = ftell(f);
-    if (sz <= 0 || sz > 8 * 1024 * 1024) { fclose(f); return false; }
-    rewind(f);
-    uint8_t *buf = (uint8_t *)malloc((size_t)sz);
-    if (!buf) { fclose(f); return false; }
-    if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) { free(buf); fclose(f); return false; }
-    fclose(f);
-    bool ok = zxspec_load_mem(m, buf, (size_t)sz, path);
-    free(buf);
-    return ok;
-}
-
-bool zxspec_load_mem(zxspec *m, const uint8_t *data, size_t n, const char *name_hint)
-{
-    if (!m || !data || n == 0) return false;
-    const char *hint = name_hint ? name_hint : "";
-    if (ends_with_ci(hint, ".tap") || ends_with_ci(hint, ".tzx")) {
-        if (!tape_load_mem(&m->tape, data, n)) return false;
-        tape_stop(&m->tape);
-        return true;
-    }
-    if (ends_with_ci(hint, ".sna")) {
-        spectrum_snap snap;
-        spectrum_snap_init(&snap);
-        if (!spectrum_snap_load_mem(&snap, data, n)) {
-            spectrum_snap_free(&snap);
-            return false;
-        }
-        apply_snap(m, &snap);
-        spectrum_snap_free(&snap);
-        return true;
-    }
-    /* Heuristic: SNA sizes, else treat as tape. */
-    if (n == 49179 || n >= 49183) {
-        spectrum_snap snap;
-        spectrum_snap_init(&snap);
-        if (spectrum_snap_load_mem(&snap, data, n)) {
-            apply_snap(m, &snap);
-            spectrum_snap_free(&snap);
-            return true;
-        }
-        spectrum_snap_free(&snap);
-    }
-    if (tape_load_mem(&m->tape, data, n)) {
-        tape_stop(&m->tape);
-        return true;
-    }
-    return false;
-}
-
-void zxspec_tape_play(zxspec *m)
-{
-    if (m && tape_loaded(&m->tape)) tape_play(&m->tape);
-}
-
-void zxspec_tape_stop(zxspec *m)
-{
-    if (!m) return;
-    tape_stop(&m->tape);
-    m->ear = 0;
-}
-
-bool zxspec_tape_loaded(const zxspec *m)
-{
-    return m && tape_loaded(&m->tape);
-}
-
-bool zxspec_tape_playing(const zxspec *m)
-{
-    return m && tape_playing(&m->tape);
-}
-
-void zxspec_render(const zxspec *m, uint32_t *rgb)
-{
-    if (!m || !rgb) return;
-    for (int y = 0; y < ZX_H; y++) {
-        const int fy = y + ZX_CROP_Y;
-        uint32_t *row = rgb + (size_t)y * ZX_W;
-        for (int x = 0; x < ZX_W; x++)
-            row[x] = pixel_at(m, x + ZX_CROP_X, fy);
-    }
-}
-
-void zxspec_render_row565(const zxspec *m, int y, uint16_t *out320)
-{
-    if (!m || !out320 || y < 0 || y >= ZX_H) return;
-    const int fy = y + ZX_CROP_Y;
-    for (int x = 0; x < ZX_W; x++)
-        out320[x] = to_rgb565(pixel_at(m, x + ZX_CROP_X, fy));
-}
-
-const char *zxspec_title(zx_model_t model)
+// ---------------------------------------------------------------------------
+// creation
+// ---------------------------------------------------------------------------
+static zx_kind kind_of(zx_model_t model)
 {
     switch (model) {
-        case ZX_SPEC48:   return "ZX Spectrum 48K";
-        case ZX_SPEC128:  return "ZX Spectrum 128K";
-        case ZX_PLUS3:    return "ZX Spectrum +3";
-        case ZX_PENTAGON:     return "Pentagon";
-        case ZX_PENTAGON1024: return "Pentagon 1024";
-        case ZX_SCORPION:     return "Scorpion";
-        default:              return "ZX Spectrum";
+    case ZX_SPEC48: return ZK_48;
+    case ZX_SPEC128: return ZK_128;
+    case ZX_PLUS3: return ZK_PLUS3;
+    default: return ZK_CLONE;
     }
 }
 
-zx_model_t zxspec_model(const zxspec *m)
+static int pages_wanted(zx_model_t model)
 {
-    return m ? m->model : ZX_SPEC48;
+    switch (model) {
+    case ZX_PENTAGON1024:
+#ifdef ZX_SMALL
+        return 8;               // no room for 1 MB: a 128K Pentagon
+#else
+        return 64;
+#endif
+    case ZX_SCORPION:
+#if defined(ZX_SMALL) && !defined(ESP_PLATFORM)
+        return 8;               // the RP2040
+#else
+        return 16;
+#endif
+    default:
+        return 8;
+    }
+}
+
+static void free_machine(zxspec *m)
+{
+    for (int b = 0; b < ZX_MAX_PAGES; b++) free(m->ram[b]);
+    free(m->pic);
+    free(m->if2_rom);
+    zt_free(&m->tape);
+    zx_rzx_free(&m->rzx);
+    zx_beta_free(&m->beta);
+    nec_free(&m->fdc);
+    free(m);
 }
 
 zxspec *zxspec_create(zx_model_t model)
 {
     zxspec *m = calloc(1, sizeof *m);
     if (!m) return NULL;
-    uint8_t *banks[16] = {0};
-    for (int b = 0; b < 8; b++) {
-        banks[b] = calloc(1, ZX_BANK_SIZE);
-        if (!banks[b]) {
-            for (int i = 0; i < b; i++) free(banks[i]);
-            free(m);
-            return NULL;
-        }
-    }
-    /* Scorpion ZS-256: 256K if the memory is there (the desktop, the web; on
-     * the boards it stays 128K, which its ROM also copes with). */
-    int n = 8;
-#if !defined(PICO_ON_DEVICE) && !defined(PICO_BAND)     /* (no room on the RP2040) */
-    if (model == ZX_SCORPION) {
-        for (; n < 16; n++)
-            if (!(banks[n] = calloc(1, ZX_BANK_SIZE))) break;
+    m->model = model;
+    m->kind = kind_of(model);
+    m->audio_rate = ZX_AUDIO_RATE;
+    m->border_cur = m->border_rows[0];
+    m->border_prev = m->border_rows[1];
+    zt_init(&m->tape);
+    zx_rzx_init(&m->rzx);
+    zx_beta_init(&m->beta);
+    nec_init(&m->fdc);
+
+    // the picture first: the RAM pages that do not fit after it are left out
+    m->pic_w = ZX_PIC_W;
+    m->pic_h = ZX_PIC_H;
+    m->crop_x = (ZX_FULL_W - m->pic_w) / 2;
+    m->crop_y = (ZX_FULL_H - m->pic_h) / 2;
+#ifdef ZX_SMALL
+    m->packed = true;
+    m->pic = calloc(1, (size_t)(m->pic_w / 2) * (size_t)m->pic_h);
+#else
+    m->pic = calloc(1, (size_t)m->pic_w * (size_t)m->pic_h);
+#endif
+    if (!m->pic) goto fail;
+
+    if (m->kind == ZK_48) {
+        const int banks[3] = { 5, 2, 0 };
+        for (int i = 0; i < 3; i++)
+            if (!(m->ram[banks[i]] = calloc(1, ZX_BANK))) goto fail;
+        m->ram_pages = 8;
+    } else {
+        int want = pages_wanted(model), n = 0;
+        for (; n < want; n++)
+            if (!(m->ram[n] = calloc(1, ZX_BANK))) break;
+        if (n < 8) goto fail;
 #ifdef ESP_PLATFORM
-        /* the CYD: only if the rest of the firmware keeps enough heap */
-        if (n == 16 && heap_caps_get_free_size(MALLOC_CAP_8BIT) < 48 * 1024) n = 15, free(banks[15]);
+        // the CYD: the Scorpion's 256K only if the firmware keeps its heap
+        if (n > 8 && heap_caps_get_free_size(MALLOC_CAP_8BIT) < 56 * 1024) n = 8;
 #endif
-        if (n < 16) {
-            while (n > 8) free(banks[--n]);
+        int pages = 8;
+        while (pages * 2 <= n) pages *= 2;      // a power of two (paging masks)
+        for (int b = pages; b < ZX_MAX_PAGES; b++) {
+            free(m->ram[b]);
+            m->ram[b] = NULL;
         }
+        m->ram_pages = pages;
     }
-#endif
-    m->bank_mask = (uint8_t)(n - 1);
-    zxspec_init(m, model);
-    for (int b = 0; b < n; b++) m->ram[b] = banks[b];
-    update_memory_map(m);
+
+    switch (m->kind) {
+    case ZK_48: zx48_setup(m); break;
+    case ZK_128:
+    case ZK_PLUS3: zx128_setup(m); break;
+    default: zxclone_setup(m); break;
+    }
+    m->cpu.user = m;
+    zd_init(&m->cpu);
+    for (int i = 0; i < 4; i++)
+        if (!m->rom[i]) m->rom[i] = zx_empty_page;
+    zxspec_reset(m);
     return m;
+fail:
+    free_machine(m);
+    return NULL;
 }
 
 void zxspec_destroy(zxspec *m)
 {
-    if (!m) return;
-    tape_unload(&m->tape);
-    for (int b = 0; b < 16; b++) {
-        free(m->ram[b]);
-        m->ram[b] = NULL;
-    }
-    free(m);
+    if (m) free_machine(m);
 }
 
+static bool contains(const uint8_t *p, size_t n, const char *text)
+{
+    const size_t k = strlen(text);
+    for (size_t i = 0; i + k <= n; i++)
+        if (memcmp(p + i, text, k) == 0) return true;
+    return false;
+}
+
+void zxspec_set_rom(zxspec *m, const uint8_t *rom48, const uint8_t *rom128, size_t rom128_bytes)
+{
+    if (!m) return;
+    for (int i = 0; i < 4; i++) m->rom[i] = zx_empty_page;
+    if (m->kind == ZK_48) {
+        if (rom48) m->rom[0] = rom48;
+    } else if (rom128) {
+        const int n = (int)(rom128_bytes / ZX_BANK);
+        for (int i = 0; i < 4 && i < n; i++) m->rom[i] = rom128 + (size_t)i * ZX_BANK;
+        // dsp-cpp ZxClone: the Gluk / service ROM in page 2 boots the Pentagon
+        m->gluk_present = (m->model == ZX_PENTAGON || m->model == ZX_PENTAGON1024) && n >= 4 &&
+                          (contains(m->rom[2], ZX_BANK, "GLUK") || contains(m->rom[2], ZX_BANK, "RESET SERVICE"));
+    }
+}
+
+void zxspec_reset(zxspec *m)
+{
+    if (!m) return;
+    zd_reset(&m->cpu);
+    m->border = 7;
+    m->speaker = m->ear = 0;
+    memset(m->keys, 0xff, sizeof m->keys);
+    m->joy = m->sinclair = 0;
+    m->flash = false;
+    m->flash_count = 0;
+    m->line = m->t_in_line = m->frame_t = m->instr_t_flushed = 0;
+    m->latch_mask = 0;
+    m->audio_acc = 0;
+    m->beeper_level = 0;
+    m->naudio = 0;
+    m->ay_select = 0;
+    m->ay1_used = false;
+    for (int i = 0; i < m->nay; i++) ay8910_reset(&m->ay[i]);
+    zt_stop(&m->tape);
+    m->tape_held = false;
+    zx_rzx_stop(&m->rzx);
+    ulaplus_reset(m);
+    memset(m->border_rows, 7, sizeof m->border_rows);
+    switch (m->kind) {
+    case ZK_48: zx48_reset(m); break;
+    case ZK_128:
+    case ZK_PLUS3: zx128_reset(m); break;
+    default: zxclone_reset(m); break;
+    }
+    // the picture in the border colour
+    if (m->packed) memset(m->pic, 0x77, (size_t)(m->pic_w / 2) * (size_t)m->pic_h);
+    else memset(m->pic, 7, (size_t)m->pic_w * (size_t)m->pic_h);
+}
+
+// ---------------------------------------------------------------------------
+// input
+// ---------------------------------------------------------------------------
+void zxspec_key(zxspec *m, int code, bool down)
+{
+    if (!m) return;
+    const int row = (code >> 3) & 7, bit = code & 7;
+    if (bit > 4) return;
+    if (down) m->keys[row] = (uint8_t)(m->keys[row] & ~(1u << bit));
+    else m->keys[row] = (uint8_t)(m->keys[row] | (1u << bit));
+}
+
+void zxspec_keys_clear(zxspec *m)
+{
+    if (m) memset(m->keys, 0xff, sizeof m->keys);
+}
+
+void zxspec_joy(zxspec *m, uint8_t kempston)
+{
+    if (!m) return;
+    m->joy = (uint8_t)(kempston & 0x1f);
+    // dsp-cpp Spectrum128k: player 1 is also the Interface 2 right stick
+    // (6 left, 7 right, 8 down, 9 up, 0 fire) on the keyboard matrix.
+    m->sinclair = 0;
+    if (m->kind == ZK_128) {
+        if (kempston & 0x02) m->sinclair |= 0x10;
+        if (kempston & 0x01) m->sinclair |= 0x08;
+        if (kempston & 0x04) m->sinclair |= 0x04;
+        if (kempston & 0x08) m->sinclair |= 0x02;
+        if (kempston & 0x10) m->sinclair |= 0x01;
+    }
+}
+
+void zxspec_magic(zxspec *m)
+{
+    if (m && m->kind == ZK_CLONE) zxclone_magic(m);
+}
+
+// ---------------------------------------------------------------------------
+// media
+// ---------------------------------------------------------------------------
+static bool ends_with_ci(const char *path, const char *ext)
+{
+    if (!path) return false;
+    const size_t n = strlen(path), k = strlen(ext);
+    if (n < k) return false;
+    for (size_t i = 0; i < k; i++)
+        if (tolower((unsigned char)path[n - k + i]) != ext[i]) return false;
+    return true;
+}
+
+typedef enum { MT_NONE, MT_TAPE, MT_SNAP, MT_RZX, MT_TRD, MT_DSK, MT_IF2 } media_t;
+
+static media_t media_type(const char *name, const uint8_t *d, size_t n)
+{
+    static const char *const tapes[] = { ".tap", ".tzx", ".cdt", ".csw", ".pzx" };
+    for (size_t i = 0; i < sizeof tapes / sizeof tapes[0]; i++)
+        if (ends_with_ci(name, tapes[i])) return MT_TAPE;
+    if (ends_with_ci(name, ".sna") || ends_with_ci(name, ".z80")) return MT_SNAP;
+    if (ends_with_ci(name, ".rzx")) return MT_RZX;
+    if (ends_with_ci(name, ".trd") || ends_with_ci(name, ".scl")) return MT_TRD;
+    if (ends_with_ci(name, ".dsk")) return MT_DSK;
+    if (ends_with_ci(name, ".rom") || ends_with_ci(name, ".bin") || ends_with_ci(name, ".if2")) return MT_IF2;
+    // by content (a web upload or a file without a known name)
+    if (n >= 7 && memcmp(d, "ZXTape!", 7) == 0) return MT_TAPE;
+    if (n >= 22 && memcmp(d, "Compressed Square Wave", 22) == 0) return MT_TAPE;
+    if (n >= 4 && memcmp(d, "PZXT", 4) == 0) return MT_TAPE;
+    if (n >= 4 && memcmp(d, "RZX!", 4) == 0) return MT_RZX;
+    if (n >= 8 && (memcmp(d, "MV - CPC", 8) == 0 || memcmp(d, "EXTENDED", 8) == 0)) return MT_DSK;
+    if (n >= 8 && memcmp(d, "SINCLAIR", 8) == 0) return MT_TRD;
+    if (n == 49179 || n == 131103 || n == 147487) return MT_SNAP;
+    if (n >= 0x900 && n % 0x1000 == 0 && d[0x8e7] == 0x10) return MT_TRD;   // TR-DOS id byte
+    return MT_TAPE;                                                          // a .tap has no signature
+}
+
+static void apply_snap(zxspec *m, const zx_snap *s)
+{
+    zd_z80 *z = &m->cpu;
+    z->a = s->a; z->f = s->f; z->b = s->b; z->c = s->c;
+    z->d = s->d; z->e = s->e; z->h = s->h; z->l = s->l;
+    z->a2 = s->a2; z->f2 = s->f2; z->b2 = s->b2; z->c2 = s->c2;
+    z->d2 = s->d2; z->e2 = s->e2; z->h2 = s->h2; z->l2 = s->l2;
+    z->ix = s->ix; z->iy = s->iy; z->sp = s->sp;
+    z->i = s->i; z->r = s->r; z->im = s->im;
+    z->iff1 = s->iff1; z->iff2 = s->iff2;
+    z->pc = s->pc;
+    z->halted = false;
+    zd_set_irq(z, ZD_CLEAR, 0xff);
+    m->border = s->border & 7;
+    if (m->kind == ZK_128 || m->kind == ZK_PLUS3) zx128_apply_snap(m, s);
+    else if (m->kind == ZK_CLONE) zxclone_apply_snap(m, s);
+}
+
+static bool load_snapshot(zxspec *m, const uint8_t *d, size_t n, const char *ext)
+{
+    zx_snap s;
+    uint8_t *banks[8];
+    for (int b = 0; b < 8; b++) banks[b] = m->ram[b];
+    if (!zx_snap_load(d, n, ext, m->kind == ZK_48, banks, &s, &m->error)) return false;
+    apply_snap(m, &s);
+    return true;
+}
+
+static bool load_if2(zxspec *m, const uint8_t *d, size_t n)
+{
+    if (m->kind != ZK_128 && m->kind != ZK_PLUS3) {
+        m->error = "Interface 2 cartridges: 128K / +3 only";
+        return false;
+    }
+    if (n < 0x4000) {
+        m->error = "IF2 ROM too small (need 16K or 32K)";
+        return false;
+    }
+    if (!m->if2_rom && !(m->if2_rom = malloc(0x8000))) {
+        m->error = "out of memory for the cartridge";
+        return false;
+    }
+    memset(m->if2_rom, 0xff, 0x8000);
+    const size_t k = n < 0x8000 ? n : 0x8000;
+    memcpy(m->if2_rom, d, k);
+    if (k < 0x8000) memcpy(m->if2_rom + 0x4000, m->if2_rom, 0x4000);  // 16K mirrored
+    m->if2_switched = false;
+    m->if2_delay = 0;
+    return true;
+}
+
+static bool load(zxspec *m, const uint8_t *d, uint8_t *owned, size_t n, const char *name)
+{
+    m->error = NULL;
+    switch (media_type(name, d, n)) {
+    case MT_TAPE: {
+        bool ok = owned ? zt_load_take(&m->tape, owned, n, &m->error) : zt_load(&m->tape, d, n, &m->error);
+        // stopped until the ROM loader is entered (playing from boot would
+        // run through the pilot before LOAD "")
+        zt_stop(&m->tape);
+        m->tape_held = false;
+        return ok;
+    }
+    case MT_SNAP: {
+        bool ok = load_snapshot(m, d, n, name);
+        free(owned);
+        return ok;
+    }
+    case MT_RZX: {
+        zx_rzx_stop(&m->rzx);
+        bool ok = zx_rzx_load(&m->rzx, d, n, &m->error);
+        free(owned);
+        if (!ok) return false;
+        ok = load_snapshot(m, m->rzx.snap, m->rzx.snap_len, m->rzx.snap_ext);
+        zx_rzx_drop_snap(&m->rzx);
+        if (ok) zx_rzx_start(&m->rzx);
+        return ok;
+    }
+    case MT_TRD: {
+        bool ok = false;
+        if (m->kind == ZK_CLONE) ok = zx_beta_load(&m->beta, d, n, &m->error);
+        else m->error = "TR-DOS disks (.trd / .scl): Pentagon / Scorpion only";
+        free(owned);
+        return ok;
+    }
+    case MT_DSK:
+        if (m->kind != ZK_PLUS3) {
+            free(owned);
+            m->error = "+3 disks (.dsk): Spectrum +3 only";
+            return false;
+        }
+        if (owned ? nec_load_disk_take(&m->fdc, 0, owned, n, &m->error) : nec_load_disk(&m->fdc, 0, d, n, &m->error)) {
+            m->disk_present = true;
+            return true;
+        }
+        return false;
+    case MT_IF2: {
+        bool ok = load_if2(m, d, n);
+        free(owned);
+        if (ok) zxspec_reset(m);        // a cartridge starts the machine from it
+        return ok;
+    }
+    default:
+        free(owned);
+        m->error = "unknown media";
+        return false;
+    }
+}
+
+bool zxspec_load_mem(zxspec *m, const uint8_t *data, size_t n, const char *name_hint)
+{
+    if (!m || !data || n == 0) return false;
+    return load(m, data, NULL, n, name_hint ? name_hint : "");
+}
+
+bool zxspec_load_take(zxspec *m, uint8_t *data, size_t n, const char *name_hint)
+{
+    if (!m || !data || n == 0) {
+        free(data);
+        return false;
+    }
+    return load(m, data, data, n, name_hint ? name_hint : "");
+}
+
+bool zxspec_load_file(zxspec *m, const char *path)
+{
+    if (!m || !path) return false;
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        m->error = "cannot open the file";
+        return false;
+    }
+    long sz = -1;
+    if (fseek(f, 0, SEEK_END) == 0) sz = ftell(f);
+    if (sz <= 0 || sz > 16 * 1024 * 1024) {
+        fclose(f);
+        m->error = "empty or too big";
+        return false;
+    }
+    rewind(f);
+    uint8_t *buf = malloc((size_t)sz);
+    if (!buf || fread(buf, 1, (size_t)sz, f) != (size_t)sz) {
+        free(buf);
+        fclose(f);
+        m->error = "cannot read the file";
+        return false;
+    }
+    fclose(f);
+    return zxspec_load_take(m, buf, (size_t)sz, path);
+}
+
+bool zxspec_trd_begin(zxspec *m, size_t size)
+{
+    if (!m) return false;
+    m->error = NULL;
+    if (m->kind != ZK_CLONE) {
+        m->error = "TR-DOS disks (.trd / .scl): Pentagon / Scorpion only";
+        return false;
+    }
+    return zx_beta_stream_begin(&m->beta, size, &m->error);
+}
+
+bool zxspec_trd_data(zxspec *m, const uint8_t *data, size_t n)
+{
+    return m && zx_beta_stream_data(&m->beta, data, n, &m->error);
+}
+
+bool zxspec_trd_end(zxspec *m)
+{
+    return m && zx_beta_stream_end(&m->beta, &m->error);
+}
+
+const char *zxspec_last_error(const zxspec *m) { return m && m->error ? m->error : ""; }
+
+void zxspec_tape_play(zxspec *m)
+{
+    if (!m || !zt_is_loaded(&m->tape)) return;
+    m->tape_held = false;
+    zt_play(&m->tape, !zt_is_paused(&m->tape));
+}
+
+void zxspec_tape_stop(zxspec *m)
+{
+    if (!m) return;
+    zt_stop(&m->tape);
+    m->ear = 0;
+    m->tape_held = true;
+}
+
+void zxspec_tape_toggle(zxspec *m)
+{
+    if (!m || !zt_is_loaded(&m->tape)) return;
+    if (zt_is_playing(&m->tape)) {
+        zt_pause(&m->tape);
+        m->tape_held = true;
+    } else {
+        zxspec_tape_play(m);
+    }
+}
+
+bool zxspec_tape_loaded(const zxspec *m) { return m && zt_is_loaded(&m->tape); }
+bool zxspec_tape_playing(const zxspec *m) { return m && zt_is_playing(&m->tape); }
+bool zxspec_rzx_playing(const zxspec *m) { return m && m->rzx.playing; }
+
+// ---------------------------------------------------------------------------
+// picture out
+// ---------------------------------------------------------------------------
+int zxspec_width(const zxspec *m) { return m ? m->pic_w : ZX_PIC_W; }
+int zxspec_height(const zxspec *m) { return m ? m->pic_h : ZX_PIC_H; }
+
+void zxspec_render(const zxspec *m, uint32_t *rgb)
+{
+    if (!m || !rgb) return;
+    const int n = m->pic_w * m->pic_h;
+    if (m->packed) {
+        const uint32_t *pal = m->palette_ext + (ulaplus_on(m) ? 16 : 0);
+        for (int i = 0; i < n; i += 2) {
+            const uint8_t b = m->pic[i / 2];
+            rgb[i] = pal[b & 15];
+            rgb[i + 1] = pal[b >> 4];
+        }
+    } else {
+        for (int i = 0; i < n; i++) rgb[i] = m->palette_ext[m->pic[i] < 80 ? m->pic[i] : 0];
+    }
+}
+
+void ZX_HOT zxspec_render_row565(const zxspec *m, int y, uint16_t *out)
+{
+    if (!m || !out || y < 0 || y >= ZX_H) return;
+    if (m->packed) {
+        // with the picture limited to 4 bits, ULA+ shows its first bank (dsp-cpp)
+        const uint16_t *pal = m->pal565 + (ulaplus_on(m) ? 16 : 0);
+        const uint8_t *row = m->pic + (size_t)(y + (m->pic_h - ZX_H) / 2) * (size_t)(m->pic_w / 2) +
+                             (m->pic_w - ZX_W) / 4;
+        for (int x = 0; x < ZX_W; x += 2) {
+            const uint8_t b = row[x / 2];
+            out[x] = pal[b & 15];
+            out[x + 1] = pal[b >> 4];
+        }
+    } else {
+        const uint8_t *row = m->pic + (size_t)(y + (m->pic_h - ZX_H) / 2) * (size_t)m->pic_w + (m->pic_w - ZX_W) / 2;
+        for (int x = 0; x < ZX_W; x++) out[x] = m->pal565[row[x] < 80 ? row[x] : 0];
+    }
+}
+
+const char *zxspec_title(zx_model_t model)
+{
+    switch (model) {
+    case ZX_SPEC48:       return "ZX Spectrum 48K";
+    case ZX_SPEC128:      return "ZX Spectrum 128K";
+    case ZX_PLUS3:        return "ZX Spectrum +3";
+    case ZX_PENTAGON:     return "Pentagon 128";
+    case ZX_PENTAGON1024: return "Pentagon 1024";
+    case ZX_SCORPION:     return "Scorpion ZS-256";
+    default:              return "ZX Spectrum";
+    }
+}
+
+zx_model_t zxspec_model(const zxspec *m) { return m ? m->model : ZX_SPEC48; }
+double zxspec_fps(const zxspec *m) { return m ? m->fps : ZX_FPS; }
 int zxspec_ram_kb(const zxspec *m)
 {
-    return m ? (m->bank_mask + 1) * 16 : 0;
+    if (!m) return 0;
+    return m->kind == ZK_48 ? 48 : m->ram_pages * 16;
 }

@@ -1,20 +1,37 @@
-// zxspec_core.h - ZX Spectrum 48K / 128K / +3 / Pentagon / Scorpion (C port
-// of dsp-cpp spectrum / spectrum_128k / spectrum_3 / zx_clone). Shared ULA,
-// tape (.tap/.tzx), SNA snapshots; 128K-class machines add AY + memory banking.
+// zxspec_core.h - ZX Spectrum 48K / 128K / +3 / Pentagon / Pentagon 1024 /
+// Scorpion ZS-256: a C11 migration of dsp-cpp's drivers (spectrum,
+// spectrum_128k, spectrum_3, zx_clone) with their Z80 core, ULA timing
+// (contention, floating bus, per-T-state border, 4 T-state paper latches),
+// ULA+, beeper and AY sound, and their media: tapes (.tap .tzx .cdt .csw
+// .pzx), snapshots (.sna .z80), recordings (.rzx), TR-DOS disks (.trd .scl,
+// Beta 128 on the clones), +3 disks (.dsk / extended .dsk) and Interface 2
+// cartridges (.rom .bin .if2, 128K / +3).
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
 
-#define ZX_W            320     /* cropped 352x296 -> centre 320x240 */
+#if defined(ESP_PLATFORM) || defined(PICO_ON_DEVICE) || defined(PICO_BAND)
+#define ZX_SMALL 1              /* the boards: 320x240 picture, 22 kHz sound */
+#endif
+
+/* The whole picture (dsp-cpp: 48 + 256 + 48 x 48 + 192 + 40) and the centre
+ * of it the boards show (dsp-cpp set_picture_limit). */
+#define ZX_FULL_W       352
+#define ZX_FULL_H       280
+#define ZX_W            320
 #define ZX_H            240
-#define ZX_CLOCK        3500000
-#define ZX_FPS          50.08
+#ifdef ZX_SMALL
+#define ZX_PIC_W        ZX_W
+#define ZX_PIC_H        ZX_H
 #define ZX_AUDIO_RATE   22050
-#define ZX_AUDIO_MAX    512
-#define ZX_T_LINE       224
-#define ZX_LINES        312
-#define ZX_T_FRAME      (ZX_T_LINE * ZX_LINES)
+#else
+#define ZX_PIC_W        ZX_FULL_W
+#define ZX_PIC_H        ZX_FULL_H
+#define ZX_AUDIO_RATE   44100   /* dsp-cpp's rate */
+#endif
+#define ZX_AUDIO_MAX    1024    /* samples a frame at most */
+#define ZX_FPS          50.08   /* 48K; zxspec_fps() has each model's */
 
 typedef enum {
     ZX_SPEC48 = 0,
@@ -37,33 +54,55 @@ enum {
     ZXK_SPACE = ZX_KEY(7, 0), ZXK_SYMB = ZX_KEY(7, 1), ZXK_M = ZX_KEY(7, 2), ZXK_N = ZX_KEY(7, 3), ZXK_B = ZX_KEY(7, 4),
 };
 
+/* The file types the media menus offer (every model; the core says which
+ * ones a model cannot take). */
+#define ZX_MEDIA_EXTS { ".tap", ".tzx", ".cdt", ".csw", ".pzx", ".sna", ".z80", ".rzx", \
+                        ".trd", ".scl", ".dsk", ".rom", ".if2", NULL }
+#define ZX_MEDIA_LABEL "TAP TZX CDT CSW PZX SNA Z80 RZX TRD SCL DSK ROM IF2"
+
 typedef struct zxspec zxspec;
 
-void zxspec_init(zxspec *m, zx_model_t model);
-/* rom48: 16 KB (required). rom128: 32 KB (128K/Pentagon/Scorpion) or 64 KB (+3); may be NULL for 48K. */
+zxspec *zxspec_create(zx_model_t model);
+void zxspec_destroy(zxspec *m);
+/* rom48: 16 KB (48K). rom128: 32 KB (128K) or 64 KB (+3, Pentagon,
+ * Pentagon 1024, Scorpion: 128K BASIC, 48K BASIC, service / Gluk, TR-DOS). */
 void zxspec_set_rom(zxspec *m, const uint8_t *rom48, const uint8_t *rom128, size_t rom128_bytes);
 void zxspec_reset(zxspec *m);
+/* One frame; *audio gets its samples at ZX_AUDIO_RATE (mono). */
 int zxspec_run_frame(zxspec *m, const int16_t **audio);
 
 void zxspec_key(zxspec *m, int code, bool down);
 void zxspec_keys_clear(zxspec *m);
-void zxspec_joy(zxspec *m, uint8_t kempston);
+void zxspec_joy(zxspec *m, uint8_t kempston);   /* bits: 0 right 1 left 2 down 3 up 4 fire */
+void zxspec_magic(zxspec *m);                   /* Pentagon / Scorpion magic button (NMI) */
 
+/* Media: by the name's extension, or by content when it has none. */
 bool zxspec_load_file(zxspec *m, const char *path);
 bool zxspec_load_mem(zxspec *m, const uint8_t *data, size_t n, const char *name_hint);
+/* The same, keeping `data` (malloc'd) when it can instead of copying it
+ * (tapes, +3 disks: saves the memory of a second copy on the boards). */
+bool zxspec_load_take(zxspec *m, uint8_t *data, size_t n, const char *name_hint);
+/* A .trd disk image a piece at a time (Pentagon / Scorpion), for the boards:
+ * a 640 KB image does not fit their memory whole, its used tracks do. */
+bool zxspec_trd_begin(zxspec *m, size_t size);
+bool zxspec_trd_data(zxspec *m, const uint8_t *data, size_t n);
+bool zxspec_trd_end(zxspec *m);
+const char *zxspec_last_error(const zxspec *m);
 void zxspec_tape_play(zxspec *m);
 void zxspec_tape_stop(zxspec *m);
+void zxspec_tape_toggle(zxspec *m);             /* play / pause */
 bool zxspec_tape_loaded(const zxspec *m);
 bool zxspec_tape_playing(const zxspec *m);
+bool zxspec_rzx_playing(const zxspec *m);
 
-/* Fill ZX_W*ZX_H ARGB8888 (0x00RRGGBB). */
-void zxspec_render(const zxspec *m, uint32_t *rgb);
-/* One RGB565 row for CYD / Pico (y in 0..ZX_H-1). */
+/* The picture: zxspec_width() x zxspec_height() (ZX_PIC_W x ZX_PIC_H). */
+int zxspec_width(const zxspec *m);
+int zxspec_height(const zxspec *m);
+void zxspec_render(const zxspec *m, uint32_t *rgb);             /* 0x00RRGGBB */
+/* One RGB565 row of the centre 320x240 (y in 0..ZX_H-1), for CYD / Pico. */
 void zxspec_render_row565(const zxspec *m, int y, uint16_t *out320);
 
 const char *zxspec_title(zx_model_t model);
 zx_model_t zxspec_model(const zxspec *m);
-int zxspec_ram_kb(const zxspec *m);          /* 128, or 256 on a Scorpion with the memory */
-
-zxspec *zxspec_create(zx_model_t model);
-void zxspec_destroy(zxspec *m);
+double zxspec_fps(const zxspec *m);
+int zxspec_ram_kb(const zxspec *m);
