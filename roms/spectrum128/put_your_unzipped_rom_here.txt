@@ -1,0 +1,1 @@
+Pon aquí el set de MAME "spec128" (spec128.zip, tal cual o descomprimido) y ejecuta tools/regen.sh spectrum128

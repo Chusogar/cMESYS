@@ -442,14 +442,18 @@ El Sinclair QL usa el set de MAME `ql` (ROM JS): `ql.js 0000.ic33`, `ql.js 8000.
 
 Los ZX Spectrum / clones comparten el núcleo en `main/drivers/computers/zxspec/`, pero **cada modelo tiene su propio directorio de ROMs y su propio `rom_data_<modelo>.c`**:
 
-| `GAME` / `tools/regen.sh …` | Lee solo | Genera | Ficheros típicos |
-|---|---|---|---|
-| `spectrum48` | `roms/spectrum48/` | `…/zxspec/rom_data_spectrum48.c` | `48.rom` (16 KB) |
-| `spectrum128` | `roms/spectrum128/` | `rom_data_spectrum128.c` | `48.rom` + `128.rom` (32 KB) o `128-0`+`128-1` |
-| `plus3` | `roms/plus3/` | `rom_data_plus3.c` | `plus3-0..3.rom` (64 KB) |
-| `pentagon` | `roms/pentagon/` | `rom_data_pentagon.c` | `48.rom` + `128.rom` / `pentagon.rom` |
-| `pentagon1024` | `roms/pentagon1024/` | `rom_data_pentagon1024.c` | `pentagon1024.rom` o `pentagon-0..3` (64 KB) |
-| `scorpion` | `roms/scorpion/` | `rom_data_scorpion.c` | `scorpion.rom` (64 KB) o `scorpion-0..3` |
+| `GAME` / `tools/regen.sh …` | Lee solo | Genera | Set de MAME (el `.zip` tal cual o descomprimido) | Bancos de ROM resultantes |
+|---|---|---|---|---|
+| `spectrum48` | `roms/spectrum48/` | `…/zxspec/rom_data_spectrum48.c` | `spectrum.zip`: `spectrum.rom` | BASIC 48K |
+| `spectrum128` | `roms/spectrum128/` | `rom_data_spectrum128.c` | `spec128.zip`: `128-0.rom`, `128-1.rom` | 0 editor 128K, 1 BASIC 48K |
+| `plus3` | `roms/plus3/` | `rom_data_plus3.c` | `plus3.zip`: `plus3-0.rom` … `plus3-3.rom` (v4.0) | 0-3 (el 3 es el BASIC 48K) |
+| `pentagon` | `roms/pentagon/` | `rom_data_pentagon.c` | `pentagon.zip`: `128p-0.rom`, `128p-1.rom`, `trd503.rom` | 0 128K, 1 48K, 3 TR-DOS 5.03 |
+| `pentagon1024` | `roms/pentagon1024/` | `rom_data_pentagon1024.c` | `pent1024.zip`: `128p-0.rom`, `128p-1.rom`, `gluk63r.rom`, `trd503.rom` | 0 128K, 1 48K, 2 Gluk 6.3r, 3 TR-DOS 5.03 |
+| `scorpion` | `roms/scorpion/` | `rom_data_scorpion.c` | `scorpio.zip`: `scorp294.rom` (V2.94, la BIOS por defecto de MAME; también `scorpion.rom` V2.92 o `scorp0..3.rom`) | 0 128K, 1 48K, 2 servicio, 3 TR-DOS |
+
+`tools/gen_roms_zxspec.py` comprueba los CRC de MAME (si no coinciden solo avisa) y sigue aceptando los nombres antiguos (`48.rom`, `128.rom`, `pentagon.rom` de 32 KB…).
+
+**TR-DOS**: en el Pentagon, el Pentagon 1024 y el Scorpion la ROM de TR-DOS (banco 3) entra al ejecutar en 3D00-3DFF con el BASIC 48K seleccionado y sale al ejecutar a partir de 4000, como la interfaz Beta Disk en MAME. No hay unidad de disco: el WD1793 responde «sin disco», así que TR-DOS arranca hasta su prompt `A>` pero no lee discos. **Scorpion ZS-256**: su ROM comprueba los 256 KB de RAM al arrancar; en el escritorio y la web los tiene, pero en el CYD y la RP2040 no hay memoria para más de 128 KB y la ROM se para en esa prueba (borde verde).
 
 No hay directorio compartido `roms/spectrum`: regenerar un modelo no pisa el `rom_data` de otro. Sin ROMs reales el árbol compila con stubs vacíos (`python3 tools/gen_roms_zxspec.py --stub-all main/drivers/computers/zxspec`).
 

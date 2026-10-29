@@ -63,6 +63,7 @@ void zxspec_render_row565(const zxspec *m, int y, uint16_t *out320);
 
 const char *zxspec_title(zx_model_t model);
 zx_model_t zxspec_model(const zxspec *m);
+int zxspec_ram_kb(const zxspec *m);          /* 128, or 256 on a Scorpion with the memory */
 
 zxspec *zxspec_create(zx_model_t model);
 void zxspec_destroy(zxspec *m);

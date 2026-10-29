@@ -1,0 +1,1 @@
+Pon aquí el set de MAME "pentagon" (pentagon.zip, tal cual o descomprimido) y ejecuta tools/regen.sh pentagon

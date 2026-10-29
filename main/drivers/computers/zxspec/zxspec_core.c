@@ -1,5 +1,8 @@
 // zxspec_core.c - ZX Spectrum 48K / 128K / +3 / Pentagon / Scorpion (C11).
 // Practical port of dsp-cpp spectrum / spectrum_128k / spectrum_3 / zx_clone.
+#ifdef ESP_PLATFORM
+#include "esp_heap_caps.h"
+#endif
 #include "zxspec_core.h"
 
 #include <ctype.h>
@@ -57,7 +60,8 @@ struct zxspec {
     ay8910 ay;
     bool has_ay;
 
-    uint8_t *ram[8];
+    uint8_t *ram[16];   /* 16 KB banks: 8 (128K), 16 on the Scorpion (256K) when they fit */
+    uint8_t bank_mask;  /* banks - 1 */
     const uint8_t *rom48;
     const uint8_t *rom128;
     size_t rom128_bytes;
@@ -66,6 +70,7 @@ struct zxspec {
     uint8_t page[4];
     bool slot0_rom;
     uint8_t rom_sel;
+    bool dos;           /* TR-DOS ROM paged in (Beta Disk interface; ROM bank 3) */
     uint8_t pantalla;
     uint8_t port_7ffd;
     uint8_t port_1ffd;
@@ -135,7 +140,7 @@ static void update_memory_map(zxspec *m)
     m->page[2] = 2;
     m->page[3] = (uint8_t)(m->port_7ffd & 7);
     if (m->model == ZX_SCORPION)
-        m->page[3] = (uint8_t)(((m->port_7ffd & 7) | ((m->port_1ffd & 0x10) >> 1)) & 7);
+        m->page[3] = (uint8_t)((m->port_7ffd & 7) | ((m->port_1ffd & 0x10) >> 1));   /* 0-15 */
 
     if (m->model == ZX_PLUS3)
         m->rom_sel = (uint8_t)(((m->port_7ffd >> 4) & 1) | ((m->port_1ffd >> 1) & 2));
@@ -169,9 +174,21 @@ static const uint8_t *vram(const zxspec *m)
     return m->ram[m->pantalla & 7];
 }
 
+/* Pentagon / Scorpion: TR-DOS (the Beta Disk ROM, bank 3 of the generated
+ * ROM set) pages in when an instruction is fetched from 3D00-3DFF with the
+ * 48K BASIC ROM selected, and out at the first fetch from 4000 up (as in
+ * MAME's pentagon.cpp / scorpion.cpp). There is no disk drive: the
+ * WD1793 ports answer "no disk". */
+static bool has_trdos(const zxspec *m)
+{
+    return (m->model == ZX_PENTAGON || m->model == ZX_PENTAGON1024 || m->model == ZX_SCORPION) &&
+           m->rom128 && m->rom128_bytes >= 4 * ZX_BANK_SIZE;
+}
+
 static uint8_t rom_read(const zxspec *m, uint16_t off)
 {
-    size_t base = (size_t)m->rom_sel * ZX_BANK_SIZE;
+    const bool sys = m->model == ZX_SCORPION && (m->port_1ffd & 0x02);     /* service ROM wins */
+    size_t base = (size_t)(m->dos && !sys ? 3 : m->rom_sel) * ZX_BANK_SIZE;
     if (m->rom128 && base + off < m->rom128_bytes)
         return m->rom128[base + off];
     if (m->rom48) return m->rom48[off];
@@ -183,11 +200,18 @@ static uint8_t mem_read(void *ud, uint16_t addr)
     zxspec *m = (zxspec *)ud;
     const int slot = addr >> 14;
     const uint16_t off = (uint16_t)(addr & 0x3fff);
+    if (addr == (uint16_t)(m->cpu.pc - 1) && has_trdos(m)) {    /* instruction fetch */
+        if (!m->dos && (addr & 0xff00) == 0x3d00 && m->slot0_rom && m->rom_sel == 1)
+            m->dos = true;
+        else if (m->dos && addr >= 0x4000)
+            m->dos = false;
+    }
     if (slot == 0) {
         if (m->slot0_rom) return rom_read(m, off);
-        return m->ram[m->page[0] & 7][off];
+        return m->ram[m->page[0] & m->bank_mask][off];
     }
-    return m->ram[m->page[slot] & 7][off];
+    if (m->page[slot] > m->bank_mask) return 0xff;            /* a bank this build has no room for */
+    return m->ram[m->page[slot]][off];
 }
 
 static void mem_write(void *ud, uint16_t addr, uint8_t value)
@@ -197,10 +221,11 @@ static void mem_write(void *ud, uint16_t addr, uint8_t value)
     const uint16_t off = (uint16_t)(addr & 0x3fff);
     if (slot == 0) {
         if (m->slot0_rom) return;
-        m->ram[m->page[0] & 7][off] = value;
+        m->ram[m->page[0] & m->bank_mask][off] = value;
         return;
     }
-    m->ram[m->page[slot] & 7][off] = value;
+    if (m->page[slot] > m->bank_mask) return;
+    m->ram[m->page[slot]][off] = value;
 }
 
 static uint8_t port_in(z80 *z, uint16_t port)
@@ -228,6 +253,17 @@ static uint8_t port_in(z80 *z, uint16_t port)
 
     if (m->has_ay && (port & 0xc002) == 0xc000)
         result = ay8910_data_r(&m->ay);
+
+    /* Beta Disk (only while TR-DOS is paged in): no drive. WD1793 status
+     * "not ready", system register INTRQ set (command done). */
+    if (m->dos) {
+        switch (port & 0xff) {
+        case 0x1f: result = 0x80; break;
+        case 0x3f: case 0x5f: case 0x7f: result = 0x00; break;
+        case 0xff: result = 0x80; break;
+        default: break;
+        }
+    }
 
     return result;
 }
@@ -406,10 +442,12 @@ void zxspec_init(zxspec *m, zx_model_t model)
 {
     if (!m) return;
     /* Preserve any RAM banks already allocated by zxspec_create. */
-    uint8_t *banks[8];
-    for (int b = 0; b < 8; b++) banks[b] = m->ram[b];
+    uint8_t *banks[16];
+    for (int b = 0; b < 16; b++) banks[b] = m->ram[b];
+    const uint8_t mask = m->bank_mask ? m->bank_mask : 7;
     memset(m, 0, sizeof *m);
-    for (int b = 0; b < 8; b++) m->ram[b] = banks[b];
+    for (int b = 0; b < 16; b++) m->ram[b] = banks[b];
+    m->bank_mask = mask;
     m->model = model;
     m->has_ay = is_128_class(model);
     m->border = 7;
@@ -437,11 +475,12 @@ void zxspec_set_rom(zxspec *m, const uint8_t *rom48, const uint8_t *rom128, size
 void zxspec_reset(zxspec *m)
 {
     if (!m) return;
-    for (int b = 0; b < 8; b++) {
+    for (int b = 0; b <= m->bank_mask; b++) {
         if (m->ram[b]) memset(m->ram[b], 0, ZX_BANK_SIZE);
     }
     m->port_7ffd = 0;
     m->port_1ffd = 0;
+    m->dos = false;
     m->paging_locked = false;
     m->special_paging = false;
     update_memory_map(m);
@@ -651,7 +690,7 @@ zxspec *zxspec_create(zx_model_t model)
 {
     zxspec *m = calloc(1, sizeof *m);
     if (!m) return NULL;
-    uint8_t *banks[8] = {0};
+    uint8_t *banks[16] = {0};
     for (int b = 0; b < 8; b++) {
         banks[b] = calloc(1, ZX_BANK_SIZE);
         if (!banks[b]) {
@@ -660,8 +699,25 @@ zxspec *zxspec_create(zx_model_t model)
             return NULL;
         }
     }
+    /* Scorpion ZS-256: 256K if the memory is there (the desktop, the web; on
+     * the boards it stays 128K, which its ROM also copes with). */
+    int n = 8;
+#if !defined(PICO_ON_DEVICE) && !defined(PICO_BAND)     /* (no room on the RP2040) */
+    if (model == ZX_SCORPION) {
+        for (; n < 16; n++)
+            if (!(banks[n] = calloc(1, ZX_BANK_SIZE))) break;
+#ifdef ESP_PLATFORM
+        /* the CYD: only if the rest of the firmware keeps enough heap */
+        if (n == 16 && heap_caps_get_free_size(MALLOC_CAP_8BIT) < 48 * 1024) n = 15, free(banks[15]);
+#endif
+        if (n < 16) {
+            while (n > 8) free(banks[--n]);
+        }
+    }
+#endif
+    m->bank_mask = (uint8_t)(n - 1);
     zxspec_init(m, model);
-    for (int b = 0; b < 8; b++) m->ram[b] = banks[b];
+    for (int b = 0; b < n; b++) m->ram[b] = banks[b];
     update_memory_map(m);
     return m;
 }
@@ -670,9 +726,14 @@ void zxspec_destroy(zxspec *m)
 {
     if (!m) return;
     tape_unload(&m->tape);
-    for (int b = 0; b < 8; b++) {
+    for (int b = 0; b < 16; b++) {
         free(m->ram[b]);
         m->ram[b] = NULL;
     }
     free(m);
+}
+
+int zxspec_ram_kb(const zxspec *m)
+{
+    return m ? (m->bank_mask + 1) * 16 : 0;
 }

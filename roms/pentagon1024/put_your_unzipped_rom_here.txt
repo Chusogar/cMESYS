@@ -1,0 +1,1 @@
+Pon aquí el set de MAME "pent1024" (pent1024.zip, tal cual o descomprimido) y ejecuta tools/regen.sh pentagon1024

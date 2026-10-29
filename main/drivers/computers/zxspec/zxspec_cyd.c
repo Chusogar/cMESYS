@@ -105,7 +105,7 @@ static bool load_sd_name(const char *name)
 static void run_media_menu(void)
 {
     static const char *const exts[] = { ".tap", ".tzx", ".sna", NULL };
-    ql_sd_entry files[QL_SD_MAX_FILES];
+    static ql_sd_entry files[QL_SD_MAX_FILES];      // (2.5 KB: not on the 4 KB task stack)
     int nfiles = 0;
     bool sd_ok = ql_sd_mount();
     if (sd_ok) nfiles = ql_sd_list_ext(files, QL_SD_MAX_FILES, exts);
@@ -115,7 +115,7 @@ static void run_media_menu(void)
     for (;;) {
         fill_rect(0, 0, 320, 240, C_BLACK);
         draw_text_c(160, 4, "MEDIA (.tap/.tzx/.sna)", 1, C_YELLOW, C_BLACK);
-        char cur[48];
+        char cur[96];
         snprintf(cur, sizeof cur, "Now: %s%s", media_name[0] ? media_name : "(none)",
                  zxspec_tape_playing(cpu_m) ? " [PLAY]" : "");
         draw_text_c(160, 16, cur, 1, C_CYAN, C_BLACK);
@@ -431,8 +431,8 @@ void app_main(void)
     dac_audio_start(ZX_AUDIO_RATE);
 #endif
     frame_ready = xSemaphoreCreateBinary();
-    ESP_LOGI(TAG, "%s rom=%s free heap=%u", zxspec_title(ZX_MODEL), zx_rom_name,
-             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    ESP_LOGI(TAG, "%s rom=%s RAM %d KB, free heap=%u", zxspec_title(ZX_MODEL), zx_rom_name,
+             zxspec_ram_kb(cpu_m), (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
 
     if (xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0) != pdPASS)
         ESP_LOGE(TAG, "input task failed");
