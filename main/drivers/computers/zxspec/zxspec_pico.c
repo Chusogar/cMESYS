@@ -57,7 +57,7 @@ static bool load_sd_name(const char *name)
 static void media_menu(void)
 {
     static const char *const exts[] = { ".tap", ".tzx", ".sna", NULL };
-    ql_sd_entry files[QL_SD_MAX_FILES];
+    static ql_sd_entry files[QL_SD_MAX_FILES];      // (2.5 KB: not on the 4 KB task stack)
     int nfiles = 0;
     bool sd_ok = ql_sd_mount();
     if (sd_ok) nfiles = ql_sd_list_ext(files, QL_SD_MAX_FILES, exts);

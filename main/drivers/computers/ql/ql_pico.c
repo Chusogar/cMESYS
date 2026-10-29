@@ -54,7 +54,7 @@ static void render(void *user, int y, int n, uint16_t *out)
 
 static void cart_menu(void)
 {
-    ql_sd_entry files[QL_SD_MAX_FILES];
+    static ql_sd_entry files[QL_SD_MAX_FILES];      // (2.5 KB: not on the 4 KB task stack)
     int nfiles = 0;
     bool sd_ok = ql_sd_mount();
     if (sd_ok) nfiles = ql_sd_list_mdv(files, QL_SD_MAX_FILES);
