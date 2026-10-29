@@ -19,7 +19,8 @@ static SDL_Texture *tex;
 static SDL_AudioDeviceID dev;
 static sdl_port_cfg cfg;
 static uint32_t keys;
-static bool paused;
+static bool paused, turbo;
+static unsigned turbo_count;
 static uint64_t next_tick, frame_ticks;
 static long frames, quit_after = -1;
 static bool held[SDL_NUM_SCANCODES];
@@ -176,19 +177,42 @@ bool sdl_port_paused(void) { return paused; }
 
 void sdl_port_audio(const int16_t *s, int n)
 {
-    if (!dev || n <= 0) return;
+    if (!dev || n <= 0 || turbo) return;
     if (SDL_GetQueuedAudioSize(dev) < (Uint32)(cfg.audio_rate / 10) * 2)
         SDL_QueueAudio(dev, s, (Uint32)n * 2);
 }
 
+void sdl_port_set_turbo(bool on)
+{
+    turbo = on;
+    turbo_count = 0;
+    if (turbo && dev) SDL_ClearQueuedAudio(dev);
+    next_tick = SDL_GetPerformanceCounter();
+}
+
+bool sdl_port_turbo(void) { return turbo; }
+
 void sdl_port_present(const uint32_t *rgb)
 {
     frames++;
+    if (turbo && (++turbo_count & 3) != 0 && quit_after < 0) {
+#ifdef __EMSCRIPTEN__
+        if ((turbo_count & 15) == 1) emscripten_sleep(0);     // let the browser breathe
+#endif
+        return;
+    }
     SDL_UpdateTexture(tex, NULL, rgb, cfg.width * 4);
     SDL_RenderClear(ren);
     SDL_RenderCopy(ren, tex, NULL, NULL);
     SDL_RenderPresent(ren);
     if (quit_after >= 0) return;
+    if (turbo) {
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(0);
+#endif
+        next_tick = SDL_GetPerformanceCounter();
+        return;
+    }
     next_tick += frame_ticks;
     uint64_t now = SDL_GetPerformanceCounter();
     if (now < next_tick) {

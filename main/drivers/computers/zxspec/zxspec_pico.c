@@ -1,16 +1,17 @@
 // zxspec_pico.c - ZX Spectrum family on the Waveshare RP2040-PiZero (HDMI).
-// Build with -DZX_MODEL=ZX_SPEC48|ZX_SPEC128|ZX_PLUS3|ZX_PENTAGON|ZX_SCORPION
+// Build with -DZX_MODEL=ZX_SPEC48|ZX_SPEC128|ZX_PLUS3|ZX_PENTAGON|ZX_PENTAGON1024|ZX_SCORPION
 //
 // USB keyboard = Spectrum matrix. Host keys:
-//   F9  media menu (microSD .tap/.tzx/.sna, tape play/stop)
-//   F1  tape play / stop     F12 reset
+//   F9  media menu (microSD .tap .tzx .cdt .csw .pzx .sna .z80 .rzx .trd .scl .dsk .rom .if2)
+//   F1 / F6  tape play / pause     F3  reset     F5  magic button (clones)
+//   F12 TURBO (as dsp-cpp: no speed limit, no sound)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "pico_port.h"
 #include "zxspec_core.h"
 #include "rom_data.h"
-#include "../ql/ql_sd.h"
+#include "zxspec_sd.h"
 
 #ifndef ZX_MODEL
 #define ZX_MODEL ZX_SPEC48
@@ -18,6 +19,7 @@
 
 static zxspec *cpu_m;
 static char media_name[48];
+static bool turbo;
 
 static const struct { uint8_t usage; int key; } keymap[] = {
     { 0xe1, ZXK_CAPS }, { 0xe5, ZXK_CAPS },
@@ -42,21 +44,19 @@ static void render(void *user, int y, int n, uint16_t *out)
 
 static bool load_sd_name(const char *name)
 {
-    size_t sz = 0;
-    uint8_t *buf = ql_sd_load_file(name, &sz);
-    if (!buf) return false;
-    bool ok = zxspec_load_mem(cpu_m, buf, sz, name);
-    free(buf);
+    bool ok = zx_sd_load(cpu_m, name);
     if (ok) {
         snprintf(media_name, sizeof media_name, "%s", name);
         printf("media: %s\n", media_name);
+    } else {
+        printf("load failed: %s\n", zxspec_last_error(cpu_m));
     }
     return ok;
 }
 
 static void media_menu(void)
 {
-    static const char *const exts[] = { ".tap", ".tzx", ".sna", NULL };
+    static const char *const exts[] = ZX_MEDIA_EXTS;
     static ql_sd_entry files[QL_SD_MAX_FILES];      // (2.5 KB: not on the 4 KB task stack)
     int nfiles = 0;
     bool sd_ok = ql_sd_mount();
@@ -67,7 +67,7 @@ static void media_menu(void)
            zxspec_tape_playing(cpu_m) ? " [PLAY]" : "");
     if (!sd_ok) printf("(no SD card)\n");
     for (int i = 0; i < nfiles; i++) printf("  %2d  %s\n", i, files[i].name);
-    printf("  %2d  Tape play / stop\n", nfiles);
+    printf("  %2d  Tape play / pause\n", nfiles);
     printf("  %2d  Close\n", nfiles + 1);
     printf("Arrows select, Enter confirm, Esc/F9 closes.\n> %d\n", sel);
 
@@ -82,15 +82,9 @@ static void media_menu(void)
                 if (sel < nfiles) {
                     if (!load_sd_name(files[sel].name)) printf("load failed\n");
                 } else if (sel == nfiles) {
-                    if (zxspec_tape_playing(cpu_m)) {
-                        zxspec_tape_stop(cpu_m);
-                        printf("tape stopped\n");
-                    } else if (zxspec_tape_loaded(cpu_m)) {
-                        zxspec_tape_play(cpu_m);
-                        printf("tape playing\n");
-                    } else {
-                        printf("no tape loaded\n");
-                    }
+                    zxspec_tape_toggle(cpu_m);
+                    printf("tape: %s\n", zxspec_tape_playing(cpu_m) ? "play" :
+                           (zxspec_tape_loaded(cpu_m) ? "pause" : "empty"));
                 }
                 return;
             }
@@ -108,14 +102,18 @@ static void game(void)
         if (pico_port_poll()) zxspec_reset(cpu_m);
         int k;
         while ((k = pico_port_next_press()) >= 0) {
-            if (k == 0x3a) {                                         // F1
-                if (zxspec_tape_playing(cpu_m)) zxspec_tape_stop(cpu_m);
-                else if (zxspec_tape_loaded(cpu_m)) zxspec_tape_play(cpu_m);
+            if (k == 0x3a || k == 0x3f) {                            // F1 / F6
+                zxspec_tape_toggle(cpu_m);
                 printf("tape: %s\n", zxspec_tape_playing(cpu_m) ? "play" :
-                       (zxspec_tape_loaded(cpu_m) ? "stop" : "empty"));
+                       (zxspec_tape_loaded(cpu_m) ? "pause" : "empty"));
             }
+            if (k == 0x3c) zxspec_reset(cpu_m);                      // F3
+            if (k == 0x3e) zxspec_magic(cpu_m);                      // F5
             if (k == 0x42) media_menu();                             // F9
-            if (k == 0x45) zxspec_reset(cpu_m);                      // F12
+            if (k == 0x45) {                                         // F12: TURBO
+                turbo = !turbo;
+                printf("TURBO %s\n", turbo ? "on" : "off");
+            }
         }
         zxspec_keys_clear(cpu_m);
         for (size_t i = 0; i < sizeof keymap / sizeof keymap[0]; i++)
@@ -138,7 +136,7 @@ static void game(void)
         zxspec_joy(cpu_m, joy);
         const int16_t *audio;
         int n = zxspec_run_frame(cpu_m, &audio);
-        pico_port_audio(audio, n);
+        if (!turbo) pico_port_audio(audio, n);      // turbo: no sound, nothing paces
         pico_port_frame_done();
     }
 }
@@ -152,7 +150,7 @@ int main(void)
     }
     zxspec_set_rom(cpu_m, zx_rom48, zx_rom128, zx_rom128_bytes);
     zxspec_reset(cpu_m);
-    pico_port_cfg cfg = { zxspec_title(ZX_MODEL), render, NULL, ZX_AUDIO_RATE, ZX_FPS, true };
+    pico_port_cfg cfg = { zxspec_title(ZX_MODEL), render, NULL, ZX_AUDIO_RATE, zxspec_fps(cpu_m), true };
     pico_port_open(&cfg);
     pico_port_run(game);
 }

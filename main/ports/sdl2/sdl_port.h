@@ -39,6 +39,10 @@ void sdl_port_present(const uint32_t *rgb);
 // Drag-and-drop: next dropped file path (malloc'd; caller frees), or NULL.
 char *sdl_port_next_drop(void);
 void sdl_port_queue_drop(const char *path);
+// Turbo (dsp-cpp F12): no frame or sound pacing, the queued sound dropped,
+// and only every 4th frame shown, to spend the time on the emulation.
+void sdl_port_set_turbo(bool on);
+bool sdl_port_turbo(void);
 
 // Tests: SDL_PORT_FRAMES=n quits after n frames, SDL_PORT_SHOT=k saves frame
 // k as shot.ppm (with SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy).

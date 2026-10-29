@@ -2,7 +2,10 @@
 [mapping:zxspec_hot]
 archive: libmain.a
 entries:
-    z80 (noflash)
+    z80dsp (noflash)
     zxspec_core (noflash)
-    spectrum_tape (noflash)
+    zx48 (noflash)
+    zx128 (noflash)
+    zxclone (noflash)
+    zx_tape (noflash)
     ay8910 (noflash)

@@ -1,9 +1,10 @@
 // zxspec_sdl.c - ZX Spectrum family on desktop (SDL2) and web (Emscripten).
-// Build with -DZX_MODEL=ZX_SPEC48|ZX_SPEC128|ZX_PLUS3|ZX_PENTAGON|ZX_SCORPION
+// Build with -DZX_MODEL=ZX_SPEC48|ZX_SPEC128|ZX_PLUS3|ZX_PENTAGON|ZX_PENTAGON1024|ZX_SCORPION
 //
-//   F9  media menu (open .tap/.tzx/.sna, play/stop tape)
-//   F1  tape play/stop     F12 reset
-// Drag-and-drop a .tap/.tzx/.sna onto the window (web: Upload bar).
+//   F9  media menu (tapes, snapshots, RZX, TRD/SCL, DSK, IF2 cartridges)
+//   F1 / F6  tape play / pause     F3  reset     F5  magic button (clones)
+//   F12 TURBO (as dsp-cpp: no speed limit, no sound, every 4th frame shown)
+// Drag-and-drop a file onto the window (web: Upload bar).
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +24,9 @@
 #define ZX_MODEL ZX_SPEC48
 #endif
 
-static uint32_t frame[ZX_W * ZX_H];
+static uint32_t frame[ZX_PIC_W * ZX_PIC_H];
+#define W ZX_PIC_W
+#define H ZX_PIC_H
 static zxspec *cpu_m;
 static char media_name[80];
 
@@ -49,14 +52,16 @@ static const struct { int sc; int key; } keymap[] = {
 enum { MI_OPEN, MI_TAPE_TOGGLE, MI_CLOSE, MI_N };
 static bool menu_open;
 static int menu_sel;
-static char menu_msg[64];
+static char menu_msg[128];
 
 static void set_title(void)
 {
     char t[160];
-    snprintf(t, sizeof t, "%s - %s%s  (F9 media, F1 tape)", zxspec_title(ZX_MODEL),
+    snprintf(t, sizeof t, "%s - %s%s%s%s  (F9 media, F6 tape, F12 turbo)", zxspec_title(ZX_MODEL),
              media_name[0] ? media_name : "(no media)",
-             zxspec_tape_playing(cpu_m) ? " [PLAY]" : "");
+             zxspec_tape_playing(cpu_m) ? " [PLAY]" : "",
+             zxspec_rzx_playing(cpu_m) ? " [RZX]" : "",
+             sdl_port_turbo() ? " [TURBO]" : "");
     sdl_port_set_title(t);
 }
 
@@ -75,7 +80,9 @@ static void apply_path(const char *path)
         snprintf(media_name, sizeof media_name, "%s", base);
         note(media_name);
     } else {
-        note("Load failed (need .tap/.tzx/.sna)");
+        char msg[128];
+        snprintf(msg, sizeof msg, "Load failed: %s", zxspec_last_error(cpu_m));
+        note(msg);
     }
     set_title();
 }
@@ -87,8 +94,10 @@ static char *pick_path(void)
     return NULL;
 #else
     const char *cmds[] = {
-        "zenity --file-selection --title='Spectrum media' --file-filter='TAP TZX SNA|*.tap *.TAP *.tzx *.TZX *.sna *.SNA' 2>/dev/null",
-        "kdialog --getopenfilename . '*.tap *.tzx *.sna' 2>/dev/null",
+        "zenity --file-selection --title='Spectrum media' --file-filter='" ZX_MEDIA_LABEL "|"
+        "*.tap *.TAP *.tzx *.TZX *.cdt *.CDT *.csw *.CSW *.pzx *.PZX *.sna *.SNA *.z80 *.Z80 *.rzx *.RZX "
+        "*.trd *.TRD *.scl *.SCL *.dsk *.DSK *.rom *.ROM *.if2 *.IF2' --file-filter='*|*' 2>/dev/null",
+        "kdialog --getopenfilename . '*.tap *.tzx *.cdt *.csw *.pzx *.sna *.z80 *.rzx *.trd *.scl *.dsk *.rom *.if2' 2>/dev/null",
         NULL
     };
     for (int i = 0; cmds[i]; i++) {
@@ -107,7 +116,7 @@ static char *pick_path(void)
         }
         pclose(p);
     }
-    note("No file dialog — drag-and-drop a .tap/.tzx/.sna");
+    note("No file dialog: drag-and-drop the file");
     return NULL;
 #endif
 }
@@ -122,9 +131,11 @@ static void menu_activate(void)
         break;
     }
     case MI_TAPE_TOGGLE:
-        if (zxspec_tape_playing(cpu_m)) { zxspec_tape_stop(cpu_m); note("Tape stopped"); }
-        else if (zxspec_tape_loaded(cpu_m)) { zxspec_tape_play(cpu_m); note("Tape playing"); }
-        else note("No tape loaded");
+        if (!zxspec_tape_loaded(cpu_m)) note("No tape loaded");
+        else {
+            zxspec_tape_toggle(cpu_m);
+            note(zxspec_tape_playing(cpu_m) ? "Tape playing" : "Tape paused");
+        }
         set_title();
         menu_open = false;
         break;
@@ -146,7 +157,7 @@ static void blit_text(uint32_t *rgb, int x0, int y0, const char *s, uint32_t fg)
             for (int row = 0; row < 7; row++) {
                 if (!(bits & (1u << row))) continue;
                 int x = x0 + i * 6 + col, y = y0 + row;
-                if ((unsigned)x < ZX_W && (unsigned)y < ZX_H) rgb[y * ZX_W + x] = fg;
+                if ((unsigned)x < W && (unsigned)y < H) rgb[y * W + x] = fg;
             }
         }
     }
@@ -158,24 +169,27 @@ static void draw_menu(uint32_t *rgb)
 #ifdef __EMSCRIPTEN__
         "Upload / choose media",
 #else
-        "Open .tap/.tzx/.sna",
+        "Open media file",
 #endif
         "Tape play / stop",
         "Close menu",
     };
-    for (int i = 0; i < ZX_W * ZX_H; i++) rgb[i] = ((rgb[i] >> 2) & 0x3f3f3f) | 0x101018;
-    int bx = 40, by = 40, bw = ZX_W - 80, bh = 140;
+    for (int i = 0; i < W * H; i++) rgb[i] = ((rgb[i] >> 2) & 0x3f3f3f) | 0x101018;
+    int bx = (W - 240) / 2, by = (H - 160) / 2, bw = 240, bh = 160;
     for (int y = by; y < by + bh; y++)
-        for (int x = bx; x < bx + bw; x++) rgb[y * ZX_W + x] = 0x1a2030;
+        for (int x = bx; x < bx + bw; x++) rgb[y * W + x] = 0x1a2030;
     blit_text(rgb, bx + 12, by + 8, "MEDIA  F9", 0xffcc66);
-    char cur[64];
-    snprintf(cur, sizeof cur, "Now: %s", media_name[0] ? media_name : "(none)");
+    blit_text(rgb, bx + 12, by + bh - 28, "TAP TZX CSW PZX SNA Z80 RZX", 0x808898);
+    blit_text(rgb, bx + 12, by + bh - 40, zxspec_model(cpu_m) == ZX_PLUS3 ? "DSK ROM IF2" :
+              zxspec_model(cpu_m) == ZX_SPEC128 ? "ROM IF2" : zxspec_model(cpu_m) == ZX_SPEC48 ? "" : "TRD SCL", 0x808898);
+    char cur[96];
+    snprintf(cur, sizeof cur, "Now: %.36s", media_name[0] ? media_name : "(none)");
     blit_text(rgb, bx + 12, by + 20, cur, 0xa0a8b8);
     for (int i = 0; i < MI_N; i++) {
         int y0 = by + 40 + i * 28;
         uint32_t bg = (i == menu_sel) ? 0x3a6ea5 : 0x252b3a;
         for (int y = y0; y < y0 + 22; y++)
-            for (int x = bx + 12; x < bx + bw - 12; x++) rgb[y * ZX_W + x] = bg;
+            for (int x = bx + 12; x < bx + bw - 12; x++) rgb[y * W + x] = bg;
         blit_text(rgb, bx + 20, y0 + 7, labels[i], 0xf0f0f0);
     }
     if (menu_msg[0]) blit_text(rgb, bx + 12, by + bh - 16, menu_msg, 0xffcc66);
@@ -205,7 +219,7 @@ int main(int argc, char **argv)
 
     if (argc > 1) apply_path(argv[1]);
 
-    sdl_port_cfg cfg = { zxspec_title(ZX_MODEL), ZX_W, ZX_H, 2, ZX_AUDIO_RATE, ZX_FPS, true };
+    sdl_port_cfg cfg = { zxspec_title(ZX_MODEL), W, H, 2, ZX_AUDIO_RATE, zxspec_fps(cpu_m), true };
     if (!sdl_port_open(&cfg)) return 1;
     set_title();
 
@@ -254,12 +268,16 @@ int main(int argc, char **argv)
                 continue;
             }
             if (k == SDL_SCANCODE_F9) { menu_open = true; menu_sel = 0; }
-            if (k == SDL_SCANCODE_F1) {
-                if (zxspec_tape_playing(cpu_m)) zxspec_tape_stop(cpu_m);
-                else if (zxspec_tape_loaded(cpu_m)) zxspec_tape_play(cpu_m);
+            if (k == SDL_SCANCODE_F1 || k == SDL_SCANCODE_F6) {
+                zxspec_tape_toggle(cpu_m);
                 set_title();
             }
-            if (k == SDL_SCANCODE_F12) zxspec_reset(cpu_m);
+            if (k == SDL_SCANCODE_F3) { zxspec_reset(cpu_m); set_title(); }
+            if (k == SDL_SCANCODE_F5) zxspec_magic(cpu_m);
+            if (k == SDL_SCANCODE_F12) {                 // dsp-cpp: TURBO
+                sdl_port_set_turbo(!sdl_port_turbo());
+                set_title();
+            }
         }
 
         if (!menu_open) {
@@ -289,6 +307,11 @@ int main(int argc, char **argv)
         const int16_t *audio;
         int n = zxspec_run_frame(cpu_m, &audio);
         sdl_port_audio(audio, n);
+        {
+            static int last_state = -1;
+            int st = zxspec_tape_playing(cpu_m) | (zxspec_rzx_playing(cpu_m) << 1);
+            if (st != last_state) { last_state = st; set_title(); }
+        }
         zxspec_render(cpu_m, frame);
         if (menu_open) draw_menu(frame);
         sdl_port_present(frame);

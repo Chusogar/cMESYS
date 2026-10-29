@@ -42,6 +42,10 @@ void sdl_port_present(const uint32_t *rgb);
 char *sdl_port_next_drop(void);
 // Web/desktop helper: queue a path as if it had been dropped (shell upload).
 void sdl_port_queue_drop(const char *path);
+// Turbo (dsp-cpp F12): no frame or sound pacing, the queued sound dropped,
+// and only every 4th frame shown, to spend the time on the emulation.
+void sdl_port_set_turbo(bool on);
+bool sdl_port_turbo(void);
 
 // Tests: SDL_PORT_FRAMES=n quits after n frames (also ?frames=n in the URL).
 // SDL_PORT_SHOT is a no-op on the web (no local PPM).
