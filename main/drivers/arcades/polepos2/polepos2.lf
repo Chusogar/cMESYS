@@ -1,0 +1,12 @@
+# Hot code in IRAM (out of the flash cache): Z80, the four Namco MCUs, the
+# board logic, sound and the renderer (the Z8002's helpers and busiest opcode
+# handlers are put there by cpu/z8002/z8002_hot.h)
+[mapping:polepos2_hot]
+archive: libmain.a
+entries:
+    z80 (noflash)
+    mb88xx (noflash)
+    namco5x (noflash)
+    polepos_snd (noflash)
+    pp_core (noflash)
+    pp_video (noflash)

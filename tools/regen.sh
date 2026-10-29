@@ -1,8 +1,9 @@
 #!/bin/sh
 # Regenerates a game's generated sources (ROMs as C arrays, Musashi tables):
-#   tools/regen.sh indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | ql
+#   tools/regen.sh indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | ql
 #                  | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion
-# ROMs: roms/indytemp or roms/roadrunn + roms/atarisy1, roms/snowbros, roms/trackfld, roms/pbobble, roms/gauntlet, roms/outrun, roms/retofinv, roms/robocop (unzipped),
+# ROMs: roms/indytemp or roms/roadrunn + roms/atarisy1, roms/snowbros, roms/trackfld, roms/pbobble, roms/gauntlet, roms/outrun, roms/retofinv, roms/robocop, roms/polepos, roms/polepos2 (unzipped; Pole Position
+# also with the Namco 51xx-54xx MCU dumps),
 # roms/ql (the QL set unzipped + the .mdv cartridge to build in),
 # roms/<spectrum-model>/ exclusively (one directory and one rom_data_<model>.c per model).
 set -e
@@ -40,6 +41,9 @@ pbobble)
 retofinv)
     python3 tools/gen_roms_retofinv.py roms/retofinv $D/rom_data.c
     exit 0 ;;
+polepos|polepos2)
+    python3 tools/gen_roms_polepos.py $G roms/$G $D/rom_data.c
+    exit 0 ;;
 robocop)
     python3 tools/gen_roms_robocop.py roms/robocop $D/rom_data.c
     CYC=0 ;;
@@ -60,7 +64,7 @@ trackfld)
     cc -O2 -o $T/gen_roms tools/gen_roms_trackfld.c
     $T/gen_roms roms/trackfld $D/rom_data.c
     exit 0 ;;
-*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion"; exit 1 ;;
+*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion"; exit 1 ;;
 esac
 # Musashi opcode tables in flash, for this game's CPU type
 cc -O1 -w -I$D -I$M/cpu/m68k -DCYC_CPU=$CYC -o $T/gen_m68k tools/gen_m68k_tables.c $M/cpu/m68k/m68kcpu.c \

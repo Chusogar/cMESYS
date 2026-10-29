@@ -1,6 +1,6 @@
 # Arcades y ordenadores Sinclair para ESP32 CYD (ST7789), RP2040-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
 
-Dieciséis máquinas (nueve recreativas, el Sinclair QL y seis ZX Spectrum / clones) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
+Dieciocho máquinas (once recreativas, el Sinclair QL y seis ZX Spectrum / clones) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -11,6 +11,8 @@ Dieciséis máquinas (nueve recreativas, el Sinclair QL y seis ZX Spectrum / clo
 | Snow Bros (Toaplan, 1990) | `snowbros` | 68000 + Z80 | YM3812 | `zxtiny/zxm/snowbros.c` |
 | Track & Field (Konami, 1983) | `trackfld` | Konami-1 (6809) + Z80 | SN76489, VLM5030, DAC | `zxtiny/zxm/trackfld.c` |
 | Return of the Invaders (Taito, 1985) | `retofinv` | 3 x Z80 + MC68705P5 | 2 x SN76489 | dsp-cpp `retofinv.cpp` → `retofinv/rv_core.c` (detalles verificados con MAME `retofinv.cpp`) |
+| Pole Position (Namco, 1982) | `polepos` | Z80 + 2 x Z8002 + 4 MCU Namco (51xx-54xx, MB88) | WSG Namco de 8 voces, motor (muestras + filtros), voz 52xx, ruido 54xx | dsp-cpp `polepos.cpp` → `polepos/pp_core.c` (detalles verificados con MAME `namco/polepos.cpp`) |
+| Pole Position II (Namco, 1983) | `polepos2` | igual que Pole Position | igual | el mismo núcleo que `polepos` |
 | RoboCop (Data East, 1988) | `robocop` | 68000 + HuC6280 + 6502 | YM2203, YM3812, OKI M6295 | dsp-cpp `dec0.cpp` → `robocop/rc_core.c` (detalles verificados con MAME `dec0.cpp`) |
 | Sinclair QL (1984, ROM JS) — ordenador | `ql` | 68008 + 8749 (IPC) | altavoz del IPC | dsp-cpp `ql.cpp` → `drivers/computers/ql/ql_core.c` (detalles verificados con MAME `sinclair/ql.cpp`) |
 | ZX Spectrum 48K — ordenador | `spectrum48` | Z80 | beeper | dsp-cpp `spectrum.cpp` → `drivers/computers/zxspec/` |
@@ -43,14 +45,19 @@ main/
     h6280/                HuC6280 (port de MAME)
     mcs48/                MCS-48 (8035/8039/8049/8749) y UPI-41 (port de dsp-cpp / MAME)
     z80/                  Z80
+    z8002/                Zilog Z8002 (pasado a C con tools/conv_z8002.py desde el de dsp-cpp/MAME;
+                          z8002_hot.h pone en RAM sus funciones más usadas)
+    mb88xx/               Fujitsu MB88xx (las MCU Namco 51xx-54xx)
   sound/                  ym2151, pokey (+pokey_poly17.inc), tms5220, sn76489, vlm5030, emu8950/ (YM3812),
                           ym2610 (YM2610/YM2610B y YM2203), segapcm (Sega 315-5218), okim6295 (OKI M6295),
-                          ay8910 (AY-3-8912 del Spectrum 128K / clones)
+                          ay8910 (AY-3-8912 del Spectrum 128K / clones),
+                          polepos_snd (WSG Namco y motor de Pole Position)
   machine/                via6522, slapstic, tc0140syt (buzón Taito 68000 <-> Z80), eeprom93c46,
                           sega_315_5195 (mapeador de memoria de Sega), taito68705 (MCU de Taito),
                           zx8302 (periféricos del QL: reloj, enlace con el IPC, interrupciones,
                           controlador de microdrives), ql_mdv (microdrive del QL, imágenes QLAY),
-                          spectrum_tape (.tap/.tzx), spectrum_snap (.sna)
+                          spectrum_tape (.tap/.tzx), spectrum_snap (.sna),
+                          namco5x (MCU Namco 51xx, 52xx, 53xx y 54xx)
   video/                  atari_mo (objetos móviles Atari, con las SLIP de Gauntlet), tc0180vcu (vídeo del Taito B System),
                           zx8301 (vídeo del QL: modos 4 y 8)
   drivers/arcades/
@@ -71,6 +78,11 @@ main/
     pbobble/              pb_core.c/.h, pbobble_cyd.c, pbobble_sdl.c, rom_data.c,
                           m68k_game_conf.h, m68k_tables.c, pbobble.lf
     retofinv/             rv_core.c/.h, rv_video.c, retofinv_cyd.c, retofinv_sdl.c, rom_data.c, retofinv.lf
+    polepos/              núcleo Pole Position compartido por polepos y polepos2: pp_core.c/.h (máquina),
+                          pp_video.c (carretera, fondo, sprites con zoom, texto), pp_cyd.inc / pp_sdl.inc /
+                          pp_pico.inc (frontends comunes), polepos_cyd.c, polepos_sdl.c, polepos_pico.c,
+                          rom_data.c, polepos.lf
+    polepos2/             polepos2_cyd.c, polepos2_sdl.c, polepos2_pico.c, rom_data.c, polepos2.lf
     robocop/              rc_core.c/.h (máquina), rc_video.c (imagen), rc_sound.c/.h (placa de
                           sonido), robocop_cyd.c, robocop_sdl.c, rom_data.c, m68k_game_conf.h,
                           m68k_tables.c, robocop.lf
@@ -98,9 +110,10 @@ tools/
   setup_pico.sh           descarga el Pico SDK y PicoDVI (en deps/pico)
   pico_host.c             la API de la RP2040 en el PC, sin ventana: prueba los frontends *_pico.c
   pico_hot.py, pico_ram.py  manejadores del 68000 en RAM y memoria usada (RP2040)
+  conv_z8002.py, z8002_hot.py  pasa el Z8002 de dsp-cpp a C; elige sus funciones en RAM (lista en z8002_hot.txt)
   gen_roms_*.{c,py}, gen_roms_zxspec.py, gen_m68k_tables.c, m68k_stub.c
 roms/                     indytemp, roadrunn, atarisy1, gauntlet, outrun, snowbros, trackfld, pbobble,
-                          retofinv, robocop, ql (.mdv),
+                          retofinv, robocop, polepos, polepos2, ql (.mdv),
                           spectrum48/, spectrum128/, plus3/, pentagon/, pentagon1024/, scorpion/
                           (cada modelo Spectrum lee solo su directorio)
 ```
@@ -200,6 +213,18 @@ Pantalla en vertical (240x320): la imagen del juego (224x288, como el mueble ROT
 - Tocando la imagen: tercio izquierdo = izquierda, centro = disparo, tercio derecho = derecha.
 - **Nunchuk**: stick izquierda / derecha, Z disparo, C+Z moneda + start. Serie: `a` / `d`, `j` disparo, `5` moneda, `1` start.
 
+### Controles: Pole Position y Pole Position II
+
+En horizontal: la imagen (256x224) centrada y la pantalla táctil dividida en 3x3 zonas (se muestran 2,5 s al arrancar):
+
+| MONEDA | MARCHA | ACELERAR |
+|---|---|---|
+| IZQ. + ACELERAR | ACELERAR | DCHA. + ACELERAR |
+| IZQUIERDA | FRENO | DERECHA |
+
+- La carrera empieza sola al echar la moneda (como en el mueble). MARCHA alterna entre LOW y HIGH a cada pulsación.
+- **Nunchuk**: el stick (eje X) es el volante analógico, stick arriba = marcha, Z acelerar, C frenar, C+Z moneda. BOOT = moneda. Serie: `a` / `d` volante, `w` acelerar, `s` frenar, `g` marcha, `5` moneda.
+
 ### Controles: RoboCop
 
 Táctil en 3x3 zonas sobre la pantalla (se muestran 2,5 s al empezar); la imagen de 256x240 va centrada:
@@ -281,7 +306,7 @@ ESP-IDF 5.3:
 
 ```
 . $IDF_PATH/export.sh
-idf.py -B build/indytemp -DGAME=indytemp build       # o … / ql / spectrum48 / spectrum128 / plus3 / pentagon / pentagon1024 / scorpion
+idf.py -B build/indytemp -DGAME=indytemp build       # o … / polepos / polepos2 / ql / spectrum48 / spectrum128 / plus3 / pentagon / pentagon1024 / scorpion
 LCD_SPI_MHZ=80 idf.py -B build/indytemp-80 -DGAME=indytemp build
 ./build_all.sh                                       # todo -> dist/
 ```
@@ -291,7 +316,7 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o … / ql / spectrum48 / … / pentagon1024 / scorpion; "make all" -> build/sdl/<juego>
+make GAME=indytemp        # o … / polepos / polepos2 / ql / spectrum48 / … / pentagon1024 / scorpion; "make all" -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
 ./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ./build/sdl/gauntlet      # ROMs incluidas
@@ -322,6 +347,7 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **Snow Bros**: Z disparo, X salto.
 - **Track & Field**: C = RUN 1, Z = RUN 2 (altérnalos), X = salto.
 - **Return of the Invaders**: izquierda / derecha, Z disparo. Se ve en vertical (224x288, como el mueble ROT90).
+- **Pole Position / Pole Position II**: izquierda / derecha volante, arriba o Z acelerar, abajo o X frenar, C / Espacio cambiar de marcha (LOW / HIGH). La carrera empieza sola tras la moneda.
 - **RoboCop**: cursores = joystick (arriba / abajo apuntan), Z ataque (disparo / puñetazo), X salto.
 - **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
 - **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta** el cartucho actual; **F9** abre el menú (abrir `.mdv` del disco con zenity/kdialog, cartucho del firmware, eyectar); también **arrastra un `.mdv`** a la ventana (en web: barra «Upload» o drag&drop). **F6** es el F1 del QL (F2-F5 los suyos), F12 reinicia. `QL_MOUNT_AT=n` pulsa F1 en el frame n.
@@ -365,7 +391,7 @@ Teclas (teclado USB): `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón
 ```
 sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi cmake python3   # (Debian/Ubuntu)
 tools/setup_pico.sh                       # una vez: Pico SDK 2.1.1 y PicoDVI en deps/pico
-./build_pico.sh                           # las 10 máquinas -> dist/<juego>_rp2040_pizero.uf2
+./build_pico.sh                           # las 12 máquinas -> dist/<juego>_rp2040_pizero.uf2
 ./build_pico.sh robocop ql                # algunas
 ```
 
@@ -389,6 +415,7 @@ El RP2040 (Cortex-M0+) es bastante más lento que el ESP32, así que las máquin
 | Snow Bros | 60 fps | ~38 fps |
 | OutRun | 60,1 fps | ~28 fps |
 | RoboCop | 57,4 fps | ~26 fps |
+| Pole Position / II | 60,6 fps | ~17 fps (tres CPU de 3 MHz y cuatro MCU: va a cámara lenta) |
 
 ### Pruebas sin la placa
 
@@ -406,6 +433,8 @@ Gauntlet usa el set de MAME `gauntlet` (rev 14): `136037-1307.9a`, `1308.9b`, `2
 OutRun usa el set de MAME `outrun` (rev B): `epr-10380b.133`, `epr-10381b.132`, `epr-10382b.118`, `epr-10383b.117`, `epr-10327a.76` ... `epr-10330a.57`, `epr-10187.88`, los `opr-*` (tiles, carretera, PCM) y los `mpr-10371.9` ... `mpr-10378.16` (sprites) en `roms/outrun/` (`tools/gen_roms_outrun.py` comprueba tamaños y CRC).
 
 Return of the Invaders usa el set de MAME `retofinv`: `a37__01.ic72` ... `a37__05.ic17`, `a37__09.ic37` (MC68705P5), `a37__10` ... `a37__16.gfxboard` y las PROM `a37-06` ... `a37-08`, `a37-17` ... `a37-20` en `roms/retofinv/`.
+
+Pole Position usa el set de MAME `polepos` (World) entero (`pp3_9.6h` y `pp1_10b.5h` del Z80, `pp3_1.8m`, `pp3_2.8l`, `pp3_5.4m`, `pp3_6.4l` de los Z8002, gráficos, carretera, PROM, motor y voz) más las MCU `51xx.bin`, `52xx.bin`, `53xx.bin`, `54xx.bin` (de `namco51.zip` ... `namco54.zip`) en `roms/polepos/`. Pole Position II usa el set `polepos2` con las mismas MCU en `roms/polepos2/`. `tools/gen_roms_polepos.py` comprueba tamaños y CRC y descodifica los gráficos (un byte por píxel).
 
 RoboCop usa el set de MAME `robocop` (World, revision 4): `ep05-4.11c`, `ep01-4.11b`, `ep04-3`, `ep00-3` (68000), `ep03-3` (6502), `en_24_mb7124e.a2` (HuC6280), `ep02` (OKI) y `ep06` ... `ep23` (gráficos) en `roms/robocop/` (`tools/gen_roms_robocop.py` comprueba tamaños y CRC; las PROM no hacen falta).
 
@@ -462,6 +491,14 @@ Los dos juegos usan el mismo núcleo (`drivers/arcades/atarisy1/`, port en C del
 
 - **Hardware** (MAME `taito/retofinv.cpp`): tres Z80 a 3,072 MHz (principal, secundario de vídeo y sonido), un MC68705P5 con la conexión estándar de Taito (`machine/taito68705`, con el núcleo `cpu/m6805` nuevo), un latch LS259 con las máscaras de IRQ y los reset, dos SN76489A y NMI de sonido a 120 Hz. Imagen de 288x224 girada (ROT90), dos tilemaps de 36x28 y 64 sprites.
 - Verificado contra MAME: imagen idéntica en la demo y en partida, audio con la misma envolvente, y QEMU da las mismas huellas que el PC.
+
+## Pole Position: cómo funciona
+
+- **Hardware** (MAME `namco/polepos.cpp`): un Z80 y dos Z8002 a 3,072 MHz, el bus Namco 06xx con cuatro MCU MB88 (51xx: entradas y monedas; 52xx: muestras de voz; 53xx: volante y DIP; 54xx: ruido), el WSG Namco de 8 voces (con entradas externas de la 52xx / 54xx) y el sonido del motor (muestras con tres filtros analógicos). 264 líneas de 192 ciclos, 60,606 fps; imagen de 256x224: fondo en mosaico arriba, carretera abajo, 64 sprites con zoom y la capa de texto.
+- Ejecución: en porciones de 16 ciclos el Z80, luego cada Z8002; las MCU (un ciclo por cada 12 del Z80) se ponen al día antes de cada flanco del 06xx, de cada acceso del Z80 al 06xx o al latch, y al final de cada línea. Los bucles de espera de la 51xx (su temporizador) y la 52xx (su pin de IRQ) se cuentan sin ejecutarlos (`mb88_set_idle_loop`), con el mismo resultado. Las CPU arrastran lo que se pasan en la última instrucción a la siguiente porción (sin eso iban un 37 % más rápidas). La imagen se dibuja línea a línea desde la RAM (`pp_render`), en cualquier núcleo y por franjas.
+- Componentes nuevos: `cpu/z8002` (Z8002 de dsp-cpp/MAME pasado a C por `tools/conv_z8002.py`; tabla de decodificación en dos niveles de 18 KB, en RAM), `cpu/mb88xx`, `machine/namco5x` y `sound/polepos_snd`. En el CYD los programas de las tres CPU se copian a RAM; en la RP2040 también, y las funciones del Z8002 más usadas van a RAM (`z8002_hot.h`; el núcleo entero ocupa ~100 KB).
+- DIP como los de MAME: `polepos` usa los de `poleposa` (mph, demo sin sonido), `polepos2` los de `polepos2j` (km/h).
+- Verificado contra MAME: la secuencia de arranque (RAM OK / ROM OK, rejilla, título) coincide frame a frame; Pole Position II da la misma imagen en el frame 600; la demo y la partida (clasificación, curvas, choques) se ven igual. QEMU da las mismas huellas que el PC en los dos juegos. No está probado en una placa real: es la máquina más pesada del árbol en CPU (tres CPU y cuatro MCU), así que en el CYD puede no llegar a 60 fps; el log serie da la velocidad cada 5 s.
 
 ## RoboCop: cómo funciona
 

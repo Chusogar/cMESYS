@@ -21,12 +21,13 @@ else
   D     := $(M)/drivers/arcades/$(GAME)
 endif
 AS1     := $(M)/drivers/arcades/atarisy1
+PP      := $(M)/drivers/arcades/polepos
 ZX_SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/rom_data_$(GAME).c $(M)/cpu/z80/z80.c \
            $(M)/machine/spectrum_tape.c $(M)/machine/spectrum_snap.c $(M)/sound/ay8910.c
 
 CFLAGS  := -O2 -std=gnu11 -Wall -Wno-unused-function -Wno-unused-variable \
            -Wno-sign-compare -Wno-uninitialized \
-           -I$(D) -I$(AS1) -I$(M)/ports/web -I$(M)/cpu -I$(M)/cpu/m68k \
+           -I$(D) -I$(AS1) -I$(PP) -I$(M)/ports/web -I$(M)/cpu -I$(M)/cpu/m68k \
            -I$(M)/cpu/m6502 -I$(M)/cpu/mc6809 -I$(M)/cpu/mcs48 -I$(M)/cpu/m6805 \
            -I$(M)/cpu/z80 -I$(M)/sound -I$(M)/sound/emu8950 -I$(M)/machine -I$(M)/video
 # SDL2 from Emscripten; ASYNCIFY so emscripten_sleep in sdl_port_present works
@@ -80,6 +81,12 @@ else ifeq ($(GAME),robocop)
           $(M)/cpu/h6280/h6280.c $(M)/sound/ym2610.c $(M)/sound/okim6295.c \
           $(M)/sound/emu8950/emu8950.c $(M)/sound/emu8950/emuadpcm.c
   DEFS :=
+else ifeq ($(GAME),$(filter $(GAME),polepos polepos2))
+  # core in polepos/, shared by polepos2
+  SRC  := $(D)/$(GAME)_sdl.c $(PP)/pp_core.c $(PP)/pp_video.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
+          $(M)/cpu/z8002/z8002.c $(M)/cpu/z8002/z8002_tab.c $(M)/cpu/mb88xx/mb88xx.c $(M)/machine/namco5x.c \
+          $(M)/sound/polepos_snd.c
+  DEFS :=
 else ifeq ($(GAME),ql)
   SRC  := $(D)/ql_sdl.c $(D)/ql_core.c $(D)/ql_view.c $(D)/ql_cart_host.c $(D)/rom_data.c $(M68K) $(M)/cpu/mcs48/mcs48.c \
           $(M)/machine/zx8302.c $(M)/machine/ql_mdv.c $(M)/video/zx8301.c
@@ -107,14 +114,14 @@ else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024 or scorpion)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024 or scorpion)
 endif
 
 PORTSRC := $(M)/ports/web/sdl_port.c
-GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop ql \
+GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql \
            spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion
 
-$(OUT)/$(GAME).html: $(SRC) $(PORTSRC) $(M)/ports/web/shell.html $(M)/ports/web/Makefile
+$(OUT)/$(GAME).html: $(SRC) $(PORTSRC) $(wildcard $(PP)/*.inc) $(M)/ports/web/shell.html $(M)/ports/web/Makefile
 	@mkdir -p $(OUT)
 	$(EMCC) $(CFLAGS) $(DEFS) -o $@ $(SRC) $(PORTSRC) $(LDFLAGS) -lm
 	@cp -f $(M)/ports/web/index.html $(OUT)/index.html

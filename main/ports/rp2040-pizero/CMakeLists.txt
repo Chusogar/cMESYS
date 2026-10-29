@@ -5,7 +5,7 @@
 #   cmake --build build/pico-robocop -j                   -> build/pico-robocop/robocop_pizero.uf2
 #
 # or ./build_pico.sh for all of them (-> dist/). GAME: indytemp, roadrunn,
-# gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, ql,
+# gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql,
 # spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion.
 cmake_minimum_required(VERSION 3.13)
 
@@ -28,7 +28,7 @@ endif()
 pico_sdk_init()
 
 if(NOT GAME)
-    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion>")
+    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion>")
 endif()
 if(NOT EXISTS "${PICO_DEPS}/PicoDVI/software/libdvi")
     message(FATAL_ERROR "${PICO_DEPS}/PicoDVI is missing: run tools/setup_pico.sh first")
@@ -99,6 +99,15 @@ elseif(GAME STREQUAL "robocop")
              ${M}/sound/emu8950/emu8950.c ${M}/sound/emu8950/emuadpcm.c)
     set(DEFS M68K_FLASH_TABLES)
     set(RAM_CODE m68kcpu.c.o rc_core.c.o rc_sound.c.o ym2610.c.o emu8950.c.o)
+elseif(GAME STREQUAL "polepos" OR GAME STREQUAL "polepos2")
+    # core in polepos/, shared; the Z8002's helpers and busiest handlers go to
+    # RAM through cpu/z8002/z8002_hot.h (.time_critical), not the whole core
+    set(PP ${M}/drivers/arcades/polepos)
+    set(SRCS ${D}/${GAME}_pico.c ${PP}/pp_core.c ${PP}/pp_video.c ${D}/rom_data.c ${M}/cpu/z80/z80.c
+             ${M}/cpu/z8002/z8002.c ${M}/cpu/z8002/z8002_tab.c ${M}/cpu/mb88xx/mb88xx.c
+             ${M}/machine/namco5x.c ${M}/sound/polepos_snd.c)
+    set(DEFS)
+    set(RAM_CODE z80.c.o mb88xx.c.o namco5x.c.o polepos_snd.c.o pp_core.c.o pp_video.c.o)
 elseif(GAME STREQUAL "ql")
     set(SRCS ${D}/ql_pico.c ${D}/ql_core.c ${D}/ql_view.c ${D}/ql_cart_host.c ${D}/ql_sd_pico.c ${D}/rom_data.c ${M68K}
              ${M}/cpu/mcs48/mcs48.c ${M}/machine/zx8302.c ${M}/machine/ql_mdv.c ${M}/video/zx8301.c)
@@ -140,7 +149,7 @@ endif()
 
 set(EXE ${GAME}_pizero)
 add_executable(${EXE} ${SRCS} ${PORT_DIR}/pico_port.c)
-target_include_directories(${EXE} PRIVATE ${PORT_DIR} ${D} ${AS1} ${QL_DIR} ${M}/cpu ${M}/cpu/m68k ${M}/cpu/m6502
+target_include_directories(${EXE} PRIVATE ${PORT_DIR} ${D} ${AS1} ${QL_DIR} ${M}/drivers/arcades/polepos ${M}/cpu ${M}/cpu/m68k ${M}/cpu/m6502
     ${M}/cpu/mc6809 ${M}/cpu/mcs48 ${M}/cpu/z80 ${M}/sound ${M}/machine ${M}/video)
 math(EXPR NBUF "${BAND} + 2")
 target_compile_definitions(${EXE} PRIVATE ${DEFS} NDEBUG PICO_BAND=${BAND}
