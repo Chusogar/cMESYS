@@ -43,7 +43,14 @@ static uint16_t to565(uint32_t c)
 static void set_colour(zxspec *m, int i, uint32_t rgb)
 {
     m->palette_ext[i] = rgb;
-    m->pal565[i] = to565(rgb);
+    m->pal565[i] = m->rgb565 ? m->rgb565((uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb) : to565(rgb);
+}
+
+void zxspec_set_rgb565(zxspec *m, uint16_t (*fn)(uint8_t r, uint8_t g, uint8_t b))
+{
+    if (!m) return;
+    m->rgb565 = fn;
+    for (int i = 0; i < 80; i++) set_colour(m, i, m->palette_ext[i]);
 }
 
 // ---------------------------------------------------------------------------

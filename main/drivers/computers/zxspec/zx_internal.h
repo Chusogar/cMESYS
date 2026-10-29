@@ -94,6 +94,7 @@ struct zxspec {
     uint8_t ulaplus_pal[64];
     uint32_t palette_ext[80];   // 0x00RRGGBB: 0-15 classic, 16-79 ULA+
     uint16_t pal565[80];
+    uint16_t (*rgb565)(uint8_t r, uint8_t g, uint8_t b);   // the display's RGB565 (CYD: byte-swapped, BGR)
 
     // picture: palette_ext indices, packed two a byte on the boards
     uint8_t *pic;

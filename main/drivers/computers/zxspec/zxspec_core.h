@@ -99,6 +99,9 @@ bool zxspec_rzx_playing(const zxspec *m);
 int zxspec_width(const zxspec *m);
 int zxspec_height(const zxspec *m);
 void zxspec_render(const zxspec *m, uint32_t *rgb);             /* 0x00RRGGBB */
+/* The display's RGB565 for zxspec_render_row565 (the CYD's rgb565(): byte
+ * swapped and BGR / inverted as its settings say); NULL = plain RGB565. */
+void zxspec_set_rgb565(zxspec *m, uint16_t (*fn)(uint8_t r, uint8_t g, uint8_t b));
 /* One RGB565 row of the centre 320x240 (y in 0..ZX_H-1), for CYD / Pico. */
 void zxspec_render_row565(const zxspec *m, int y, uint16_t *out320);
 
