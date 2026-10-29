@@ -439,6 +439,7 @@ void app_main(void)
     cyd_setup_ui();
 #endif
     set_landscape(true);
+    zxspec_set_rgb565(cpu_m, rgb565);       // the panel's byte order and BGR / invert settings
 #ifndef CYD_HEADLESS_TEST
     draw_help();
     {
