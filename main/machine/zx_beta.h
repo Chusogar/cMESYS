@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "zx_pbuf.h"
 
 #define TRD_SECTOR 256
 #define TRD_SECTORS 16
@@ -28,20 +29,15 @@ typedef struct {
     // Beta 128
     bool active;
     uint8_t control;
-    // .trd read a track at a time (zx_beta_stream_*)
-    uint8_t *sbuf;
-    uint32_t spos, ssize;
 } zx_beta;
 
 void zx_beta_init(zx_beta *b);
 void zx_beta_free(zx_beta *b);      // ejects the disk
 void zx_beta_reset(zx_beta *b);
 bool zx_beta_load(zx_beta *b, const uint8_t *data, size_t size, const char **error);
-// A .trd image given a piece at a time (the boards cannot hold a whole
-// 640 KB image to load it): begin with its size, the data in order, end.
-bool zx_beta_stream_begin(zx_beta *b, size_t size, const char **error);
-bool zx_beta_stream_data(zx_beta *b, const uint8_t *data, size_t n, const char **error);
-bool zx_beta_stream_end(zx_beta *b, const char **error);
+// From pages (zx_pbuf.h; a .trd's 4 KB pages become its tracks as they are,
+// an .scl's are freed as they are copied); *file is freed.
+bool zx_beta_load_pbuf(zx_beta *b, zx_pbuf *file, const char **error);
 static inline void zx_beta_enable(zx_beta *b) { b->active = true; }
 static inline void zx_beta_disable(zx_beta *b) { b->active = false; }
 

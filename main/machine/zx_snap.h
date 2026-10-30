@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "zx_pbuf.h"
 
 typedef struct {
     uint8_t a, f, b, c, d, e, h, l;
@@ -31,5 +32,9 @@ typedef struct {
 // ext: the file name or extension ("sna" / "z80"); NULL to tell by size.
 bool zx_snap_load(const uint8_t *data, size_t size, const char *ext, bool host_48k,
                   uint8_t *const banks[8], zx_snap *out, const char **error);
+
+// The same from pages (zx_pbuf.h)
+bool zx_snap_load_pbuf(const zx_pbuf *file, const char *ext, bool host_48k,
+                       uint8_t *const banks[8], zx_snap *out, const char **error);
 
 #endif

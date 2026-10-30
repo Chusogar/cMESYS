@@ -12,9 +12,12 @@
 #define ZT_HOT
 #endif
 
-static uint16_t rd16(const uint8_t *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
-static uint32_t rd24(const uint8_t *p) { return (uint32_t)(p[0] | (p[1] << 8) | (p[2] << 16)); }
-static uint32_t rd32(const uint8_t *p) { return (uint32_t)(p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24)); }
+// The file is read through its pages (zx_pbuf.h): every "pointer" into it
+// is an offset, read with these, P being the pbuf in scope.
+#define B(o) zx_pb_byte(P, (uint32_t)(o))
+#define R16(o) zx_pb_rd16(P, (uint32_t)(o))
+#define R24(o) zx_pb_rd24(P, (uint32_t)(o))
+#define R32(o) zx_pb_rd32(P, (uint32_t)(o))
 
 static uint32_t pause_tstates(uint16_t ms) { return ms ? (uint32_t)ms * 3500u : 0; }
 static uint16_t alphabet_size(uint8_t raw) { return raw == 0 ? 256 : raw; }
@@ -46,6 +49,7 @@ static zt_block *new_block(zx_tape *t, uint8_t type)
     zt_block *b = &t->blocks[t->nblocks++];
     memset(b, 0, sizeof *b);
     b->type = type;
+    b->src = &t->pb;
     b->pilot = 2168; b->sync1 = 667; b->sync2 = 735;
     b->zero = 855; b->one = 1710; b->pilot_pulses = 8063;
     b->used_bits = 8;
@@ -62,31 +66,34 @@ static uint16_t sym_count(const zt_block *b, bool pilot)
     return b->totd ? alphabet_size((uint8_t)b->asd) : 0;
 }
 
-static const uint8_t *sym_def(const zt_block *b, bool pilot, uint32_t i)
+static uint32_t sym_def(const zt_block *b, bool pilot, uint32_t i)
 {
     const uint8_t np = pilot ? b->npp : b->npd;
-    return (pilot ? b->pilot_defs : b->data_defs) + (size_t)i * (1 + 2u * np);
+    return (pilot ? b->pilot_defs : b->data_defs) + i * (1 + 2u * np);
 }
 
 static uint32_t sym_size(const zt_block *b, bool pilot, uint32_t i)
 {
     if (b->pzx) return b->pzx_n[i & 1];
-    const uint8_t *d = sym_def(b, pilot, i) + 1;
+    const zx_pbuf *P = b->src;
+    const uint32_t d = sym_def(b, pilot, i) + 1;
     const uint8_t np = pilot ? b->npp : b->npd;
     uint32_t n = 0;
-    while (n < np && rd16(d + 2 * n)) n++;
+    while (n < np && R16(d + 2 * n)) n++;
     return n;
 }
 
 static uint16_t sym_pulse(const zt_block *b, bool pilot, uint32_t i, uint32_t k)
 {
-    if (b->pzx) return rd16(b->pzx_s[i & 1] + 2 * k);
-    return rd16(sym_def(b, pilot, i) + 1 + 2 * k);
+    const zx_pbuf *P = b->src;
+    if (b->pzx) return R16(b->pzx_s[i & 1] + 2 * k);
+    return R16(sym_def(b, pilot, i) + 1 + 2 * k);
 }
 
 static uint8_t sym_flags(const zt_block *b, bool pilot, uint32_t i)
 {
-    return b->pzx ? 0 : sym_def(b, pilot, i)[0];
+    const zx_pbuf *P = b->src;
+    return b->pzx ? 0 : B(sym_def(b, pilot, i));
 }
 
 // ---------------------------------------------------------------------------
@@ -101,10 +108,11 @@ static void pl_reset(zx_tape *t)
 // Next pulse of the block's list; false at the end.
 static bool pl_next(zx_tape *t, const zt_block *b, uint32_t *out)
 {
+    const zx_pbuf *P = b->src;
     switch (b->plist) {
     case ZP_RAW16:
         if (t->pl_pos >= b->pulses_len) return false;
-        *out = rd16(b->pulses + 2 * t->pl_pos++);
+        *out = R16(b->pulses + 2 * t->pl_pos++);
         return true;
     case ZP_PZX:
         for (;;) {
@@ -115,17 +123,17 @@ static bool pl_next(zx_tape *t, const zt_block *b, uint32_t *out)
             }
             uint32_t i = t->pl_pos;
             if (i + 2 > b->pulses_len) return false;
-            uint32_t count = 1, duration = rd16(b->pulses + i);
+            uint32_t count = 1, duration = R16(b->pulses + i);
             i += 2;
             if (duration > 0x8000) {
                 count = duration & 0x7fff;
                 if (i + 2 > b->pulses_len) return false;
-                duration = rd16(b->pulses + i);
+                duration = R16(b->pulses + i);
                 i += 2;
             }
             if (duration & 0x8000) {
                 if (i + 2 > b->pulses_len) return false;
-                duration = ((duration & 0x7fff) << 16) | rd16(b->pulses + i);
+                duration = ((duration & 0x7fff) << 16) | R16(b->pulses + i);
                 i += 2;
             }
             t->pl_pos = i;
@@ -136,7 +144,7 @@ static bool pl_next(zx_tape *t, const zt_block *b, uint32_t *out)
     case ZP_GENPILOT:
         for (;;) {
             if (t->pl_rep) {
-                const uint8_t si = b->pulses[3 * (t->pl_pos - 1)];
+                const uint8_t si = B(b->pulses + 3 * (t->pl_pos - 1));
                 const uint32_t n = sym_size(b, true, si);
                 if (t->pl_sym_pulse < n) {
                     *out = sym_pulse(b, true, si, t->pl_sym_pulse++);
@@ -147,8 +155,8 @@ static bool pl_next(zx_tape *t, const zt_block *b, uint32_t *out)
                 continue;
             }
             if (t->pl_pos >= b->pulses_len) return false;
-            const uint8_t *e = b->pulses + 3 * t->pl_pos++;
-            t->pl_rep = (e[0] < sym_count(b, true)) ? rd16(e + 1) : 0;
+            const uint32_t e = b->pulses + 3 * t->pl_pos++;
+            t->pl_rep = (B(e) < sym_count(b, true)) ? R16(e + 1) : 0;
             t->pl_sym_pulse = 0;
         }
     default:
@@ -159,38 +167,47 @@ static bool pl_next(zx_tape *t, const zt_block *b, uint32_t *out)
 // ---------------------------------------------------------------------------
 // parsers
 // ---------------------------------------------------------------------------
-static bool parse_csw_payload(zx_tape *t, uint32_t sample_rate, uint8_t compression, uint8_t polarity,
-                              const uint8_t *payload, size_t payload_len, const char **error)
+// payload: [off, off+len) of P
+static bool parse_csw_payload(zx_tape *t, const zx_pbuf *P, uint32_t sample_rate, uint8_t compression,
+                              uint8_t polarity, uint32_t off, uint32_t len, const char **error)
 {
     if (sample_rate == 0) sample_rate = 44100;
-    const uint8_t *rle = payload;
-    size_t rle_len = payload_len;
-    if (compression == 2) {         // zlib-wrapped RLE
+    const zx_pbuf *RP = P;
+    uint32_t rle = off, rle_len = len;
+    if (compression == 2) {         // zlib-wrapped RLE: inflated into a buffer of its own
+        uint8_t *src = zx_pb_flatten(P, off, len);
         size_t got = 0;
-        uint8_t *dec = zx_inflate(payload, payload_len, 0, 0, &got);
+        uint8_t *dec = src ? zx_inflate(src, len, 0, 0, &got) : NULL;
+        free(src);
         if (!dec) {
-            if (error) *error = "CSW zlib decompress failed";
+            if (error) *error = src ? "CSW zlib decompress failed" : "out of memory for the CSW";
             return false;
         }
-        uint8_t **n = realloc(t->extra, sizeof(uint8_t *) * (size_t)(t->nextra + 1));
-        if (!n) { free(dec); return false; }
-        t->extra = n;
-        t->extra[t->nextra++] = dec;
-        rle = dec;
-        rle_len = got;
+        zx_pbuf **n = realloc(t->extra, sizeof(zx_pbuf *) * (size_t)(t->nextra + 1));
+        zx_pbuf *x = malloc(sizeof *x);
+        if (n) t->extra = n;
+        if (!n || !x) { free(dec); free(x); return false; }
+        zx_pb_take_flat(x, dec, got);
+        t->extra[t->nextra++] = x;
+        RP = x;
+        rle = 0;
+        rle_len = (uint32_t)got;
     }
     // Count the samples (descomprimir_csw in tap_tzx.pas: runs of `count`
     // samples at the current polarity, flipped after each run).
     uint64_t samples = 0;
-    size_t i = 0;
-    while (i < rle_len) {
-        uint32_t c = rle[i++];
-        if (c == 0) {
-            if (i + 4 > rle_len) break;
-            c = rd32(rle + i);
-            i += 4;
+    {
+        const zx_pbuf *P = RP;
+        uint32_t i = 0;
+        while (i < rle_len) {
+            uint32_t c = B(rle + i++);
+            if (c == 0) {
+                if (i + 4 > rle_len) break;
+                c = R32(rle + i);
+                i += 4;
+            }
+            samples += c;
         }
-        samples += c;
     }
     if (samples == 0) {
         if (error) *error = "CSW produced no samples";
@@ -198,6 +215,7 @@ static bool parse_csw_payload(zx_tape *t, uint32_t sample_rate, uint8_t compress
     }
     zt_block *b = new_block(t, ZT_CSW);
     if (!b) return false;
+    b->src = RP;
     // T-states per sample at 3.5 MHz (Direct Recording, $15)
     b->sample_tstates = (uint32_t)((3500000.0 + sample_rate / 2) / sample_rate);
     if (b->sample_tstates == 0) b->sample_tstates = 1;
@@ -205,66 +223,67 @@ static bool parse_csw_payload(zx_tape *t, uint32_t sample_rate, uint8_t compress
     b->used_bits = 8;
     b->pause_ms = 0;
     b->rle = rle;
-    b->rle_len = (uint32_t)rle_len;
+    b->rle_len = rle_len;
     b->csw_polarity = polarity & 1;
     // the expanded bit stream ends on a whole byte (padded with 0 samples)
     b->csw_samples = (uint32_t)((samples + 7) & ~(uint64_t)7);
     return true;
 }
 
-static bool parse_csw(zx_tape *t, const uint8_t *data, size_t size, const char **error)
+static bool parse_csw(zx_tape *t, const zx_pbuf *P, size_t size, const char **error)
 {
     // Header: "Compressed Square Wave" (22) + 0x1A + major + minor => 25 bytes
-    if (size < 25 || memcmp(data, "Compressed Square Wave", 22) != 0) {
+    if (size < 25 || !zx_pb_eq(P, 0, "Compressed Square Wave", 22)) {
         if (error) *error = "not a CSW file";
         return false;
     }
-    const uint8_t major = data[23];
+    const uint8_t major = B(23);
     uint32_t sample_rate = 44100;
     uint8_t polarity = 0, compression = 1;
-    const uint8_t *payload;
-    size_t payload_len;
+    uint32_t payload;
+    uint32_t payload_len;
     if (major == 1) {
         if (size < 32) { if (error) *error = "CSW v1 truncated header"; return false; }
-        sample_rate = (uint32_t)(data[25] | (data[26] << 8));
+        sample_rate = R16(25);
         compression = 1;        // v1 is always RLE in practice
-        polarity = data[28] & 1;
-        payload = data + 32;
-        payload_len = size - 32;
+        polarity = B(28) & 1;
+        payload = 32;
+        payload_len = (uint32_t)size - 32;
     } else if (major == 2) {
         if (size < 25 + 27) { if (error) *error = "CSW v2 truncated header"; return false; }
-        const uint8_t *p = data + 25;
-        sample_rate = rd32(p);
-        compression = p[8];
-        polarity = p[9] & 1;
-        const size_t hdr_skip = 25 + 27 + p[10];
+        const uint32_t p = 25;
+        sample_rate = R32(p);
+        compression = B(p + 8);
+        polarity = B(p + 9) & 1;
+        const size_t hdr_skip = 25 + 27 + B(p + 10);
         if (size < hdr_skip) { if (error) *error = "CSW v2 header extension past EOF"; return false; }
-        payload = data + hdr_skip;
-        payload_len = size - hdr_skip;
+        payload = (uint32_t)hdr_skip;
+        payload_len = (uint32_t)(size - hdr_skip);
     } else {
         if (error) *error = "unsupported CSW version";
         return false;
     }
-    return parse_csw_payload(t, sample_rate, compression, polarity, payload, payload_len, error);
+    return parse_csw_payload(t, P, sample_rate, compression, polarity, payload, payload_len, error);
 }
 
-static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char **error)
+static bool parse_tzx(zx_tape *t, const zx_pbuf *P, size_t size, const char **error)
 {
     if (size < 8) {
         if (error) *error = "file too small";
         return false;
     }
-    if (memcmp(data, "ZXTape!", 7) != 0) {      // plain TAP
+    if (!zx_pb_eq(P, 0, "ZXTape!", 7)) {      // plain TAP
         size_t pos = 0;
         while (pos + 2 <= size) {
-            const uint16_t len = rd16(data + pos);
+            const uint16_t len = R16(pos);
             pos += 2;
             if (len == 0 || pos + len > size) break;
             zt_block *b = new_block(t, ZT_STANDARD);
             if (!b) return false;
-            b->pilot_pulses = (data[pos] & 0x80) ? 3223 : 8063;
+            b->src = P;
+            b->pilot_pulses = (B(pos) & 0x80) ? 3223 : 8063;
             b->pause_ms = 1000;
-            b->data = data + pos;
+            b->data = pos;
             b->data_len = len;
             pos += len;
         }
@@ -274,18 +293,18 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
     size_t pos = 10;
 #define NEED(n) do { if (pos + (size_t)(n) > size) { if (error) *error = "truncated TZX block"; return false; } } while (0)
     while (pos < size) {
-        const uint8_t id = data[pos++];
+        const uint8_t id = B(pos++);
         zt_block *b;
         switch (id) {
         case 0x10: {
             NEED(4);
-            uint16_t pause = rd16(data + pos), len = rd16(data + pos + 2);
+            uint16_t pause = R16(pos), len = R16(pos + 2);
             pos += 4;
             NEED(len);
             if (!(b = new_block(t, id))) return false;
             b->pause_ms = pause;
-            b->pilot_pulses = (len && (data[pos] & 0x80)) ? 3223 : 8063;
-            b->data = data + pos;
+            b->pilot_pulses = (len && (B(pos) & 0x80)) ? 3223 : 8063;
+            b->data = pos;
             b->data_len = len;
             pos += len;
             break;
@@ -293,14 +312,14 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         case 0x11: {
             NEED(18);
             if (!(b = new_block(t, id))) return false;
-            b->pilot = rd16(data + pos); b->sync1 = rd16(data + pos + 2); b->sync2 = rd16(data + pos + 4);
-            b->zero = rd16(data + pos + 6); b->one = rd16(data + pos + 8); b->pilot_pulses = rd16(data + pos + 10);
-            b->used_bits = data[pos + 12];
-            b->pause_ms = rd16(data + pos + 13);
-            const uint32_t len = rd24(data + pos + 15);
+            b->pilot = R16(pos); b->sync1 = R16(pos + 2); b->sync2 = R16(pos + 4);
+            b->zero = R16(pos + 6); b->one = R16(pos + 8); b->pilot_pulses = R16(pos + 10);
+            b->used_bits = B(pos + 12);
+            b->pause_ms = R16(pos + 13);
+            const uint32_t len = R24(pos + 15);
             pos += 18;
             NEED(len);
-            b->data = data + pos;
+            b->data = pos;
             b->data_len = len;
             pos += len;
             break;
@@ -308,18 +327,18 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         case 0x12:
             NEED(4);
             if (!(b = new_block(t, id))) return false;
-            b->pilot = rd16(data + pos);
-            b->pilot_pulses = rd16(data + pos + 2);
+            b->pilot = R16(pos);
+            b->pilot_pulses = R16(pos + 2);
             b->pause_ms = 0;            // Pure Tone has no pause field
             pos += 4;
             break;
         case 0x13: {
             NEED(1);
-            const uint8_t n = data[pos++];
+            const uint8_t n = B(pos++);
             NEED((size_t)n * 2);
             if (!(b = new_block(t, id))) return false;
             b->plist = ZP_RAW16;
-            b->pulses = data + pos;
+            b->pulses = pos;
             b->pulses_len = b->npulses = n;
             b->pause_ms = 0;
             pos += (size_t)n * 2;
@@ -328,14 +347,14 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         case 0x14: {
             NEED(10);
             if (!(b = new_block(t, id))) return false;
-            b->zero = rd16(data + pos); b->one = rd16(data + pos + 2);
-            b->used_bits = data[pos + 4];
-            b->pause_ms = rd16(data + pos + 5);
-            const uint32_t len = rd24(data + pos + 7);
+            b->zero = R16(pos); b->one = R16(pos + 2);
+            b->used_bits = B(pos + 4);
+            b->pause_ms = R16(pos + 5);
+            const uint32_t len = R24(pos + 7);
             pos += 10;
             NEED(len);
             b->pilot_pulses = 0;
-            b->data = data + pos;
+            b->data = pos;
             b->data_len = len;
             pos += len;
             break;
@@ -343,60 +362,60 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         case 0x15: {
             NEED(8);
             if (!(b = new_block(t, id))) return false;
-            b->sample_tstates = rd16(data + pos);
-            b->pause_ms = rd16(data + pos + 2);
-            b->used_bits = data[pos + 4];
-            const uint32_t len = rd24(data + pos + 5);
+            b->sample_tstates = R16(pos);
+            b->pause_ms = R16(pos + 2);
+            b->used_bits = B(pos + 4);
+            const uint32_t len = R24(pos + 5);
             pos += 8;
             NEED(len);
             b->one = (uint16_t)b->sample_tstates;
-            b->data = data + pos;
+            b->data = pos;
             b->data_len = len;
             pos += len;
             break;
         }
         case 0x18: {
             NEED(10);
-            const uint32_t block_len = rd32(data + pos);
-            const uint32_t sample_rate = rd24(data + pos + 6);
-            const uint8_t compression = data[pos + 9];
+            const uint32_t block_len = R32(pos);
+            const uint32_t sample_rate = R24(pos + 6);
+            const uint8_t compression = B(pos + 9);
             pos += 10;
             const size_t payload = block_len >= 10 ? block_len - 10 : 0;
             NEED(payload);
             // dsp-cpp rebuilds a CSW v2 header (polarity 0) and parses it
-            if (!parse_csw_payload(t, sample_rate, compression, 0, data + pos, payload, error)) return false;
+            if (!parse_csw_payload(t, P, sample_rate, compression, 0, (uint32_t)pos, (uint32_t)payload, error)) return false;
             pos += payload;
             break;
         }
         case 0x19: {
             NEED(18);
             if (!(b = new_block(t, id))) return false;
-            b->pause_ms = rd16(data + pos + 4);
-            b->totp = rd32(data + pos + 6);
-            b->npp = data[pos + 10];
-            b->asp = data[pos + 11];
-            b->totd = rd32(data + pos + 12);
-            b->npd = data[pos + 16];
-            b->asd = data[pos + 17];
+            b->pause_ms = R16(pos + 4);
+            b->totp = R32(pos + 6);
+            b->npp = B(pos + 10);
+            b->asp = B(pos + 11);
+            b->totd = R32(pos + 12);
+            b->npd = B(pos + 16);
+            b->asd = B(pos + 17);
             pos += 18;
             if (b->totp != 0) {
                 const uint16_t nsym = alphabet_size((uint8_t)b->asp);
                 const size_t defs = (size_t)nsym * (1 + 2u * b->npp);
                 NEED(defs);
-                b->pilot_defs = data + pos;
+                b->pilot_defs = pos;
                 pos += defs;
                 NEED((size_t)b->totp * 3);
                 b->plist = ZP_GENPILOT;
-                b->pulses = data + pos;
+                b->pulses = pos;
                 b->pulses_len = b->totp;
                 pos += (size_t)b->totp * 3;
                 // the flat pilot pulse train dsp-cpp builds: count it
                 uint64_t n = 0;
                 for (uint32_t i = 0; i < b->totp; i++) {
-                    const uint8_t si = b->pulses[3 * i];
+                    const uint8_t si = B(b->pulses + 3 * i);
                     if (si < nsym) {
                         if (i == 0) b->initial_level = sym_flags(b, true, si);
-                        n += (uint64_t)rd16(b->pulses + 3 * i + 1) * sym_size(b, true, si);
+                        n += (uint64_t)R16(b->pulses + 3 * i + 1) * sym_size(b, true, si);
                     }
                 }
                 b->npulses = n > 0xffffffffu ? 0xffffffffu : (uint32_t)n;
@@ -405,12 +424,12 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
                 const uint16_t nsym = alphabet_size((uint8_t)b->asd);
                 const size_t defs = (size_t)nsym * (1 + 2u * b->npd);
                 NEED(defs);
-                b->data_defs = data + pos;
+                b->data_defs = pos;
                 pos += defs;
                 const uint8_t bps = bits_for_alphabet(nsym);
                 const uint32_t data_bytes = (uint32_t)(((uint64_t)b->totd * bps + 7) / 8);
                 NEED(data_bytes);
-                b->data = data + pos;
+                b->data = pos;
                 b->data_len = data_bytes;
                 pos += data_bytes;
             }
@@ -419,12 +438,12 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         case 0x20:
             NEED(2);
             if (!(b = new_block(t, id))) return false;
-            b->pause_ms = rd16(data + pos);
+            b->pause_ms = R16(pos);
             pos += 2;
             break;
         case 0x21: case 0x30: {
             NEED(1);
-            const uint8_t n = data[pos++];
+            const uint8_t n = B(pos++);
             NEED(n);
             if (!new_block(t, id)) return false;
             pos += n;
@@ -436,29 +455,29 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         case 0x23:
             NEED(2);
             if (!(b = new_block(t, id))) return false;
-            b->jump = (int16_t)rd16(data + pos);
+            b->jump = (int16_t)R16(pos);
             pos += 2;
             break;
         case 0x24:
             NEED(2);
             if (!(b = new_block(t, id))) return false;
-            b->loop_count = rd16(data + pos);
+            b->loop_count = R16(pos);
             pos += 2;
             break;
         case 0x26: {
             NEED(2);
-            const uint16_t count = rd16(data + pos);
+            const uint16_t count = R16(pos);
             pos += 2;
             NEED((size_t)count * 2);
             if (!(b = new_block(t, id))) return false;
-            b->calls = data + pos;
+            b->calls = pos;
             b->ncalls = count;
             pos += (size_t)count * 2;
             break;
         }
         case 0x28: {     // Select - skipped (UI only)
             NEED(2);
-            const uint16_t n = rd16(data + pos);
+            const uint16_t n = R16(pos);
             pos += 2;
             NEED(n);
             pos += n;
@@ -471,11 +490,11 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
             break;
         case 0x2b: {
             NEED(5);
-            const uint32_t n = rd32(data + pos);
+            const uint32_t n = R32(pos);
             pos += 4;
             NEED(1);
             if (!(b = new_block(t, id))) return false;
-            b->signal_level = data[pos++] ? 0x40 : 0x00;
+            b->signal_level = B(pos++) ? 0x40 : 0x00;
             if (n > 1) {
                 NEED(n - 1);
                 pos += n - 1;
@@ -485,14 +504,14 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         case 0x31: {
             NEED(2);
             pos += 1;
-            const uint8_t n = data[pos++];
+            const uint8_t n = B(pos++);
             NEED(n);
             pos += n;
             break;
         }
         case 0x32: {
             NEED(2);
-            const uint16_t n = rd16(data + pos);
+            const uint16_t n = R16(pos);
             pos += 2;
             NEED(n);
             pos += n;
@@ -500,7 +519,7 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         }
         case 0x33: {
             NEED(1);
-            const uint8_t n = data[pos++];
+            const uint8_t n = B(pos++);
             NEED((size_t)n * 3);
             pos += (size_t)n * 3;
             break;
@@ -508,7 +527,7 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         case 0x35: {
             NEED(20);
             pos += 16;
-            const uint32_t n = rd32(data + pos);
+            const uint32_t n = R32(pos);
             pos += 4;
             NEED(n);
             pos += n;
@@ -516,19 +535,19 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         }
         case 0x4b: {    // MSX Kansas City: played like a turbo block
             NEED(16);
-            const uint32_t blen = rd32(data + pos);
+            const uint32_t blen = R32(pos);
             if (!(b = new_block(t, ZT_TURBO))) return false;
-            b->pause_ms = rd16(data + pos + 4);
-            b->pilot = rd16(data + pos + 6);
-            b->pilot_pulses = rd16(data + pos + 8);
-            b->zero = rd16(data + pos + 10);
-            b->one = rd16(data + pos + 12);
+            b->pause_ms = R16(pos + 4);
+            b->pilot = R16(pos + 6);
+            b->pilot_pulses = R16(pos + 8);
+            b->zero = R16(pos + 10);
+            b->one = R16(pos + 12);
             pos += 14;
             const size_t rest = blen > 12 ? blen - 12 : 0;
             NEED(rest);
             if (rest >= 2) {
                 b->used_bits = 8;
-                b->data = data + pos + 2;
+                b->data = pos + 2;
                 b->data_len = (uint32_t)(rest - 2);
             }
             pos += rest;
@@ -547,14 +566,14 @@ static bool parse_tzx(zx_tape *t, const uint8_t *data, size_t size, const char *
     return t->nblocks > 0;
 }
 
-static bool parse_pzx(zx_tape *t, const uint8_t *data, size_t size, const char **error)
+static bool parse_pzx(zx_tape *t, const zx_pbuf *P, size_t size, const char **error)
 {
-    if (size < 8 || memcmp(data, "PZXT", 4) != 0) {
+    if (size < 8 || !zx_pb_eq(P, 0, "PZXT", 4)) {
         if (error) *error = "not a PZX file";
         return false;
     }
     size_t pos = 8;
-    uint32_t tag_size = rd32(data + 4);
+    uint32_t tag_size = R32(4);
     if (pos + tag_size > size) {
         if (error) *error = "truncated PZX header";
         return false;
@@ -562,12 +581,12 @@ static bool parse_pzx(zx_tape *t, const uint8_t *data, size_t size, const char *
     pos += tag_size;
     while (pos + 8 <= size) {
         char tag[5];
-        memcpy(tag, data + pos, 4);
+        zx_pb_copy(P, (uint32_t)pos, (uint8_t *)tag, 4);
         tag[4] = 0;
-        tag_size = rd32(data + pos + 4);
+        tag_size = R32(pos + 4);
         pos += 8;
         if (pos + tag_size > size) break;
-        const uint8_t *body = data + pos;
+        const uint32_t body = (uint32_t)pos;
         pos += tag_size;
         zt_block *b;
         if (!strcmp(tag, "PULS")) {
@@ -576,17 +595,17 @@ static bool parse_pzx(zx_tape *t, const uint8_t *data, size_t size, const char *
             uint8_t init_ear = 0;
             size_t i = 0;
             while (i + 2 <= tag_size) {
-                uint32_t count = 1, duration = rd16(body + i);
+                uint32_t count = 1, duration = R16(body + i);
                 i += 2;
                 if (duration > 0x8000) {
                     count = duration & 0x7fff;
                     if (i + 2 > tag_size) break;
-                    duration = rd16(body + i);
+                    duration = R16(body + i);
                     i += 2;
                 }
                 if (duration & 0x8000) {
                     if (i + 2 > tag_size) break;
-                    duration = ((duration & 0x7fff) << 16) | rd16(body + i);
+                    duration = ((duration & 0x7fff) << 16) | R16(body + i);
                     i += 2;
                 }
                 if (duration == 0) { init_ear = 1; continue; }
@@ -602,7 +621,7 @@ static bool parse_pzx(zx_tape *t, const uint8_t *data, size_t size, const char *
             }
         } else if (!strcmp(tag, "PAUS")) {
             if (tag_size < 4) continue;
-            const uint32_t raw = rd32(body);
+            const uint32_t raw = R32(body);
             const uint32_t tstates = raw & 0x7fffffffu;
             if (raw >> 31) {
                 if (!(b = new_block(t, ZT_SET_LEVEL))) return false;
@@ -614,11 +633,11 @@ static bool parse_pzx(zx_tape *t, const uint8_t *data, size_t size, const char *
             b->sample_tstates = tstates;
         } else if (!strcmp(tag, "DATA")) {
             if (tag_size < 8) continue;
-            uint32_t bit_count = rd32(body);
+            uint32_t bit_count = R32(body);
             const uint8_t initial = (uint8_t)((bit_count >> 31) & 1);
             bit_count &= 0x7fffffffu;
-            const uint16_t tail = rd16(body + 4);
-            uint8_t p0 = body[6], p1 = body[7];
+            const uint16_t tail = R16(body + 4);
+            uint8_t p0 = B(body + 6), p1 = B(body + 7);
             size_t i = 8;
             if (!(b = new_block(t, ZT_GENERALIZED))) return false;
             b->pzx = true;
@@ -650,7 +669,7 @@ static bool parse_pzx(zx_tape *t, const uint8_t *data, size_t size, const char *
         } else if (!strcmp(tag, "BRWS")) {
             if (!new_block(t, ZT_TEXT)) return false;
         } else if (!strcmp(tag, "STOP")) {
-            uint16_t flags = tag_size >= 2 ? rd16(body) : 0;
+            uint16_t flags = tag_size >= 2 ? R16(body) : 0;
             if (flags == 1) {
                 if (!new_block(t, ZT_STOP48K)) return false;
             } else {
@@ -674,26 +693,29 @@ void zt_init(zx_tape *t) { memset(t, 0, sizeof *t); }
 static void clear(zx_tape *t)
 {
     free(t->blocks);
-    free(t->file);
-    for (int i = 0; i < t->nextra; i++) free(t->extra[i]);
+    zx_pb_free(&t->pb);
+    for (int i = 0; i < t->nextra; i++) {
+        zx_pb_free(t->extra[i]);
+        free(t->extra[i]);
+    }
     free(t->extra);
     memset(t, 0, sizeof *t);
 }
 
 void zt_free(zx_tape *t) { clear(t); }
 
-bool zt_load_take(zx_tape *t, uint8_t *file, size_t size, const char **error)
+bool zt_load_pbuf(zx_tape *t, zx_pbuf *file, const char **error)
 {
     clear(t);
-    if (!file || !size) {
-        free(file);
-        return false;
-    }
-    t->file = file;
-    bool ok;
-    if (size >= 22 && memcmp(file, "Compressed Square Wave", 22) == 0) ok = parse_csw(t, t->file, size, error);
-    else if (size >= 4 && memcmp(file, "PZXT", 4) == 0) ok = parse_pzx(t, t->file, size, error);
-    else ok = parse_tzx(t, t->file, size, error);
+    t->pb = *file;                  // (the tape owns it now)
+    zx_pb_init(file);
+    const zx_pbuf *P = &t->pb;
+    const size_t size = P->size;
+    bool ok = false;
+    if (size == 0) ok = false;
+    else if (size >= 22 && zx_pb_eq(P, 0, "Compressed Square Wave", 22)) ok = parse_csw(t, P, size, error);
+    else if (size >= 4 && zx_pb_eq(P, 0, "PZXT", 4)) ok = parse_pzx(t, P, size, error);
+    else ok = parse_tzx(t, P, size, error);
     t->loaded = ok && t->nblocks > 0;
     if (!t->loaded) {
         if (error && !*error) *error = "no usable tape blocks";
@@ -702,16 +724,26 @@ bool zt_load_take(zx_tape *t, uint8_t *file, size_t size, const char **error)
     return t->loaded;
 }
 
+bool zt_load_take(zx_tape *t, uint8_t *file, size_t size, const char **error)
+{
+    if (!file || !size) {
+        free(file);
+        return false;
+    }
+    zx_pbuf pb;
+    zx_pb_take_flat(&pb, file, size);
+    return zt_load_pbuf(t, &pb, error);
+}
+
 bool zt_load(zx_tape *t, const uint8_t *data, size_t size, const char **error)
 {
     if (!data || !size) return false;
-    uint8_t *copy = malloc(size);
-    if (!copy) {
+    zx_pbuf pb;
+    if (!zx_pb_from_mem(&pb, data, size)) {
         if (error) *error = "out of memory for the tape";
         return false;
     }
-    memcpy(copy, data, size);
-    return zt_load_take(t, copy, size, error);
+    return zt_load_pbuf(t, &pb, error);
 }
 
 static void start_block(zx_tape *t);
@@ -780,9 +812,10 @@ static void start_gen_symbol(zx_tape *t, const zt_block *b, bool pilot, uint32_t
 
 static uint32_t read_symbol_index(const zt_block *b, uint32_t symbol_i)
 {
+    const zx_pbuf *P = b->src;
     const uint16_t asd = alphabet_size((uint8_t)b->asd);
     const uint8_t bps = bits_for_alphabet(asd);
-    if (bps == 8 && asd == 256) return symbol_i < b->data_len ? b->data[symbol_i] : 0;
+    if (bps == 8 && asd == 256) return symbol_i < b->data_len ? B(b->data + (symbol_i)) : 0;
     // MSB-first bit stream across data[]
     const uint32_t bit_pos = symbol_i * bps;
     uint32_t value = 0;
@@ -791,7 +824,7 @@ static uint32_t read_symbol_index(const zt_block *b, uint32_t symbol_i)
         const uint32_t byte_i = abs_bit / 8;
         const int bit = 7 - (int)(abs_bit % 8);
         uint8_t bitv = 0;
-        if (byte_i < b->data_len) bitv = (uint8_t)((b->data[byte_i] >> bit) & 1);
+        if (byte_i < b->data_len) bitv = (uint8_t)((B(b->data + (byte_i)) >> bit) & 1);
         value = (value << 1) | bitv;
     }
     return value;
@@ -817,13 +850,14 @@ static int clamp_pulse(uint32_t d) { return (int)(d > 0x7fffffffu ? 0x7fffffffu 
 
 static uint8_t csw_sample_level(zx_tape *t, const zt_block *b)
 {
+    const zx_pbuf *P = b->src;
     // next sample of the run-length stream (0 once past its end: padding)
     while (t->csw_run == 0) {
         if (t->csw_pos >= b->rle_len) return 0;
-        uint32_t c = b->rle[t->csw_pos++];
+        uint32_t c = B(b->rle + t->csw_pos++);
         if (c == 0) {
             if (t->csw_pos + 4 > b->rle_len) { t->csw_pos = b->rle_len; return 0; }
-            c = rd32(b->rle + t->csw_pos);
+            c = R32(b->rle + t->csw_pos);
             t->csw_pos += 4;
         }
         if (t->csw_done) t->csw_level ^= 1;      // the polarity flips after every run but the first
@@ -841,6 +875,7 @@ static void start_block(zx_tape *t)
         return;
     }
     const zt_block *b = &t->blocks[t->index];
+    const zx_pbuf *P = b->src;
     t->data_pos = 0;
     t->pulse_count = 0;
     t->pulse_index = 0;
@@ -891,7 +926,7 @@ static void start_block(zx_tape *t)
             } else {
                 t->last_bit_mask = 1;
             }
-            t->estados_left = (b->data[0] & 0x80) ? b->one : b->zero;
+            t->estados_left = (B(b->data + (0)) & 0x80) ? b->one : b->zero;
         } else {
             next_block(t);
         }
@@ -901,7 +936,7 @@ static void start_block(zx_tape *t)
         if (b->data_len) {
             t->bit_mask = 0x80;
             if (b->data_len == 1) t->last_bit_mask = (uint8_t)(1u << (8 - b->used_bits));
-            t->level = (b->data[0] & 0x80) ? 0x40 : 0;
+            t->level = (B(b->data + (0)) & 0x80) ? 0x40 : 0;
             t->estados_left = (int)(b->sample_tstates ? b->sample_tstates : 1);
         } else {
             next_block(t);
@@ -934,9 +969,9 @@ static void start_block(zx_tape *t)
             t->estado = 10;
             t->estados_left = (int)(d ? d : 1);
         } else if (b->totp && b->plist == ZP_GENPILOT && sym_count(b, true)) {
-            const uint8_t si = b->pulses[0];
+            const uint8_t si = B(b->pulses);
             t->pilot_stream_i = 0;
-            t->pilot_repeat_left = b->totp >= 1 ? rd16(b->pulses + 1) : 1;
+            t->pilot_repeat_left = b->totp >= 1 ? R16(b->pulses + 1) : 1;
             if (si < sym_count(b, true)) {
                 t->current_symbol = si;
                 start_gen_symbol(t, b, true, si, true);
@@ -1004,7 +1039,7 @@ static void start_block(zx_tape *t)
         // return points: pushed last first
         for (int i = b->ncalls - 1; i >= 0; --i) {
             if (t->call_sp < (int)(sizeof t->call_stack / sizeof t->call_stack[0]))
-                t->call_stack[t->call_sp++] = t->index + 1 + (int16_t)rd16(b->calls + 2 * i);
+                t->call_stack[t->call_sp++] = t->index + 1 + (int16_t)R16(b->calls + 2 * i);
         }
         if (t->call_sp == 0) { next_block(t); break; }
         t->index = t->call_stack[--t->call_sp];
@@ -1042,6 +1077,7 @@ int ZT_HOT zt_advance(zx_tape *t, int tstates)
             break;
         }
         const zt_block *b = &t->blocks[t->index];
+    const zx_pbuf *P = b->src;
 
         switch (t->estado) {
         case 0:  // pilot
@@ -1070,12 +1106,12 @@ int ZT_HOT zt_advance(zx_tape *t, int tstates)
                 break;
             }
             if (b->data_len == 1) t->last_bit_mask = (uint8_t)(1u << (8 - b->used_bits));
-            t->estados_left = (b->data[0] & 0x80) ? b->one : b->zero;
+            t->estados_left = (B(b->data + (0)) & 0x80) ? b->one : b->zero;
             break;
         case 3:
             t->level ^= 0x40;
             t->estado = 4;
-            t->estados_left = (b->data[t->data_pos] & t->bit_mask) ? b->one : b->zero;
+            t->estados_left = (B(b->data + (t->data_pos)) & t->bit_mask) ? b->one : b->zero;
             break;
         case 4: {
             t->level ^= 0x40;
@@ -1083,7 +1119,7 @@ int ZT_HOT zt_advance(zx_tape *t, int tstates)
                 t->bit_mask >>= 1;
                 if (t->bit_mask != 0) {
                     t->estado = 3;
-                    t->estados_left = (b->data[t->data_pos] & t->bit_mask) ? b->one : b->zero;
+                    t->estados_left = (B(b->data + (t->data_pos)) & t->bit_mask) ? b->one : b->zero;
                     break;
                 }
             }
@@ -1094,7 +1130,7 @@ int ZT_HOT zt_advance(zx_tape *t, int tstates)
                                        ? (uint8_t)(1u << (8 - (b->used_bits ? b->used_bits : 8)))
                                        : (uint8_t)1;
                 t->estado = 3;
-                t->estados_left = (b->data[t->data_pos] & 0x80) ? b->one : b->zero;
+                t->estados_left = (B(b->data + (t->data_pos)) & 0x80) ? b->one : b->zero;
             } else {
                 t->estado = 5;
                 const uint32_t p = pause_tstates((uint16_t)b->pause_ms);
@@ -1134,7 +1170,7 @@ int ZT_HOT zt_advance(zx_tape *t, int tstates)
         case 15:  // direct recording
             if (t->bit_mask > t->last_bit_mask) {
                 t->bit_mask >>= 1;
-                t->level = (b->data[t->data_pos] & t->bit_mask) ? 0x40 : 0;
+                t->level = (B(b->data + (t->data_pos)) & t->bit_mask) ? 0x40 : 0;
                 t->estados_left = (int)(b->sample_tstates ? b->sample_tstates : 1);
             } else {
                 ++t->data_pos;
@@ -1143,7 +1179,7 @@ int ZT_HOT zt_advance(zx_tape *t, int tstates)
                     t->last_bit_mask = (t->data_pos + 1 == b->data_len)
                                            ? (uint8_t)(1u << (8 - (b->used_bits ? b->used_bits : 8)))
                                            : (uint8_t)1;
-                    t->level = (b->data[t->data_pos] & 0x80) ? 0x40 : 0;
+                    t->level = (B(b->data + (t->data_pos)) & 0x80) ? 0x40 : 0;
                     t->estados_left = (int)(b->sample_tstates ? b->sample_tstates : 1);
                 } else {
                     t->estado = 5;
@@ -1169,8 +1205,8 @@ int ZT_HOT zt_advance(zx_tape *t, int tstates)
             if (n == 0) {
                 t->pilot_stream_i += 1;
                 if (t->pilot_stream_i < b->totp) {
-                    const uint8_t si = b->pulses[3 * t->pilot_stream_i];
-                    t->pilot_repeat_left = rd16(b->pulses + 3 * t->pilot_stream_i + 1);
+                    const uint8_t si = B(b->pulses + (3 * t->pilot_stream_i));
+                    t->pilot_repeat_left = R16(b->pulses + 3 * t->pilot_stream_i + 1);
                     if (si < sym_count(b, true)) {
                         t->current_symbol = si;
                         start_gen_symbol(t, b, true, si, true);
@@ -1198,8 +1234,8 @@ int ZT_HOT zt_advance(zx_tape *t, int tstates)
             } else {
                 t->pilot_stream_i += 1;
                 if (t->pilot_stream_i < b->totp) {
-                    const uint8_t si = b->pulses[3 * t->pilot_stream_i];
-                    t->pilot_repeat_left = rd16(b->pulses + 3 * t->pilot_stream_i + 1);
+                    const uint8_t si = B(b->pulses + (3 * t->pilot_stream_i));
+                    t->pilot_repeat_left = R16(b->pulses + 3 * t->pilot_stream_i + 1);
                     if (si < sym_count(b, true)) {
                         t->current_symbol = si;
                         start_gen_symbol(t, b, true, si, true);

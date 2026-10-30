@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "zx_pbuf.h"
 
 #define NEC_DRIVES 2
 #define NEC_MAX_TRACKS 84
@@ -25,7 +26,8 @@ typedef struct {
 typedef struct {
     uint8_t track_number, side_number, number_sector;
     uint32_t track_length;
-    const uint8_t *data;        // into the drive's file copy
+    uint32_t data;              // offset in the drive's file
+    bool has_data;
     nec_sector *sectors;        // number_sector entries
 } nec_track;
 
@@ -34,7 +36,7 @@ typedef struct {
     uint8_t track_actual, side_actual, sector_actual, sector_read_track;
     uint8_t tracks_count, heads_count;
     uint8_t multi_counter, multi_max;
-    uint8_t *file;
+    zx_pbuf pb;                 // the image (pages)
     nec_track *tracks[2][NEC_MAX_TRACKS];
 } nec_disk;
 
@@ -57,6 +59,8 @@ void nec_reset(zx_nec765 *f);
 bool nec_load_disk(zx_nec765 *f, int drive, const uint8_t *data, size_t size, const char **error);
 // The same, keeping `file` (malloc'd) instead of a copy; freed on failure.
 bool nec_load_disk_take(zx_nec765 *f, int drive, uint8_t *file, size_t size, const char **error);
+// From pages (zx_pbuf.h): the drive takes them over (*file is emptied).
+bool nec_load_pbuf(zx_nec765 *f, int drive, zx_pbuf *file, const char **error);
 void nec_eject(zx_nec765 *f, int drive);
 static inline bool nec_disk_inserted(const zx_nec765 *f, int drive)
 {

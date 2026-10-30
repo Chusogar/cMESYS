@@ -14,7 +14,7 @@ static const uint8_t k_bytes_in_cmd[32] = {
 static const nec_sector k_no_sector;
 static const nec_track k_no_track;
 
-static uint16_t rd16(const uint8_t *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
+#define B(o) zx_pb_byte(P, (uint32_t)(o))
 
 static uint32_t sector_nominal_size(uint8_t n)
 {
@@ -56,17 +56,20 @@ static void disk_clear(nec_disk *d)
             if (d->tracks[s][t]) free(d->tracks[s][t]->sectors);
             free(d->tracks[s][t]);
         }
-    free(d->file);
+    zx_pb_free(&d->pb);
     memset(d, 0, sizeof *d);
 }
 
 static void apply_protection_patches(nec_disk *d)
 {
     const nec_track *t0 = d->tracks[0][0];
-    if (!t0 || !t0->data || !t0->number_sector) return;
+    if (!t0 || !t0->has_data || !t0->number_sector) return;
     const uint32_t len = t0->sectors[0].data_length;
     if (len == 0 || len > t0->track_length) return;
-    const uint32_t crc = crc32_of(t0->data, len);
+    uint8_t *s0 = zx_pb_flatten(&d->pb, t0->data, len);
+    if (!s0) return;
+    const uint32_t crc = crc32_of(s0, len);
+    free(s0);
     nec_track *t;
     switch (crc) {
     case 0x8c817e25:
@@ -84,44 +87,36 @@ static void apply_protection_patches(nec_disk *d)
     }
 }
 
-static bool load(zx_nec765 *f, int drive, const uint8_t *raw, uint8_t *owned, size_t size, const char **error)
+bool nec_load_pbuf(zx_nec765 *f, int drive, zx_pbuf *file, const char **error)
 {
-    if (drive < 0 || drive >= NEC_DRIVES) {
-        if (error) *error = "invalid drive number";
-        return false;
-    }
-    if (!raw || size < 0x100) {
-        if (error) *error = "file too small to be a .dsk image";
-        return false;
-    }
-    bool standard;
-    if (memcmp(raw, "MV - CPC", 8) == 0) standard = true;
-    else if (memcmp(raw, "EXTENDED", 8) == 0) standard = false;
-    else {
-        if (error) *error = "not a .dsk/.edsk image (bad signature)";
-        return false;
-    }
-    const uint8_t header_tracks = raw[0x30];
-    const uint8_t header_sides = raw[0x31];
-    const uint16_t header_track_size = rd16(raw + 0x32);
-    if (header_tracks == 0 || header_sides == 0 || header_sides > 2) {
-        if (error) *error = "unsupported disk geometry";
-        return false;
-    }
-
     nec_disk fresh;
     memset(&fresh, 0, sizeof fresh);
-    if (owned) {
-        fresh.file = owned;
-    } else {
-        fresh.file = malloc(size);
-        if (!fresh.file) {
-            if (error) *error = "out of memory for the disk";
-            return false;
-        }
-        memcpy(fresh.file, raw, size);
+    fresh.pb = *file;               // the disk owns it now (freed with it)
+    zx_pb_init(file);
+    const zx_pbuf *P = &fresh.pb;
+    const size_t size = P->size;
+    if (drive < 0 || drive >= NEC_DRIVES) {
+        if (error) *error = "invalid drive number";
+        goto fail;
     }
-    const uint8_t *base = fresh.file;
+    if (size < 0x100) {
+        if (error) *error = "file too small to be a .dsk image";
+        goto fail;
+    }
+    bool standard;
+    if (zx_pb_eq(P, 0, "MV - CPC", 8)) standard = true;
+    else if (zx_pb_eq(P, 0, "EXTENDED", 8)) standard = false;
+    else {
+        if (error) *error = "not a .dsk/.edsk image (bad signature)";
+        goto fail;
+    }
+    const uint8_t header_tracks = B(0x30);
+    const uint8_t header_sides = B(0x31);
+    const uint16_t header_track_size = zx_pb_rd16(P, 0x32);
+    if (header_tracks == 0 || header_sides == 0 || header_sides > 2) {
+        if (error) *error = "unsupported disk geometry";
+        goto fail;
+    }
     const uint32_t file_length = (uint32_t)size;
     fresh.tracks_count = header_tracks;
     fresh.heads_count = header_sides;
@@ -134,16 +129,16 @@ static bool load(zx_nec765 *f, int drive, const uint8_t *raw, uint8_t *owned, si
             if (standard) {
                 full_track_size = header_track_size;
             } else {
-                const uint8_t entry = (0x34 + map_index < size && lt < 132) ? base[0x34 + map_index] : 0;
+                const uint8_t entry = (0x34 + map_index < size && lt < 132) ? B(0x34 + map_index) : 0;
                 if (entry == 0) continue;
                 full_track_size = (uint32_t)entry * 0x100u;
             }
             if (full_track_size < 0x100) continue;
             if (offset + 0x100 > file_length) goto done;
-            const uint8_t *th = base + offset;
-            if (memcmp(th, "Track-Info", 10) != 0) goto done;
-            const uint8_t track_num = th[16];
-            const uint8_t side_num = th[17];
+            const uint32_t th = offset;
+            if (!zx_pb_eq(P, th, "Track-Info", 10)) goto done;
+            const uint8_t track_num = B(th + 16);
+            const uint8_t side_num = B(th + 17);
             if (side_num >= 2 || track_num >= NEC_MAX_TRACKS) {
                 if (error) *error = "track header out of supported geometry";
                 disk_clear(&fresh);
@@ -158,7 +153,7 @@ static bool load(zx_nec765 *f, int drive, const uint8_t *raw, uint8_t *owned, si
             memset(track, 0, sizeof *track);
             track->track_number = track_num;
             track->side_number = side_num;
-            track->number_sector = th[21] < 32 ? th[21] : 32;
+            track->number_sector = B(th + 21) < 32 ? B(th + 21) : 32;
             if (track->number_sector && !(track->sectors = calloc(track->number_sector, sizeof(nec_sector))))
                 goto oom;
 
@@ -166,20 +161,20 @@ static bool load(zx_nec765 *f, int drive, const uint8_t *raw, uint8_t *owned, si
             uint32_t sector_ptr = offset + 24;
             for (uint8_t i = 0; i < track->number_sector; i++) {
                 if (sector_ptr + 8 > file_length) break;
-                const uint8_t *sd = base + sector_ptr;
+                const uint32_t sd = sector_ptr;
                 sector_ptr += 8;
                 nec_sector *s = &track->sectors[i];
-                s->track = sd[0];
-                s->head = sd[1];
-                s->sector = sd[2];
-                s->sector_size = sd[3];
-                s->status1 = sd[4];
-                s->status2 = sd[5];
-                const uint32_t nominal = sector_nominal_size(sd[3]);
+                s->track = B(sd);
+                s->head = B(sd + 1);
+                s->sector = B(sd + 2);
+                s->sector_size = B(sd + 3);
+                s->status1 = B(sd + 4);
+                s->status2 = B(sd + 5);
+                const uint32_t nominal = sector_nominal_size(s->sector_size);
                 if (standard) {
                     s->data_length = (uint16_t)(nominal < 0xffff ? nominal : 0xffff);
                 } else {
-                    s->data_length = rd16(sd + 6);
+                    s->data_length = zx_pb_rd16(P, sd + 6);
                     if (s->data_length == 0) s->data_length = (uint16_t)(nominal < 0xffff ? nominal : 0xffff);
                 }
                 s->position = position;
@@ -199,7 +194,8 @@ static bool load(zx_nec765 *f, int drive, const uint8_t *raw, uint8_t *owned, si
             const uint32_t available = offset < file_length ? file_length - offset : 0;
             const uint32_t to_copy = data_size < available ? data_size : available;
             track->track_length = to_copy;
-            track->data = to_copy ? base + offset : NULL;
+            track->data = offset;
+            track->has_data = to_copy != 0;
             offset += data_size;
         }
     }
@@ -212,27 +208,27 @@ done:
     f->disks[drive] = fresh;
     return true;
 oom:
-    disk_clear(&fresh);
     if (error) *error = "out of memory for the disk";
+fail:
+    disk_clear(&fresh);
     return false;
 }
 
 bool nec_load_disk(zx_nec765 *f, int drive, const uint8_t *data, size_t size, const char **error)
 {
-    return load(f, drive, data, NULL, size, error);
+    zx_pbuf pb;
+    if (!zx_pb_from_mem(&pb, data, size)) {
+        if (error) *error = "out of memory for the disk";
+        return false;
+    }
+    return nec_load_pbuf(f, drive, &pb, error);
 }
 
 bool nec_load_disk_take(zx_nec765 *f, int drive, uint8_t *file, size_t size, const char **error)
 {
-    const uint8_t *p = file;
-    // (the checks before the copy fail without taking it: free it here)
-    if (!p || size < 0x100 || (memcmp(p, "MV - CPC", 8) != 0 && memcmp(p, "EXTENDED", 8) != 0) ||
-        p[0x30] == 0 || p[0x31] == 0 || p[0x31] > 2 || drive < 0 || drive >= NEC_DRIVES) {
-        bool ok = load(f, drive, p, NULL, size, error);
-        free(file);
-        return ok;
-    }
-    return load(f, drive, p, file, size, error);
+    zx_pbuf pb;
+    zx_pb_take_flat(&pb, file, size);
+    return nec_load_pbuf(f, drive, &pb, error);
 }
 
 void nec_eject(zx_nec765 *f, int drive)
@@ -410,7 +406,7 @@ static void start_read_track(zx_nec765 *f)
 {
     nec_disk *d = cur(f);
     const nec_track *t = trk(d);
-    if (!d->open || t->number_sector == 0 || !t->data) {
+    if (!d->open || t->number_sector == 0 || !t->has_data) {
         f->st0 = 0x40;
         f->st1 = 0x04;
         f->st2 = 0;
@@ -624,14 +620,14 @@ static uint8_t exec_read_command(zx_nec765 *f)
     const nec_track *t = trk(d);
     switch (f->command[0] & 0x1f) {
     case 2: {
-        if (!t->data || f->data_length == 0) {
+        if (!t->has_data || f->data_length == 0) {
             f->st0 = 0x40;
             f->st1 = 0x20;
             f->st2 = 0x01;
             get_result7(f);
             return 0;
         }
-        const uint8_t value = f->data_pointer < t->track_length ? t->data[f->data_pointer] : 0xff;
+        const uint8_t value = f->data_pointer < t->track_length ? zx_pb_byte(&d->pb, t->data + f->data_pointer) : 0xff;
         f->data_pointer++;
         f->counter++;
         if (f->counter >= f->data_length) {
@@ -647,7 +643,7 @@ static uint8_t exec_read_command(zx_nec765 *f)
     }
     case 6:
     case 12: {
-        if (!t->data || f->data_length == 0) {
+        if (!t->has_data || f->data_length == 0) {
             f->st0 = 0x40;
             f->st1 = 0x20;
             f->st2 = 0x01;
@@ -655,7 +651,7 @@ static uint8_t exec_read_command(zx_nec765 *f)
             return 0;
         }
         const nec_sector *s = sec(t, d->sector_actual);
-        const uint8_t value = f->data_pointer < t->track_length ? t->data[f->data_pointer] : 0xff;
+        const uint8_t value = f->data_pointer < t->track_length ? zx_pb_byte(&d->pb, t->data + f->data_pointer) : 0xff;
         f->data_pointer++;
         f->counter++;
         if (f->counter >= f->data_length) {
