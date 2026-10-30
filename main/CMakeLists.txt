@@ -75,7 +75,7 @@ elseif(GAME STREQUAL "ql")
 elseif(IS_ZXSPEC)
     set(SRCS ${D}/zxspec_cyd.c ${D}/zxspec_core.c ${D}/zx48.c ${D}/zx128.c ${D}/zxclone.c ${D}/rom_data_${GAME}.c
              ${QL_DIR}/ql_sd_esp.c cpu/z80dsp/z80dsp.c machine/zx_tape.c machine/zx_snap.c machine/zx_rzx.c
-             machine/zx_inflate.c machine/zx_beta.c machine/zx_nec765.c sound/ay8910.c)
+             machine/zx_inflate.c machine/zx_pbuf.c machine/zx_beta.c machine/zx_nec765.c sound/ay8910.c)
     if(GAME STREQUAL "spectrum48")
         set(DEFS ZX_MODEL=ZX_SPEC48)
     elseif(GAME STREQUAL "spectrum128")

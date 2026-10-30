@@ -32,8 +32,9 @@ static void on_frame(void *user, rc_core *c)
     for (int i = 0; i < RC_SCREEN_W * RC_SCREEN_H; i++) pixels[i] = pal[lines[i]];
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     const rc_roms roms = { rc_main_rom, rc_sound_rom, rc_mcu_rom, rc_oki_rom,
                            rc_chars, rc_tiles1, rc_tiles2, rc_sprites };
     rc_init(&core, &roms, AUDIO_RATE);

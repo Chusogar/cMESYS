@@ -24,6 +24,13 @@ typedef struct {
                               // quit, P pause or F3 reset), see sdl_port_key()
 } sdl_port_cfg;
 
+// Command line options common to every driver (call first in main; they
+// are taken out of argv, the rest is the driver's):
+//   --mute            no sound            --sound   sound (the default)
+//   --scale N         window = picture x N (1-10; also --scale=N)
+//   --help            prints these
+// They override what the driver asks for in sdl_port_open().
+void sdl_port_args(int *argc, char **argv);
 bool sdl_port_open(const sdl_port_cfg *cfg);
 void sdl_port_close(void);
 // Handles the events; false when the user quits. Sets *reset on F3.

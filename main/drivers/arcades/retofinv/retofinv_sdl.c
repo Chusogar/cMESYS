@@ -25,8 +25,9 @@ static void on_frame(void *user, rv_core *c)
     for (int i = 0; i < RV_W * RV_H; i++) pixels[i] = pal[fb[i]];
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     uint8_t rgb[256][3];
     rv_palette_rgb(rgb);
     for (int i = 0; i < 256; i++) pal[i] = (uint32_t)(rgb[i][0] << 16 | rgb[i][1] << 8 | rgb[i][2]);

@@ -694,8 +694,9 @@ static bool ends_with_ci(const char *path, const char *ext)
 
 typedef enum { MT_NONE, MT_TAPE, MT_SNAP, MT_RZX, MT_TRD, MT_DSK, MT_IF2 } media_t;
 
-static media_t media_type(const char *name, const uint8_t *d, size_t n)
+static media_t media_type(const char *name, const zx_pbuf *P)
 {
+    const size_t n = P->size;
     static const char *const tapes[] = { ".tap", ".tzx", ".cdt", ".csw", ".pzx" };
     for (size_t i = 0; i < sizeof tapes / sizeof tapes[0]; i++)
         if (ends_with_ci(name, tapes[i])) return MT_TAPE;
@@ -705,14 +706,14 @@ static media_t media_type(const char *name, const uint8_t *d, size_t n)
     if (ends_with_ci(name, ".dsk")) return MT_DSK;
     if (ends_with_ci(name, ".rom") || ends_with_ci(name, ".bin") || ends_with_ci(name, ".if2")) return MT_IF2;
     // by content (a web upload or a file without a known name)
-    if (n >= 7 && memcmp(d, "ZXTape!", 7) == 0) return MT_TAPE;
-    if (n >= 22 && memcmp(d, "Compressed Square Wave", 22) == 0) return MT_TAPE;
-    if (n >= 4 && memcmp(d, "PZXT", 4) == 0) return MT_TAPE;
-    if (n >= 4 && memcmp(d, "RZX!", 4) == 0) return MT_RZX;
-    if (n >= 8 && (memcmp(d, "MV - CPC", 8) == 0 || memcmp(d, "EXTENDED", 8) == 0)) return MT_DSK;
-    if (n >= 8 && memcmp(d, "SINCLAIR", 8) == 0) return MT_TRD;
+    if (zx_pb_eq(P, 0, "ZXTape!", 7)) return MT_TAPE;
+    if (zx_pb_eq(P, 0, "Compressed Square Wave", 22)) return MT_TAPE;
+    if (zx_pb_eq(P, 0, "PZXT", 4)) return MT_TAPE;
+    if (zx_pb_eq(P, 0, "RZX!", 4)) return MT_RZX;
+    if (zx_pb_eq(P, 0, "MV - CPC", 8) || zx_pb_eq(P, 0, "EXTENDED", 8)) return MT_DSK;
+    if (zx_pb_eq(P, 0, "SINCLAIR", 8)) return MT_TRD;
     if (n == 49179 || n == 131103 || n == 147487) return MT_SNAP;
-    if (n >= 0x900 && n % 0x1000 == 0 && d[0x8e7] == 0x10) return MT_TRD;   // TR-DOS id byte
+    if (n >= 0x900 && n % 0x1000 == 0 && zx_pb_byte(P, 0x8e7) == 0x10) return MT_TRD;   // TR-DOS id byte
     return MT_TAPE;                                                          // a .tap has no signature
 }
 
@@ -734,18 +735,19 @@ static void apply_snap(zxspec *m, const zx_snap *s)
     else if (m->kind == ZK_CLONE) zxclone_apply_snap(m, s);
 }
 
-static bool load_snapshot(zxspec *m, const uint8_t *d, size_t n, const char *ext)
+static bool load_snapshot(zxspec *m, const zx_pbuf *P, const char *ext)
 {
     zx_snap s;
     uint8_t *banks[8];
     for (int b = 0; b < 8; b++) banks[b] = m->ram[b];
-    if (!zx_snap_load(d, n, ext, m->kind == ZK_48, banks, &s, &m->error)) return false;
+    if (!zx_snap_load_pbuf(P, ext, m->kind == ZK_48, banks, &s, &m->error)) return false;
     apply_snap(m, &s);
     return true;
 }
 
-static bool load_if2(zxspec *m, const uint8_t *d, size_t n)
+static bool load_if2(zxspec *m, const zx_pbuf *P)
 {
+    const size_t n = P->size;
     if (m->kind != ZK_128 && m->kind != ZK_PLUS3) {
         m->error = "Interface 2 cartridges: 128K / +3 only";
         return false;
@@ -759,76 +761,94 @@ static bool load_if2(zxspec *m, const uint8_t *d, size_t n)
         return false;
     }
     memset(m->if2_rom, 0xff, 0x8000);
-    const size_t k = n < 0x8000 ? n : 0x8000;
-    memcpy(m->if2_rom, d, k);
+    const uint32_t k = n < 0x8000 ? (uint32_t)n : 0x8000;
+    zx_pb_copy(P, 0, m->if2_rom, k);
     if (k < 0x8000) memcpy(m->if2_rom + 0x4000, m->if2_rom, 0x4000);  // 16K mirrored
     m->if2_switched = false;
     m->if2_delay = 0;
     return true;
 }
 
-static bool load(zxspec *m, const uint8_t *d, uint8_t *owned, size_t n, const char *name)
+// Takes the pages over (they are kept by a tape or a disk, freed otherwise)
+static bool load(zxspec *m, zx_pbuf *pb, const char *name)
 {
     m->error = NULL;
-    switch (media_type(name, d, n)) {
-    case MT_TAPE: {
-        bool ok = owned ? zt_load_take(&m->tape, owned, n, &m->error) : zt_load(&m->tape, d, n, &m->error);
+    bool ok = false;
+    switch (media_type(name, pb)) {
+    case MT_TAPE:
+        ok = zt_load_pbuf(&m->tape, pb, &m->error);
         // stopped until the ROM loader is entered (playing from boot would
         // run through the pilot before LOAD "")
         zt_stop(&m->tape);
         m->tape_held = false;
-        return ok;
-    }
-    case MT_SNAP: {
-        bool ok = load_snapshot(m, d, n, name);
-        free(owned);
-        return ok;
-    }
+        break;
+    case MT_SNAP:
+        ok = load_snapshot(m, pb, name);
+        break;
     case MT_RZX: {
         zx_rzx_stop(&m->rzx);
-        bool ok = zx_rzx_load(&m->rzx, d, n, &m->error);
-        free(owned);
-        if (!ok) return false;
-        ok = load_snapshot(m, m->rzx.snap, m->rzx.snap_len, m->rzx.snap_ext);
+        uint8_t *flat = zx_pb_flatten(pb, 0, pb->size);
+        if (!flat) {
+            m->error = "out of memory for the RZX";
+            break;
+        }
+        ok = zx_rzx_load(&m->rzx, flat, pb->size, &m->error);
+        free(flat);
+        if (!ok) break;
+        zx_pbuf snap;
+        zx_pb_init(&snap);
+        snap.flat = m->rzx.snap;            // (borrowed)
+        snap.size = (uint32_t)m->rzx.snap_len;
+        ok = load_snapshot(m, &snap, m->rzx.snap_ext);
         zx_rzx_drop_snap(&m->rzx);
         if (ok) zx_rzx_start(&m->rzx);
-        return ok;
+        break;
     }
-    case MT_TRD: {
-        bool ok = false;
-        if (m->kind == ZK_CLONE) ok = zx_beta_load(&m->beta, d, n, &m->error);
+    case MT_TRD:
+        if (m->kind == ZK_CLONE) ok = zx_beta_load_pbuf(&m->beta, pb, &m->error);
         else m->error = "TR-DOS disks (.trd / .scl): Pentagon / Scorpion only";
-        free(owned);
-        return ok;
-    }
+        break;
     case MT_DSK:
         if (m->kind != ZK_PLUS3) {
-            free(owned);
             m->error = "+3 disks (.dsk): Spectrum +3 only";
-            return false;
+            break;
         }
-        if (owned ? nec_load_disk_take(&m->fdc, 0, owned, n, &m->error) : nec_load_disk(&m->fdc, 0, d, n, &m->error)) {
-            m->disk_present = true;
-            return true;
+        ok = nec_load_pbuf(&m->fdc, 0, pb, &m->error);
+        if (ok) m->disk_present = true;
+        break;
+    case MT_IF2:
+        ok = load_if2(m, pb);
+        if (ok) {
+            zx_pb_free(pb);
+            zxspec_reset(m);        // a cartridge starts the machine from it
         }
-        return false;
-    case MT_IF2: {
-        bool ok = load_if2(m, d, n);
-        free(owned);
-        if (ok) zxspec_reset(m);        // a cartridge starts the machine from it
-        return ok;
-    }
+        break;
     default:
-        free(owned);
         m->error = "unknown media";
+        break;
+    }
+    zx_pb_free(pb);                 // (what was not taken over)
+    return ok;
+}
+
+bool zxspec_load_pbuf(zxspec *m, zx_pbuf *pb, const char *name_hint)
+{
+    if (!m || !pb || pb->size == 0) {
+        if (pb) zx_pb_free(pb);
         return false;
     }
+    return load(m, pb, name_hint ? name_hint : "");
 }
 
 bool zxspec_load_mem(zxspec *m, const uint8_t *data, size_t n, const char *name_hint)
 {
     if (!m || !data || n == 0) return false;
-    return load(m, data, NULL, n, name_hint ? name_hint : "");
+    zx_pbuf pb;
+    if (!zx_pb_from_mem(&pb, data, n)) {
+        m->error = "out of memory";
+        return false;
+    }
+    return load(m, &pb, name_hint ? name_hint : "");
 }
 
 bool zxspec_load_take(zxspec *m, uint8_t *data, size_t n, const char *name_hint)
@@ -837,7 +857,9 @@ bool zxspec_load_take(zxspec *m, uint8_t *data, size_t n, const char *name_hint)
         free(data);
         return false;
     }
-    return load(m, data, data, n, name_hint ? name_hint : "");
+    zx_pbuf pb;
+    zx_pb_take_flat(&pb, data, n);
+    return load(m, &pb, name_hint ? name_hint : "");
 }
 
 bool zxspec_load_file(zxspec *m, const char *path)
@@ -848,44 +870,21 @@ bool zxspec_load_file(zxspec *m, const char *path)
         m->error = "cannot open the file";
         return false;
     }
-    long sz = -1;
-    if (fseek(f, 0, SEEK_END) == 0) sz = ftell(f);
-    if (sz <= 0 || sz > 16 * 1024 * 1024) {
-        fclose(f);
-        m->error = "empty or too big";
-        return false;
-    }
-    rewind(f);
-    uint8_t *buf = malloc((size_t)sz);
-    if (!buf || fread(buf, 1, (size_t)sz, f) != (size_t)sz) {
-        free(buf);
-        fclose(f);
-        m->error = "cannot read the file";
-        return false;
-    }
+    // read a piece at a time into pages (no one block the size of the file)
+    zx_pbuf pb;
+    zx_pb_init(&pb);
+    uint8_t buf[4096];
+    size_t k;
+    bool ok = true;
+    while ((k = fread(buf, 1, sizeof buf, f)) > 0)
+        if (!(ok = zx_pb_append(&pb, buf, k))) break;
     fclose(f);
-    return zxspec_load_take(m, buf, (size_t)sz, path);
-}
-
-bool zxspec_trd_begin(zxspec *m, size_t size)
-{
-    if (!m) return false;
-    m->error = NULL;
-    if (m->kind != ZK_CLONE) {
-        m->error = "TR-DOS disks (.trd / .scl): Pentagon / Scorpion only";
+    if (!ok || !zx_pb_finish(&pb) || pb.size == 0) {
+        zx_pb_free(&pb);
+        m->error = ok ? "empty file" : "out of memory";
         return false;
     }
-    return zx_beta_stream_begin(&m->beta, size, &m->error);
-}
-
-bool zxspec_trd_data(zxspec *m, const uint8_t *data, size_t n)
-{
-    return m && zx_beta_stream_data(&m->beta, data, n, &m->error);
-}
-
-bool zxspec_trd_end(zxspec *m)
-{
-    return m && zx_beta_stream_end(&m->beta, &m->error);
+    return load(m, &pb, path);
 }
 
 const char *zxspec_last_error(const zxspec *m) { return m && m->error ? m->error : ""; }

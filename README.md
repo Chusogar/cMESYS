@@ -354,7 +354,18 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **RoboCop**: cursores = joystick (arriba / abajo apuntan), Z ataque (disparo / puñetazo), X salto.
 - **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
 - **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta** el cartucho actual; **F9** abre el menú (abrir `.mdv` del disco con zenity/kdialog, cartucho del firmware, eyectar); también **arrastra un `.mdv`** a la ventana (en web: barra «Upload» o drag&drop). **F6** es el F1 del QL (F2-F5 los suyos), F12 reinicia. `QL_MOUNT_AT=n` pulsa F1 en el frame n.
-- **ZX Spectrum / clones** (`spectrum48`, `spectrum128`, `plus3`, `pentagon`, `pentagon1024`, `scorpion`): teclado del PC = matriz Spectrum (Ctrl = Symbol Shift, cursores = Caps+5/6/7/8, Retroceso = DELETE, teclado numérico = Kempston). **F9** menú de media (abrir cualquier fichero admitido); **F1** o **F6** play/pausa de cinta; **F3** reset; **F5** botón mágico (NMI) en Pentagon / Scorpion; **F12 TURBO** como en dsp-cpp (sin límite de velocidad, sin sonido, se dibuja uno de cada 4 frames; «[TURBO]» en el título); arrastrar un fichero a la ventana (web: barra Upload). En CYD: mantener **MEDIA**/BOOT = menú microSD (raíz / `mdv/`), con «TURBO on/off»; toque corto = play/pausa; por la consola serie F12 o Ctrl-T = TURBO, F5 = botón mágico. En RP2040: F9 lista la microSD por UART, las mismas teclas F; audio PWM en GP22.
+- **ZX Spectrum / clones** (`spectrum48`, `spectrum128`, `plus3`, `pentagon`, `pentagon1024`, `scorpion`): teclado del PC = matriz Spectrum (Ctrl = Symbol Shift, cursores = Caps+5/6/7/8, Retroceso = DELETE, teclado numérico = Kempston). **F9** menú de media (abrir cualquier fichero admitido); **F1** o **F6** play/pausa de cinta; **F3** reset; **F5** botón mágico (NMI) en Pentagon / Scorpion; **F12 TURBO** como en dsp-cpp (sin límite de velocidad, sin sonido, se dibuja uno de cada 4 frames; «[TURBO]» en el título); arrastrar un fichero a la ventana (web: barra Upload). En CYD: mantener **MEDIA**/BOOT = menú microSD (FAT32; raíz, `mdv/` o `tape/`; nombres largos), con «TURBO on/off»; toque corto = play/pausa; por la consola serie F12 o Ctrl-T = TURBO, F5 = botón mágico. En RP2040: F9 lista la microSD por UART, las mismas teclas F; audio PWM en GP22.
+
+**Opciones de línea de comandos** (todas las máquinas, Linux y Windows; van antes o después de los argumentos propios de cada driver, como el `.mdv` del QL o el fichero del Spectrum):
+
+| Opción | Efecto |
+|---|---|
+| `--mute` (o `-m`) | sin sonido (no se abre el dispositivo de audio) |
+| `--sound` | con sonido (por defecto) |
+| `--scale N` (o `--scale=N`, `-s N`) | ventana = imagen × N, de 1 a 10 (por defecto 2, o lo que pida el driver); la ventana sigue pudiéndose redimensionar |
+| `--help` | muestra las opciones |
+
+Por ejemplo `./build/sdl/robocop --mute --scale 3`, `spectrum128.exe --scale 1 juego.tzx`. Con `SDL_PORT_VERBOSE=1` se escribe el tamaño de ventana y si hay sonido.
 
 Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
 
@@ -485,7 +496,7 @@ Los seis modelos son una migración a C de los drivers de [dsp-cpp](https://gith
 
 La cinta se arranca sola cuando la ROM entra en LD-BYTES (como en dsp-cpp); F6/F1 la pausan o la siguen. Un bloque «stop the tape» la deja en pausa en el bloque siguiente (dsp-cpp la rebobina), así que los juegos multicarga siguen. Para arrancar un disco: en el Pentagon 128, menú → TR-DOS y `RUN` (R + ENTER); en el Pentagon 1024, «GLUK BOOT» y el fichero; en el Scorpion, «128 TR-DOS»; en el +3, «Loader».
 
-**Memoria en las placas**: la imagen es de 320×240 a 4 bits (38 KB, el `set_picture_limit` de dsp-cpp; con ULA+ se ven los colores de su primer banco); las cintas y los `.dsk` se guardan sin segunda copia del fichero; los `.trd` se leen de la microSD pista a pista y solo se guardan las pistas con datos (cabe un disco medio vacío, no uno de 640 KB lleno); CSW y el piloto de los bloques 0x19 se reproducen desde sus longitudes, sin expandirlos. En el CYD quedan ~100 KB libres con 128 KB de RAM emulada: un `.dsk` del +3 de 190 KB no cabe (en el escritorio y la web, sí).
+**Memoria en las placas**: la imagen es de 320×240 a 4 bits (38 KB, el `set_picture_limit` de dsp-cpp; con ULA+ se ven los colores de su primer banco). Las cintas (`.tap` `.tzx` `.cdt` `.csw` `.pzx`) y los `.dsk` del +3 se quedan en la microSD y se leen a páginas de 256 bytes según se usan, con una caché de 2 KB (`machine/zx_pbuf`): valen de cualquier tamaño (en el CYD con 128 KB de RAM emulada solo quedan ~100 KB libres, y el mayor bloque es de ~60 KB). El resto se lee por trozos a páginas, sin necesitar un bloque del tamaño del fichero, y las páginas de un solo byte no se guardan; un `.trd`/`.scl` solo guarda sus pistas con datos. Con el menú de la microSD abierto la emulación se detiene, y si un fichero no se puede cargar el motivo sale en la tercera línea del menú, con la memoria libre / el mayor bloque libre en KB (la segunda línea los muestra siempre). CSW y el piloto de los bloques 0x19 se reproducen desde sus longitudes, sin expandirlos.
 
 No hay directorio compartido `roms/spectrum`: regenerar un modelo no pisa el `rom_data` de otro. Sin ROMs reales el árbol compila con stubs vacíos (`python3 tools/gen_roms_zxspec.py --stub-all main/drivers/computers/zxspec`).
 

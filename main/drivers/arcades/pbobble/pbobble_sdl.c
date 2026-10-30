@@ -55,8 +55,9 @@ static void eep_save(void)
     fclose(f);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     static uint16_t idx[PB_SCREEN_W * 16];
     static uint32_t rgb[PB_SCREEN_W * PB_SCREEN_H];
     static uint32_t pal[4096];

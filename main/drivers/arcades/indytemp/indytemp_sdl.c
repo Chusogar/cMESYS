@@ -44,6 +44,7 @@ static void eeprom_io(bool save)
 
 int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     as1_roms roms;
     if (argc > 1) {
         char err[512];

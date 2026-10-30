@@ -44,12 +44,13 @@ static void render(void *user, int y, int n, uint16_t *out)
 
 static bool load_sd_name(const char *name)
 {
-    bool ok = zx_sd_load(cpu_m, name);
+    const char *why = "";
+    bool ok = zx_sd_load(cpu_m, name, &why);
     if (ok) {
         snprintf(media_name, sizeof media_name, "%s", name);
         printf("media: %s\n", media_name);
     } else {
-        printf("load failed: %s\n", zxspec_last_error(cpu_m));
+        printf("load failed: %s\n", why);
     }
     return ok;
 }

@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "zx_pbuf.h"
 
 enum {
     ZT_STANDARD = 0x10, ZT_TURBO = 0x11, ZT_PURE_TONE = 0x12, ZT_PULSE_SEQ = 0x13, ZT_PURE_DATA = 0x14,
@@ -30,42 +31,45 @@ typedef struct {
     uint16_t loop_count;
     uint32_t sample_tstates;
 
-    const uint8_t *data;            // data bytes (standard / turbo / pure / direct / 0x19 stream)
+    const zx_pbuf *src;             // the file (or an inflated CSW) the offsets below are in
+    uint32_t data;                  // data bytes (standard / turbo / pure / direct / 0x19 stream)
     uint32_t data_len;
 
     // pulse list (state 10)
     uint8_t plist;
-    const uint8_t *pulses;
+    uint32_t pulses;
     uint32_t pulses_len;            // entries (RAW16) or bytes (PZX) or stream entries (GENPILOT)
     uint32_t npulses;               // number of pulses the list yields
 
     // 0x26 call sequence: count x LE16
-    const uint8_t *calls;
+    uint32_t calls;
     uint16_t ncalls;
 
     // 0x19 generalized (also PZX DATA)
     uint32_t totp, totd;
     uint8_t npp, npd;
     uint16_t asp, asd;
-    const uint8_t *pilot_defs, *data_defs;   // TZX symbol tables (flags + n x LE16)
+    uint32_t pilot_defs, data_defs;   // TZX symbol tables (flags + n x LE16)
     bool pzx;                                // PZX DATA: two symbols, no flags
-    const uint8_t *pzx_s[2];
+    uint32_t pzx_s[2];
     uint8_t pzx_n[2];
 
     // CSW: run lengths
-    const uint8_t *rle;
+    uint32_t rle;
     uint32_t rle_len, csw_samples;
     uint8_t csw_polarity;
 } zt_block;
 
+#define ZT_CHUNK 32
+
 typedef struct {
-    uint8_t *file;                  // the copy of the file the blocks point into
-    uint8_t **extra;                // decompressed CSW payloads
+    zx_pbuf pb;                     // the file the blocks point into
+    zx_pbuf **extra;                // decompressed CSW payloads
     int nextra;
-    zt_block *blocks;
+    zt_block **chunks;              // ZT_CHUNK blocks each
     int nblocks, cap;
 
-    bool loaded, playing, paused;
+    bool loaded, playing, paused, oom;
     int index;
     uint8_t level;
     int estado, estados_left;
@@ -87,12 +91,16 @@ typedef struct {
     uint8_t csw_level;
 } zx_tape;
 
+static inline zt_block *zt_blk(const zx_tape *t, int i) { return &t->chunks[i / ZT_CHUNK][i % ZT_CHUNK]; }
+
 void zt_init(zx_tape *t);
 void zt_free(zx_tape *t);
 // Takes a copy of the data. TAP, TZX/CDT, CSW and PZX are told apart by content.
 bool zt_load(zx_tape *t, const uint8_t *data, size_t size, const char **error);
 // The same, keeping `file` (malloc'd) instead of a copy; it is freed on failure.
 bool zt_load_take(zx_tape *t, uint8_t *file, size_t size, const char **error);
+// The same from pages (zx_pbuf.h); the tape takes them over (*file is emptied).
+bool zt_load_pbuf(zx_tape *t, zx_pbuf *file, const char **error);
 void zt_play(zx_tape *t, bool restart);
 void zt_pause(zx_tape *t);
 void zt_stop(zx_tape *t);

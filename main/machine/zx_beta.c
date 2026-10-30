@@ -52,54 +52,11 @@ static const uint8_t *sector_r(const zx_beta *b, int track, int head, int sector
     return t ? t + (sector - 1) * TRD_SECTOR : k_zero_sector;
 }
 
-static bool load_trd(zx_beta *b, const uint8_t *data, size_t size, const char **error)
+static int geometry(zx_beta *b, uint8_t type, size_t size)
 {
     // The disk info sector (track 0, side 0, sector 9) holds the geometry in
     // the type byte at +$E3; 320 KB images are ambiguous otherwise, and many
     // are cut short after the last used sector.
-    const size_t type_off = 8u * TRD_SECTOR + 0xe3;
-    if (size <= type_off) {
-        if (error) *error = "TRD image is too small";
-        return false;
-    }
-    int tracks = 0, heads = 0;
-    switch (data[type_off]) {
-    case 0x16: tracks = 80; heads = 2; break;
-    case 0x17: tracks = 40; heads = 2; break;
-    case 0x18: tracks = 80; heads = 1; break;
-    case 0x19: tracks = 40; heads = 1; break;
-    default: break;
-    }
-    if (tracks == 0) {
-        if (size > 80 * TRACK_BYTES) { tracks = 80; heads = 2; }
-        else if (size > 40 * TRACK_BYTES) { tracks = 40; heads = 2; }
-        else { tracks = 40; heads = 1; }
-    }
-    format(b, tracks, heads);
-    for (int i = 0; i < tracks * heads; i++) {
-        const size_t off = (size_t)i * TRACK_BYTES;
-        if (off >= size) break;
-        const size_t n = size - off < TRACK_BYTES ? size - off : TRACK_BYTES;
-        bool used = false;
-        for (size_t k = 0; k < n && !used; k++) used = data[off + k] != 0;
-        if (!used && i != 0) continue;
-        uint8_t *t = calloc(1, TRACK_BYTES);
-        if (!t) {
-            eject(b);
-            if (error) *error = "out of memory for the disk";
-            return false;
-        }
-        memcpy(t, data + off, n);
-        b->track[i / heads][i % heads] = t;
-    }
-    return true;
-}
-
-// ---------------------------------------------------------------------------
-// .trd a track at a time
-// ---------------------------------------------------------------------------
-static int geometry(zx_beta *b, uint8_t type, size_t size)
-{
     int tracks = 0, heads = 0;
     switch (type) {
     case 0x16: tracks = 80; heads = 2; break;
@@ -117,84 +74,63 @@ static int geometry(zx_beta *b, uint8_t type, size_t size)
     return tracks * heads;
 }
 
-static bool stream_commit(zx_beta *b, const char **error)
+static void drop_pages(zx_pbuf *P, uint32_t off);
+
+// .trd: each 4 KB of the file a track; empty (all zero) tracks are not kept,
+// the file's pages are freed as their tracks are made.
+static bool load_trd(zx_beta *b, zx_pbuf *P, const char **error)
 {
-    const int i = (int)((b->spos - 1) / TRACK_BYTES);
-    if (i == 0) geometry(b, b->sbuf[8u * TRD_SECTOR + 0xe3], b->ssize);
-    if (i >= b->tracks * b->heads) return true;
-    bool used = i == 0;
-    for (int k = 0; k < TRACK_BYTES && !used; k++) used = b->sbuf[k] != 0;
-    if (used) {
-        b->track[i / b->heads][i % b->heads] = b->sbuf;
-        if (!(b->sbuf = malloc(TRACK_BYTES))) {
+    const size_t size = P->size;
+    if (size <= 8u * TRD_SECTOR + 0xe3) {
+        if (error) *error = "TRD image is too small";
+        return false;
+    }
+    const int n = geometry(b, zx_pb_byte(P, 8u * TRD_SECTOR + 0xe3), size);
+    for (int i = 0; i < n; i++) {
+        const uint32_t off = (uint32_t)i * TRACK_BYTES;
+        if (off >= size) break;
+        uint8_t **slot = &b->track[i / b->heads][i % b->heads];
+        const bool whole = size - off >= TRACK_BYTES;
+        if (i != 0 && !P->flat && !P->lazy && whole) {      // all zero pages: an empty track
+            bool empty = true;
+            for (uint32_t pg = off >> ZX_PAGE_BITS; pg < (off + TRACK_BYTES) >> ZX_PAGE_BITS && empty; pg++)
+                empty = !P->pages[pg] && P->fill[pg] == 0;
+            if (empty) continue;
+        }
+        uint8_t *t = calloc(1, TRACK_BYTES);
+        if (!t) {
             eject(b);
             if (error) *error = "out of memory for the disk";
             return false;
         }
-    }
-    memset(b->sbuf, 0, TRACK_BYTES);
-    return true;
-}
-
-bool zx_beta_stream_begin(zx_beta *b, size_t size, const char **error)
-{
-    eject(b);
-    free(b->sbuf);
-    b->spos = 0;
-    b->ssize = (uint32_t)size;
-    if (size <= 8u * TRD_SECTOR + 0xe3) {
-        b->sbuf = NULL;
-        if (error) *error = "TRD image is too small";
-        return false;
-    }
-    if (!(b->sbuf = calloc(1, TRACK_BYTES))) {
-        if (error) *error = "out of memory for the disk";
-        return false;
+        zx_pb_copy(P, off, t, whole ? TRACK_BYTES : (uint32_t)(size - off));
+        bool used = i == 0;
+        for (int k = 0; k < TRACK_BYTES && !used; k++) used = t[k] != 0;
+        if (used) *slot = t;
+        else free(t);
+        drop_pages(P, off + TRACK_BYTES);
     }
     return true;
 }
 
-bool zx_beta_stream_data(zx_beta *b, const uint8_t *data, size_t n, const char **error)
+// The pages of P wholly before `off` are no longer needed
+static void drop_pages(zx_pbuf *P, uint32_t off)
 {
-    if (!b->sbuf) return false;
-    while (n) {
-        const uint32_t at = b->spos % TRACK_BYTES;
-        size_t k = TRACK_BYTES - at;
-        if (k > n) k = n;
-        memcpy(b->sbuf + at, data, k);
-        b->spos += (uint32_t)k;
-        data += k;
-        n -= k;
-        if (b->spos % TRACK_BYTES == 0 && !stream_commit(b, error)) {
-            free(b->sbuf);
-            b->sbuf = NULL;
-            return false;
-        }
+    if (P->flat || P->lazy) return;
+    for (uint32_t i = 0; i < P->npages && (i + 1) * ZX_PAGE <= off; i++) {
+        free(P->pages[i]);
+        P->pages[i] = NULL;
     }
-    return true;
 }
 
-bool zx_beta_stream_end(zx_beta *b, const char **error)
+static bool load_scl(zx_beta *b, zx_pbuf *P, const char **error)
 {
-    if (!b->sbuf) return false;
-    bool ok = true;
-    if (b->spos % TRACK_BYTES) ok = stream_commit(b, error);
-    free(b->sbuf);
-    b->sbuf = NULL;
-    if (ok && !b->present) {
-        if (error) *error = "TRD image is too small";
-        ok = false;
-    }
-    return ok;
-}
-
-static bool load_scl(zx_beta *b, const uint8_t *data, size_t size, const char **error)
-{
-    if (size < 9 || memcmp(data, "SINCLAIR", 8) != 0) {
+    const size_t size = P->size;
+    if (size < 9 || !zx_pb_eq(P, 0, "SINCLAIR", 8)) {
         if (error) *error = "not an SCL image";
         return false;
     }
-    const int nfiles = data[8];
+    const int nfiles = zx_pb_byte(P, 8);
     if (nfiles > 128) {
         if (error) *error = "SCL catalogue is invalid";
         return false;
@@ -210,12 +146,12 @@ static bool load_scl(zx_beta *b, const uint8_t *data, size_t size, const char **
     int log_track = 1, sec0 = 0, used = 0;
     size_t data_off = header;
     for (int i = 0; i < nfiles; i++) {
-        const uint8_t *h = data + 9 + (size_t)i * 14;
-        const int nsec = h[13];
+        const uint32_t h = 9 + (uint32_t)i * 14;
+        const int nsec = zx_pb_byte(P, h + 13);
         uint8_t *cat = sector_w(b, 0, 0, 1 + (i * 16) / TRD_SECTOR);
         if (!cat) goto oom;
         cat += (i * 16) % TRD_SECTOR;
-        memcpy(cat, h, 14);
+        zx_pb_copy(P, h, cat, 14);
         cat[14] = (uint8_t)sec0;
         cat[15] = (uint8_t)log_track;
         for (int s = 0; s < nsec; s++) {
@@ -229,8 +165,9 @@ static bool load_scl(zx_beta *b, const uint8_t *data, size_t size, const char **
                 uint8_t *dest = sector_w(b, cyl, head, sec0 + 1);
                 if (!dest) goto oom;
                 const size_t chunk = size - data_off < TRD_SECTOR ? size - data_off : TRD_SECTOR;
-                memcpy(dest, data + data_off, chunk);
+                zx_pb_copy(P, (uint32_t)data_off, dest, (uint32_t)chunk);
                 data_off += chunk;
+                drop_pages(P, (uint32_t)data_off);      // (the boards: no second copy)
             }
             ++used;
             if (++sec0 >= TRD_SECTORS) {
@@ -445,12 +382,7 @@ void zx_beta_init(zx_beta *b)
     zx_beta_reset(b);
 }
 
-void zx_beta_free(zx_beta *b)
-{
-    eject(b);
-    free(b->sbuf);
-    b->sbuf = NULL;
-}
+void zx_beta_free(zx_beta *b) { eject(b); }
 
 void zx_beta_reset(zx_beta *b)
 {
@@ -461,14 +393,29 @@ void zx_beta_reset(zx_beta *b)
     b->side = 0;
 }
 
+bool zx_beta_load_pbuf(zx_beta *b, zx_pbuf *file, const char **error)
+{
+    bool ok;
+    if (file->size < 8) {
+        if (error) *error = "disk image is empty";
+        ok = false;
+    } else if (zx_pb_eq(file, 0, "SINCLAIR", 8)) {
+        ok = load_scl(b, file, error);
+    } else {
+        ok = load_trd(b, file, error);
+    }
+    zx_pb_free(file);
+    return ok;
+}
+
 bool zx_beta_load(zx_beta *b, const uint8_t *data, size_t size, const char **error)
 {
-    if (!data || size < 8) {
-        if (error) *error = "disk image is empty";
+    zx_pbuf pb;
+    if (!data || !zx_pb_from_mem(&pb, data, size)) {
+        if (error) *error = data ? "out of memory for the disk" : "disk image is empty";
         return false;
     }
-    if (memcmp(data, "SINCLAIR", 8) == 0) return load_scl(b, data, size, error);
-    return load_trd(b, data, size, error);
+    return zx_beta_load_pbuf(b, &pb, error);
 }
 
 uint8_t zx_beta_status_r(zx_beta *b) { return b->active ? wd_status_r(b) : 0xff; }

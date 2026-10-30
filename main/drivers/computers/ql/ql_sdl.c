@@ -230,6 +230,7 @@ EMSCRIPTEN_KEEPALIVE void ql_web_notify_upload(void)
 
 int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     if (argc > 1) {
         if (!ql_cart_host_load_file(argv[1])) {
             fprintf(stderr, "%s: not a QLAY .mdv (174930 bytes)\n", argv[1]);

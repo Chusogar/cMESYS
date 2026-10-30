@@ -118,7 +118,7 @@ elseif(GAME STREQUAL "ql")
 elseif(IS_ZXSPEC)
     set(SRCS ${D}/zxspec_pico.c ${D}/zxspec_core.c ${D}/zx48.c ${D}/zx128.c ${D}/zxclone.c ${D}/rom_data_${GAME}.c
              ${QL_DIR}/ql_sd_pico.c ${M}/cpu/z80dsp/z80dsp.c ${M}/machine/zx_tape.c ${M}/machine/zx_snap.c
-             ${M}/machine/zx_rzx.c ${M}/machine/zx_inflate.c ${M}/machine/zx_beta.c ${M}/machine/zx_nec765.c
+             ${M}/machine/zx_rzx.c ${M}/machine/zx_inflate.c ${M}/machine/zx_pbuf.c ${M}/machine/zx_beta.c ${M}/machine/zx_nec765.c
              ${M}/sound/ay8910.c)
     # the model's own file in RAM with the Z80 and the ULA (the others stay in flash)
     if(GAME STREQUAL "spectrum48")

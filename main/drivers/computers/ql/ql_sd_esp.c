@@ -11,6 +11,7 @@
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "sdmmc_cmd.h"
+#include "driver/gpio.h"
 
 // CYD onboard microSD (VSPI), separate from the TFT SPI bus.
 #define PIN_SD_CS   5
@@ -23,6 +24,7 @@ static const char *TAG = "ql_sd";
 static sdmmc_card_t *card;
 static FILE *open_file;
 static bool mounted;
+static const char *last_error = "";
 
 bool ql_sd_ready(void) { return mounted; }
 
@@ -44,23 +46,45 @@ bool ql_sd_mount(void)
         .quadhd_io_num = -1,
         .max_transfer_sz = 4000,
     };
-    esp_err_t e = spi_bus_initialize(host.slot, &bus, SDSPI_DEFAULT_DMA);
-    if (e != ESP_OK && e != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "spi_bus_initialize: %s", esp_err_to_name(e));
-        return false;
+    // SPI_DMA_CH_AUTO: on the ESP32 SDSPI_DEFAULT_DMA asks for DMA channel 1,
+    // which the LCD bus (SPI2, CH_AUTO) already has -> ESP_ERR_INVALID_STATE,
+    // the bus was never set up and the card never answered.
+    static bool bus_ok;
+    if (!bus_ok) {
+        esp_err_t e = spi_bus_initialize(host.slot, &bus, SPI_DMA_CH_AUTO);
+        if (e != ESP_OK) {
+            ESP_LOGE(TAG, "spi_bus_initialize: %s", esp_err_to_name(e));
+            return false;
+        }
+        bus_ok = true;
     }
+    // the card's lines idle high (some CYD batches have no pull-ups fitted)
+    gpio_set_pull_mode(PIN_SD_MISO, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode(PIN_SD_MOSI, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode(PIN_SD_CS, GPIO_PULLUP_ONLY);
     sdspi_device_config_t slot = SDSPI_DEVICE_CONFIG_DEFAULT();
     slot.gpio_cs = PIN_SD_CS;
     slot.host_id = host.slot;
-    e = esp_vfs_fat_sdspi_mount(SD_MOUNT, &host, &slot, &cfg, &card);
+    // 20 MHz, then slower for cards / wiring that do not cope (Arduino's SD uses 4 MHz)
+    static const int khz[] = { SDMMC_FREQ_DEFAULT, 10000, 4000 };
+    esp_err_t e = ESP_FAIL;
+    for (int i = 0; i < 3; i++) {
+        host.max_freq_khz = khz[i];
+        e = esp_vfs_fat_sdspi_mount(SD_MOUNT, &host, &slot, &cfg, &card);
+        if (e == ESP_OK) break;
+        ESP_LOGW(TAG, "sd mount at %d kHz failed: %s", khz[i], esp_err_to_name(e));
+    }
     if (e != ESP_OK) {
-        ESP_LOGW(TAG, "sd mount failed: %s", esp_err_to_name(e));
+        last_error = esp_err_to_name(e);
         return false;
     }
     mounted = true;
-    ESP_LOGI(TAG, "SD mounted at %s", SD_MOUNT);
+    last_error = "";
+    ESP_LOGI(TAG, "SD mounted at %s (%d kHz)", SD_MOUNT, host.max_freq_khz);
     return true;
 }
+
+const char *ql_sd_error(void) { return last_error; }
 
 void ql_sd_unmount(void)
 {
@@ -69,6 +93,19 @@ void ql_sd_unmount(void)
     esp_vfs_fat_sdcard_unmount(SD_MOUNT, card);
     card = NULL;
     mounted = false;
+}
+
+// A listed file: in the root, mdv/ or tape/ (as ql_sd_list_ext looks)
+static FILE *open_listed(const char *name)
+{
+    static const char *const dirs[] = { "", "/mdv", "/tape" };
+    char path[96];
+    for (int i = 0; i < 3; i++) {
+        snprintf(path, sizeof path, SD_MOUNT "%s/%s", dirs[i], name);
+        FILE *f = fopen(path, "rb");
+        if (f) return f;
+    }
+    return NULL;
 }
 
 static int ext_match(const char *nm, size_t len, const char *const *exts)
@@ -120,13 +157,7 @@ bool ql_sd_open(const char *name)
 {
     if (!mounted || !name || !name[0]) return false;
     ql_sd_close();
-    char path[96];
-    snprintf(path, sizeof path, SD_MOUNT "/%s", name);
-    open_file = fopen(path, "rb");
-    if (!open_file) {
-        snprintf(path, sizeof path, SD_MOUNT "/mdv/%s", name);
-        open_file = fopen(path, "rb");
-    }
+    open_file = open_listed(name);
     if (!open_file) return false;
     if (fseek(open_file, 0, SEEK_END) != 0) { ql_sd_close(); return false; }
     long sz = ftell(open_file);
@@ -157,12 +188,7 @@ uint8_t *ql_sd_load_file(const char *name, size_t *out_size)
     if (out_size) *out_size = 0;
     if (!mounted || !name || !name[0]) return NULL;
     char path[96];
-    snprintf(path, sizeof path, SD_MOUNT "/%s", name);
-    FILE *f = fopen(path, "rb");
-    if (!f) {
-        snprintf(path, sizeof path, SD_MOUNT "/mdv/%s", name);
-        f = fopen(path, "rb");
-    }
+    FILE *f = open_listed(name);
     if (!f) return NULL;
     if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return NULL; }
     long sz = ftell(f);
@@ -180,12 +206,7 @@ bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user)
 {
     if (!mounted || !name || !name[0] || !fn) return false;
     char path[96];
-    snprintf(path, sizeof path, SD_MOUNT "/%s", name);
-    FILE *f = fopen(path, "rb");
-    if (!f) {
-        snprintf(path, sizeof path, SD_MOUNT "/mdv/%s", name);
-        f = fopen(path, "rb");
-    }
+    FILE *f = open_listed(name);
     if (!f) return false;
     long sz = -1;
     if (fseek(f, 0, SEEK_END) == 0) sz = ftell(f);
@@ -201,4 +222,36 @@ bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user)
     free(buf);
     fclose(f);
     return ok;
+}
+
+struct ql_sd_file { FILE *f; };
+
+ql_sd_file *ql_sd_file_open(const char *name, size_t *size)
+{
+    if (!mounted || !name || !name[0]) return NULL;
+    FILE *f = open_listed(name);
+    if (!f) return NULL;
+    long sz = -1;
+    if (fseek(f, 0, SEEK_END) == 0) sz = ftell(f);
+    ql_sd_file *h = sz > 0 ? (ql_sd_file *)malloc(sizeof *h) : NULL;
+    if (!h) {
+        fclose(f);
+        return NULL;
+    }
+    setvbuf(f, NULL, _IONBF, 0);        // (FATFS buffers a sector itself)
+    h->f = f;
+    *size = (size_t)sz;
+    return h;
+}
+
+bool ql_sd_file_read(ql_sd_file *h, uint32_t off, uint8_t *dst, uint32_t n)
+{
+    return h && fseek(h->f, (long)off, SEEK_SET) == 0 && fread(dst, 1, n, h->f) == n;
+}
+
+void ql_sd_file_close(ql_sd_file *h)
+{
+    if (!h) return;
+    fclose(h->f);
+    free(h);
 }

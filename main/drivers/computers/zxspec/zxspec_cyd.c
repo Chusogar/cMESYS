@@ -93,15 +93,34 @@ static void draw_help(void)
     lcd_flush();
 }
 
+static char menu_msg[64];
+static volatile bool emu_hold, emu_held;
+
+// The emulation stops while the menu is up: a file is loaded into the
+// machine (tape, disk, memory) and nothing may run it meanwhile.
+static void hold_emulation(bool on)
+{
+    emu_hold = on;
+    if (!on) return;
+    for (int i = 0; i < 50 && !emu_held; i++) vTaskDelay(pdMS_TO_TICKS(5));
+}
+
 static bool load_sd_name(const char *name)
 {
-    bool ok = zx_sd_load(cpu_m, name);
+    const char *why = "";
+    bool ok = zx_sd_load(cpu_m, name, &why);
     if (ok) {
         snprintf(media_name, sizeof media_name, "%s", name);
         show_toast(media_name);
+        menu_msg[0] = 0;
     } else {
-        const char *e = zxspec_last_error(cpu_m);
-        show_toast(e[0] ? e : "SD: no memory / read error");
+        // the reason, and the memory left (free / largest block, KB)
+        snprintf(menu_msg, sizeof menu_msg, "%.40s (%uK/%uK)", why[0] ? why : "SD read error",
+                 (unsigned)(heap_caps_get_free_size(MALLOC_CAP_8BIT) / 1024),
+                 (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) / 1024));
+        ESP_LOGW(TAG, "%s: %s (heap %u, largest %u)", name, menu_msg,
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_8BIT),
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
     }
     return ok;
 }
@@ -116,15 +135,24 @@ static void run_media_menu(void)
     int n = nfiles + 3;
     int sel = 0, scroll = 0;
     const int visible = 8;
+    hold_emulation(true);
+    menu_msg[0] = 0;
     for (;;) {
         fill_rect(0, 0, 320, 240, C_BLACK);
         draw_text_c(160, 4, "MEDIA: TAP TZX CSW PZX SNA Z80 RZX TRD SCL DSK", 1, C_YELLOW, C_BLACK);
         char cur[96];
-        snprintf(cur, sizeof cur, "Now: %s%s", media_name[0] ? media_name : "(none)",
-                 zxspec_tape_playing(cpu_m) ? " [PLAY]" : "");
+        snprintf(cur, sizeof cur, "Now: %.24s%s  mem %uK/%uK", media_name[0] ? media_name : "(none)",
+                 zxspec_tape_playing(cpu_m) ? " [PLAY]" : "",
+                 (unsigned)(heap_caps_get_free_size(MALLOC_CAP_8BIT) / 1024),
+                 (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) / 1024));
         draw_text_c(160, 16, cur, 1, C_CYAN, C_BLACK);
-        if (!sd_ok) draw_text_c(160, 28, "No SD card (FAT32)", 1, C_RED, C_BLACK);
-        else if (!nfiles) draw_text_c(160, 28, "No files in SD root /tape", 1, C_GREY, C_BLACK);
+        if (!sd_ok) {
+            char e[64];
+            snprintf(e, sizeof e, "No SD card (FAT32): %.36s", ql_sd_error());
+            draw_text_c(160, 28, e, 1, C_RED, C_BLACK);
+        }
+        else if (menu_msg[0]) draw_text_c(160, 28, menu_msg, 1, C_RED, C_BLACK);
+        else if (!nfiles) draw_text_c(160, 28, "No files in SD root, mdv/ or tape/", 1, C_GREY, C_BLACK);
         else draw_text_c(160, 28, "SD: tap a file to load", 1, C_GREY, C_BLACK);
 
         if (sel < scroll) scroll = sel;
@@ -156,13 +184,13 @@ static void run_media_menu(void)
             sel = idx;
             while (touch_get(&x, &y)) vTaskDelay(pdMS_TO_TICKS(20));
             if (sel < nfiles) {
-                if (!load_sd_name(files[sel].name)) {
-                    show_toast("SD load failed");
-                    continue;
-                }
+                fill_rect(20, 44 + (sel - scroll) * 22, 280, 20, rgb565(140, 110, 20));
+                draw_text(28, 48 + (sel - scroll) * 22, "Loading...", 1, C_WHITE, rgb565(140, 110, 20));
+                lcd_flush();
+                if (!load_sd_name(files[sel].name)) continue;     // (the reason on line 3)
             } else if (sel == nfiles) {
                 if (!zxspec_tape_loaded(cpu_m)) {
-                    show_toast("No tape loaded");
+                    snprintf(menu_msg, sizeof menu_msg, "No tape loaded");
                     continue;
                 }
                 tape_toggle_req = true;
@@ -171,10 +199,12 @@ static void run_media_menu(void)
                 show_toast(turbo ? "TURBO on" : "TURBO off");
             }
             full_redraw = true;
+            hold_emulation(false);
             return;
         } else if (y > 220) {
             while (touch_get(&x, &y)) vTaskDelay(pdMS_TO_TICKS(20));
             full_redraw = true;
+            hold_emulation(false);
             return;
         } else {
             while (touch_get(&x, &y)) vTaskDelay(pdMS_TO_TICKS(20));
@@ -357,6 +387,12 @@ static void emu_task(void *arg)
     uint32_t stat_frames = 0, stat_busy = 0;
 
     for (;;) {
+        if (emu_hold) {                     // the media menu is up
+            emu_held = true;
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
+        }
+        emu_held = false;
         if (tape_toggle_req) {
             tape_toggle_req = false;
             if (zxspec_tape_loaded(cpu_m)) {
@@ -458,12 +494,13 @@ void app_main(void)
     dac_audio_start(ZX_AUDIO_RATE);
 #endif
     frame_ready = xSemaphoreCreateBinary();
-    ESP_LOGI(TAG, "%s rom=%s RAM %d KB, free heap=%u", zxspec_title(ZX_MODEL), zx_rom_name,
-             zxspec_ram_kb(cpu_m), (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    ESP_LOGI(TAG, "%s rom=%s RAM %d KB, free heap=%u, largest block %u", zxspec_title(ZX_MODEL), zx_rom_name,
+             zxspec_ram_kb(cpu_m), (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
     if (xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0) != pdPASS)
         ESP_LOGE(TAG, "input task failed");
-    if (xTaskCreatePinnedToCore(video_task, "video", 4096, NULL, 6, NULL, 0) != pdPASS)
+    if (xTaskCreatePinnedToCore(video_task, "video", 6144, NULL, 6, NULL, 0) != pdPASS)
         ESP_LOGE(TAG, "video task failed");
     if (xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1) != pdPASS)
         ESP_LOGE(TAG, "emu task failed");

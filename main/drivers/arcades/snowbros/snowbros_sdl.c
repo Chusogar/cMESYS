@@ -34,8 +34,9 @@ static int synth_until(int16_t *out, int cap, uint32_t end)
     return n;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     static uint8_t fb[SB_SCREEN_W * SB_SCREEN_H];
     static uint32_t rgb[SB_SCREEN_W * SB_SCREEN_H];
     static int16_t audio[4096];

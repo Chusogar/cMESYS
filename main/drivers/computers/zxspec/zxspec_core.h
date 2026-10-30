@@ -82,11 +82,11 @@ bool zxspec_load_mem(zxspec *m, const uint8_t *data, size_t n, const char *name_
 /* The same, keeping `data` (malloc'd) when it can instead of copying it
  * (tapes, +3 disks: saves the memory of a second copy on the boards). */
 bool zxspec_load_take(zxspec *m, uint8_t *data, size_t n, const char *name_hint);
-/* A .trd disk image a piece at a time (Pentagon / Scorpion), for the boards:
- * a 640 KB image does not fit their memory whole, its used tracks do. */
-bool zxspec_trd_begin(zxspec *m, size_t size);
-bool zxspec_trd_data(zxspec *m, const uint8_t *data, size_t n);
-bool zxspec_trd_end(zxspec *m);
+/* Media read a piece at a time (the boards: no single free block the size of
+ * a tape or disk image): zx_pb_append() the pieces, zx_pb_finish(), then
+ * this, which takes the pages over (zx_pbuf.h). */
+#include "zx_pbuf.h"
+bool zxspec_load_pbuf(zxspec *m, zx_pbuf *pb, const char *name_hint);
 const char *zxspec_last_error(const zxspec *m);
 void zxspec_tape_play(zxspec *m);
 void zxspec_tape_stop(zxspec *m);

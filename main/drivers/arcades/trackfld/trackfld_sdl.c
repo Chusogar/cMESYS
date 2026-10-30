@@ -6,8 +6,9 @@
 #include "sdl_port.h"
 #include "tf_core.h"
 
-int main(void)
+int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     static uint8_t fb[TF_W * TF_H];
     static uint32_t rgb[TF_W * TF_H];
     static int16_t audio[TF_SAMPLES_FRAME];

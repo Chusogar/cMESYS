@@ -27,7 +27,7 @@ endif
 AS1     := $(M)/drivers/arcades/atarisy1
 ZX_SRC  := $(D)/zxspec_sdl.c $(D)/zxspec_core.c $(D)/zx48.c $(D)/zx128.c $(D)/zxclone.c $(D)/rom_data_$(GAME).c \
            $(M)/cpu/z80dsp/z80dsp.c $(M)/machine/zx_tape.c $(M)/machine/zx_snap.c $(M)/machine/zx_rzx.c \
-           $(M)/machine/zx_inflate.c $(M)/machine/zx_beta.c $(M)/machine/zx_nec765.c $(M)/sound/ay8910.c
+           $(M)/machine/zx_inflate.c $(M)/machine/zx_pbuf.c $(M)/machine/zx_beta.c $(M)/machine/zx_nec765.c $(M)/sound/ay8910.c
 
 PP      := $(M)/drivers/arcades/polepos
 
