@@ -356,6 +356,17 @@ Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X
 - **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta** el cartucho actual; **F9** abre el menú (abrir `.mdv` del disco con zenity/kdialog, cartucho del firmware, eyectar); también **arrastra un `.mdv`** a la ventana (en web: barra «Upload» o drag&drop). **F6** es el F1 del QL (F2-F5 los suyos), F12 reinicia. `QL_MOUNT_AT=n` pulsa F1 en el frame n.
 - **ZX Spectrum / clones** (`spectrum48`, `spectrum128`, `plus3`, `pentagon`, `pentagon1024`, `scorpion`): teclado del PC = matriz Spectrum (Ctrl = Symbol Shift, cursores = Caps+5/6/7/8, Retroceso = DELETE, teclado numérico = Kempston). **F9** menú de media (abrir cualquier fichero admitido); **F1** o **F6** play/pausa de cinta; **F3** reset; **F5** botón mágico (NMI) en Pentagon / Scorpion; **F12 TURBO** como en dsp-cpp (sin límite de velocidad, sin sonido, se dibuja uno de cada 4 frames; «[TURBO]» en el título); arrastrar un fichero a la ventana (web: barra Upload). En CYD: mantener **MEDIA**/BOOT = menú microSD (FAT32; raíz, `mdv/` o `tape/`; nombres largos), con «TURBO on/off»; toque corto = play/pausa; por la consola serie F12 o Ctrl-T = TURBO, F5 = botón mágico. En RP2040: F9 lista la microSD por UART, las mismas teclas F; audio PWM en GP22.
 
+**Opciones de línea de comandos** (todas las máquinas, Linux y Windows; van antes o después de los argumentos propios de cada driver, como el `.mdv` del QL o el fichero del Spectrum):
+
+| Opción | Efecto |
+|---|---|
+| `--mute` (o `-m`) | sin sonido (no se abre el dispositivo de audio) |
+| `--sound` | con sonido (por defecto) |
+| `--scale N` (o `--scale=N`, `-s N`) | ventana = imagen × N, de 1 a 10 (por defecto 2, o lo que pida el driver); la ventana sigue pudiéndose redimensionar |
+| `--help` | muestra las opciones |
+
+Por ejemplo `./build/sdl/robocop --mute --scale 3`, `spectrum128.exe --scale 1 juego.tzx`. Con `SDL_PORT_VERBOSE=1` se escribe el tamaño de ventana y si hay sonido.
+
 Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
 
 ## Web (Emscripten)

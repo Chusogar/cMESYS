@@ -24,8 +24,9 @@ static void on_frame(void *user, pp_core *c)
     for (int i = 0; i < PP_W * PP_H; i++) pixels[i] = c->rgb[lines[i] & 127];
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     pp_roms roms;
     pp_rom_data(&roms);
     static int16_t abuf[4096];

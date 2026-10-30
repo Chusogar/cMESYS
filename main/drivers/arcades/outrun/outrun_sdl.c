@@ -43,8 +43,9 @@ static void nvram_io(bool save)
     fclose(f);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     or_roms roms;
     or_rom_data(&roms);
     or_init(&core, &roms, AUDIO_RATE);

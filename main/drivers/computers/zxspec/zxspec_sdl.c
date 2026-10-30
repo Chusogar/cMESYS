@@ -212,6 +212,7 @@ EMSCRIPTEN_KEEPALIVE void zx_web_notify_upload(void)
 
 int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     cpu_m = zxspec_create(ZX_MODEL);
     if (!cpu_m) { fprintf(stderr, "out of memory\n"); return 1; }
     zxspec_set_rom(cpu_m, zx_rom48, zx_rom128, zx_rom128_bytes);

@@ -38,8 +38,9 @@ static void eeprom_io(bool save)
     core.eeprom_dirty = false;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     gt_roms roms;
     gt_rom_data(&roms);
     gt_init(&core, &roms, AUDIO_RATE);

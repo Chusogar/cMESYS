@@ -4,6 +4,7 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static SDL_Window *win;
 static SDL_Renderer *ren;
@@ -20,9 +21,45 @@ static int presses[32], np;
 static char *drops[8];
 static int ndrops;
 
+// ---------------------------------------------------------------------------
+// --mute / --sound / --scale N
+// ---------------------------------------------------------------------------
+static int opt_mute = -1;       // -1: as the driver says
+static int opt_scale;           // 0: as the driver says
+
+void sdl_port_args(int *argc, char **argv)
+{
+    if (!argc || !argv) return;
+    int out = 1;
+    for (int i = 1; i < *argc; i++) {
+        const char *a = argv[i];
+        if (!strcmp(a, "--mute") || !strcmp(a, "-m")) { opt_mute = 1; continue; }
+        if (!strcmp(a, "--sound") || !strcmp(a, "--unmute")) { opt_mute = 0; continue; }
+        if (!strncmp(a, "--scale=", 8) || !strcmp(a, "--scale") || !strcmp(a, "-s")) {
+            const char *v = a[7] == '=' ? a + 8 : (i + 1 < *argc ? argv[++i] : "");
+            int n = atoi(v);
+            if (n < 1 || n > 10) {
+                fprintf(stderr, "--scale: a number from 1 to 10 (not '%s')\n", v);
+                exit(2);
+            }
+            opt_scale = n;
+            continue;
+        }
+        if (!strcmp(a, "--help") || !strcmp(a, "-h")) {
+            printf("Options: --mute (no sound), --sound, --scale N (window = picture x N, 1-10)\n");
+            exit(0);
+        }
+        argv[out++] = argv[i];
+    }
+    argv[out] = NULL;
+    *argc = out;
+}
+
 bool sdl_port_open(const sdl_port_cfg *c)
 {
     cfg = *c;
+    if (opt_mute == 1) cfg.audio_rate = 0;
+    if (opt_scale) cfg.scale = opt_scale;
     if (SDL_Init(SDL_INIT_VIDEO | (cfg.audio_rate ? SDL_INIT_AUDIO : 0)) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return false;
@@ -48,6 +85,9 @@ bool sdl_port_open(const sdl_port_cfg *c)
         dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
         if (dev) SDL_PauseAudioDevice(dev, 0);
     }
+    if (getenv("SDL_PORT_VERBOSE"))
+        printf("sdl_port: window %dx%d (scale %d), sound %s\n", cfg.width * cfg.scale, cfg.height * cfg.scale,
+               cfg.scale, dev ? "on" : "off");
     frame_ticks = (uint64_t)(SDL_GetPerformanceFrequency() / cfg.fps);
     next_tick = SDL_GetPerformanceCounter();
     const char *e = getenv("SDL_PORT_FRAMES");
