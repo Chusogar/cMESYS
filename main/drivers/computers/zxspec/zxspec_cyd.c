@@ -114,7 +114,10 @@ static bool load_sd_name(const char *name)
         show_toast(media_name);
         menu_msg[0] = 0;
     } else {
-        snprintf(menu_msg, sizeof menu_msg, "%.60s", why[0] ? why : "SD: no memory / read error");
+        // the reason, and the memory left (free / largest block, KB)
+        snprintf(menu_msg, sizeof menu_msg, "%.40s (%uK/%uK)", why[0] ? why : "SD read error",
+                 (unsigned)(heap_caps_get_free_size(MALLOC_CAP_8BIT) / 1024),
+                 (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) / 1024));
         ESP_LOGW(TAG, "%s: %s (heap %u, largest %u)", name, menu_msg,
                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_8BIT),
                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
@@ -138,8 +141,10 @@ static void run_media_menu(void)
         fill_rect(0, 0, 320, 240, C_BLACK);
         draw_text_c(160, 4, "MEDIA: TAP TZX CSW PZX SNA Z80 RZX TRD SCL DSK", 1, C_YELLOW, C_BLACK);
         char cur[96];
-        snprintf(cur, sizeof cur, "Now: %s%s", media_name[0] ? media_name : "(none)",
-                 zxspec_tape_playing(cpu_m) ? " [PLAY]" : "");
+        snprintf(cur, sizeof cur, "Now: %.24s%s  mem %uK/%uK", media_name[0] ? media_name : "(none)",
+                 zxspec_tape_playing(cpu_m) ? " [PLAY]" : "",
+                 (unsigned)(heap_caps_get_free_size(MALLOC_CAP_8BIT) / 1024),
+                 (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) / 1024));
         draw_text_c(160, 16, cur, 1, C_CYAN, C_BLACK);
         if (!sd_ok) {
             char e[64];

@@ -60,11 +60,13 @@ typedef struct {
     uint8_t csw_polarity;
 } zt_block;
 
+#define ZT_CHUNK 32
+
 typedef struct {
     zx_pbuf pb;                     // the file the blocks point into
     zx_pbuf **extra;                // decompressed CSW payloads
     int nextra;
-    zt_block *blocks;
+    zt_block **chunks;              // ZT_CHUNK blocks each
     int nblocks, cap;
 
     bool loaded, playing, paused, oom;
@@ -88,6 +90,8 @@ typedef struct {
     uint32_t csw_pos, csw_run, csw_done;
     uint8_t csw_level;
 } zx_tape;
+
+static inline zt_block *zt_blk(const zx_tape *t, int i) { return &t->chunks[i / ZT_CHUNK][i % ZT_CHUNK]; }
 
 void zt_init(zx_tape *t);
 void zt_free(zx_tape *t);

@@ -39,17 +39,21 @@ static uint8_t bits_for_alphabet(uint16_t asd)
 // ---------------------------------------------------------------------------
 static zt_block *new_block(zx_tape *t, uint8_t type)
 {
+    // blocks in chunks of ZT_CHUNK: no one big block of memory for a tape
+    // of hundreds of blocks
     if (t->nblocks == t->cap) {
-        int cap = t->cap ? t->cap + t->cap / 2 : 32;
-        zt_block *n = realloc(t->blocks, sizeof(zt_block) * (size_t)cap);
-        if (!n) {
+        const int nch = t->cap / ZT_CHUNK;
+        zt_block **c = realloc(t->chunks, sizeof(zt_block *) * (size_t)(nch + 1));
+        if (c) t->chunks = c;
+        zt_block *chunk = c ? malloc(sizeof(zt_block) * ZT_CHUNK) : NULL;
+        if (!chunk) {
             t->oom = true;
             return NULL;
         }
-        t->blocks = n;
-        t->cap = cap;
+        t->chunks[nch] = chunk;
+        t->cap += ZT_CHUNK;
     }
-    zt_block *b = &t->blocks[t->nblocks++];
+    zt_block *b = zt_blk(t, t->nblocks++);
     memset(b, 0, sizeof *b);
     b->type = type;
     b->src = &t->pb;
@@ -695,7 +699,8 @@ void zt_init(zx_tape *t) { memset(t, 0, sizeof *t); }
 
 static void clear(zx_tape *t)
 {
-    free(t->blocks);
+    for (int i = 0; i < t->cap / ZT_CHUNK; i++) free(t->chunks[i]);
+    free(t->chunks);
     zx_pb_free(&t->pb);
     for (int i = 0; i < t->nextra; i++) {
         zx_pb_free(t->extra[i]);
@@ -836,7 +841,7 @@ static uint32_t read_symbol_index(const zt_block *b, uint32_t symbol_i)
 
 static void advance_gen_data(zx_tape *t, bool apply_flags)
 {
-    const zt_block *b = &t->blocks[t->index];
+    const zt_block *b = zt_blk(t, t->index);
     if (sym_count(b, false) == 0 || t->data_pos >= b->totd) {
         t->estado = 5;
         const uint32_t p = pause_tstates((uint16_t)b->pause_ms);
@@ -878,7 +883,7 @@ static void start_block(zx_tape *t)
         zt_stop(t);
         return;
     }
-    const zt_block *b = &t->blocks[t->index];
+    const zt_block *b = zt_blk(t, t->index);
     const zx_pbuf *P = b->src;
     t->data_pos = 0;
     t->pulse_count = 0;
@@ -1080,7 +1085,7 @@ int ZT_HOT zt_advance(zx_tape *t, int tstates)
             zt_stop(t);
             break;
         }
-        const zt_block *b = &t->blocks[t->index];
+        const zt_block *b = zt_blk(t, t->index);
     const zx_pbuf *P = b->src;
 
         switch (t->estado) {

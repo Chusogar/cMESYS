@@ -5,7 +5,7 @@
 
 void zx_pb_init(zx_pbuf *pb) { memset(pb, 0, sizeof *pb); }
 
-#define LAZY_SLOTS 16
+#define LAZY_SLOTS 8            // 2 KB of cache
 
 struct zx_pb_lazy {
     zx_pb_read_fn read;

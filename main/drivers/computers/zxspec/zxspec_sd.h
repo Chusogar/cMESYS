@@ -47,7 +47,7 @@ static bool zx_sd_load(zxspec *m, const char *name, const char **why)
             return false;
         }
         if (!zx_pb_open_lazy(&pb, (uint32_t)size, zx_sd_read, zx_sd_close, f)) {
-            *why = "out of memory for the file";
+            *why = "out of memory for the page cache";
             return false;
         }
     } else {
