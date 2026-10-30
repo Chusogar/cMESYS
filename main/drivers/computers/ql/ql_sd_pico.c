@@ -175,6 +175,7 @@ static void make83(const char *name, char out[11])
 }
 
 bool ql_sd_ready(void) { return mounted; }
+const char *ql_sd_error(void) { return mounted ? "" : "no card / not FAT"; }
 
 bool ql_sd_mount(void)
 {

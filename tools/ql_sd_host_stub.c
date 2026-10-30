@@ -5,6 +5,7 @@
 bool ql_sd_mount(void) { return false; }
 void ql_sd_unmount(void) {}
 bool ql_sd_ready(void) { return false; }
+const char *ql_sd_error(void) { return "no SD on the host"; }
 int ql_sd_list_ext(ql_sd_entry *out, int max, const char *const *exts)
 {
     (void)out; (void)max; (void)exts;

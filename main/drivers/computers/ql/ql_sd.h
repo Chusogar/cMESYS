@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 #define QL_SD_MAX_FILES 48
-#define QL_SD_NAME_MAX  48
+#define QL_SD_NAME_MAX  64
 
 typedef struct {
     char name[QL_SD_NAME_MAX];
@@ -20,6 +20,8 @@ bool ql_sd_ready(void);
 // Fills out[0..max) with names matching a NULL-terminated list of extensions
 // (e.g. {".mdv", NULL} or {".tap",".tzx",".sna", NULL}) in the card root
 // (and /mdv if present). Case-insensitive. Returns the number of entries.
+// Why the last mount failed ("" if it did not / not known), for the menus.
+const char *ql_sd_error(void);
 int ql_sd_list_ext(ql_sd_entry *out, int max, const char *const *exts);
 static inline int ql_sd_list_mdv(ql_sd_entry *out, int max)
 {

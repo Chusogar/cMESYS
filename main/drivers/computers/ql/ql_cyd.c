@@ -115,7 +115,11 @@ static void run_cart_menu(void)
         char cur[48];
         snprintf(cur, sizeof cur, "Now: %s", ql_cart_loaded(0) ? ql_cart_host_name() : "(empty)");
         draw_text_c(160, 16, cur, 1, C_CYAN, C_BLACK);
-        if (!sd_ok) draw_text_c(160, 28, "No SD card (FAT32)", 1, C_RED, C_BLACK);
+        if (!sd_ok) {
+            char e[64];
+            snprintf(e, sizeof e, "No SD card (FAT32): %.36s", ql_sd_error());
+            draw_text_c(160, 28, e, 1, C_RED, C_BLACK);
+        }
         else if (!nfiles) draw_text_c(160, 28, "No .mdv in SD root /mdv", 1, C_GREY, C_BLACK);
         else draw_text_c(160, 28, "SD: tap a .mdv to boot", 1, C_GREY, C_BLACK);
 
@@ -528,7 +532,7 @@ void app_main(void)
 
     if (xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0) != pdPASS)
         ESP_LOGE(TAG, "task input not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-    if (xTaskCreatePinnedToCore(video_task, "video", 4096, NULL, 6, NULL, 0) != pdPASS)
+    if (xTaskCreatePinnedToCore(video_task, "video", 6144, NULL, 6, NULL, 0) != pdPASS)
         ESP_LOGE(TAG, "task video not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
     if (xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1) != pdPASS)
         ESP_LOGE(TAG, "task emu not created (heap %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
