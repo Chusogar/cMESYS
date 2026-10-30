@@ -91,7 +91,7 @@ static bool load_trd(zx_beta *b, zx_pbuf *P, const char **error)
         if (off >= size) break;
         uint8_t **slot = &b->track[i / b->heads][i % b->heads];
         const bool whole = size - off >= TRACK_BYTES;
-        if (i != 0 && !P->flat && whole) {      // all zero pages: an empty track
+        if (i != 0 && !P->flat && !P->lazy && whole) {      // all zero pages: an empty track
             bool empty = true;
             for (uint32_t pg = off >> ZX_PAGE_BITS; pg < (off + TRACK_BYTES) >> ZX_PAGE_BITS && empty; pg++)
                 empty = !P->pages[pg] && P->fill[pg] == 0;
@@ -116,7 +116,7 @@ static bool load_trd(zx_beta *b, zx_pbuf *P, const char **error)
 // The pages of P wholly before `off` are no longer needed
 static void drop_pages(zx_pbuf *P, uint32_t off)
 {
-    if (P->flat) return;
+    if (P->flat || P->lazy) return;
     for (uint32_t i = 0; i < P->npages && (i + 1) * ZX_PAGE <= off; i++) {
         free(P->pages[i]);
         P->pages[i] = NULL;

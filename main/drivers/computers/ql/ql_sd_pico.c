@@ -449,3 +449,48 @@ bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user)
     ql_sd_close();
     return ok;
 }
+
+// A file of its own (start cluster and size), read at any offset by
+// following its cluster chain (remembering the last cluster reached).
+struct ql_sd_file { uint32_t start, size, at_index, at_cluster; };
+
+ql_sd_file *ql_sd_file_open(const char *name, size_t *size)
+{
+    size_t sz = 0;
+    if (!ql_sd_find(name, &sz)) return NULL;
+    ql_sd_file *h = (ql_sd_file *)malloc(sizeof *h);
+    if (h) {
+        h->start = h->at_cluster = file_start_cluster;
+        h->size = (uint32_t)sz;
+        h->at_index = 0;
+        *size = sz;
+    }
+    ql_sd_close();
+    return h;
+}
+
+bool ql_sd_file_read(ql_sd_file *h, uint32_t off, uint8_t *dst, uint32_t n)
+{
+    if (!h || !mounted || off > h->size || n > h->size - off) return false;
+    const uint32_t csize = (uint32_t)spc * 512;
+    while (n) {
+        const uint32_t ci = off / csize;
+        if (ci < h->at_index) { h->at_index = 0; h->at_cluster = h->start; }
+        while (h->at_index < ci) {
+            h->at_cluster = next_cluster(h->at_cluster);
+            if (h->at_cluster < 2) { h->at_index = 0; h->at_cluster = h->start; return false; }
+            h->at_index++;
+        }
+        const uint32_t in = off % csize;
+        if (sd_read_block((uint32_t)cluster_lba(h->at_cluster) + in / 512, sector_buf) != 0) return false;
+        uint32_t k = 512 - in % 512;
+        if (k > n) k = n;
+        memcpy(dst, sector_buf + in % 512, k);
+        dst += k;
+        off += k;
+        n -= k;
+    }
+    return true;
+}
+
+void ql_sd_file_close(ql_sd_file *h) { free(h); }

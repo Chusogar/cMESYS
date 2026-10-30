@@ -67,7 +67,7 @@ typedef struct {
     zt_block *blocks;
     int nblocks, cap;
 
-    bool loaded, playing, paused;
+    bool loaded, playing, paused, oom;
     int index;
     uint8_t level;
     int estado, estados_left;

@@ -21,7 +21,16 @@ typedef struct {
     uint32_t size, npages, cap;
     uint8_t *tail;              // the page being filled by zx_pb_append
     bool failed;                // out of memory while appending
+    struct zx_pb_lazy *lazy;    // pages read from the file when used (see zx_pb_open_lazy)
 } zx_pbuf;
+
+// A file left on the card and read a page at a time as it is used, through a
+// small cache (tapes and +3 disks on the boards: any size fits). read() gets
+// n bytes at off (false: error); close() when the buffer is freed.
+typedef bool (*zx_pb_read_fn)(void *ctx, uint32_t off, uint8_t *dst, uint32_t n);
+typedef void (*zx_pb_close_fn)(void *ctx);
+bool zx_pb_open_lazy(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close_fn close, void *ctx);
+const uint8_t *zx_pb_fetch(const zx_pbuf *pb, uint32_t page);
 
 void zx_pb_init(zx_pbuf *pb);
 void zx_pb_free(zx_pbuf *pb);
@@ -39,7 +48,9 @@ bool zx_pb_eq(const zx_pbuf *pb, uint32_t off, const char *text, uint32_t n);
 static inline const uint8_t *zx_pb_page(const zx_pbuf *pb, uint32_t off)
 {
     if (pb->flat) return pb->flat + off;
-    return pb->pages[off >> ZX_PAGE_BITS] ? pb->pages[off >> ZX_PAGE_BITS] + (off & (ZX_PAGE - 1)) : NULL;
+    const uint8_t *p = pb->pages[off >> ZX_PAGE_BITS];
+    if (!p && pb->lazy) p = zx_pb_fetch(pb, off >> ZX_PAGE_BITS);
+    return p ? p + (off & (ZX_PAGE - 1)) : NULL;
 }
 
 static inline uint8_t zx_pb_byte(const zx_pbuf *pb, uint32_t off)
@@ -47,7 +58,9 @@ static inline uint8_t zx_pb_byte(const zx_pbuf *pb, uint32_t off)
     if (off >= pb->size) return 0;
     if (pb->flat) return pb->flat[off];
     const uint8_t *p = pb->pages[off >> ZX_PAGE_BITS];
-    return p ? p[off & (ZX_PAGE - 1)] : pb->fill[off >> ZX_PAGE_BITS];
+    if (p) return p[off & (ZX_PAGE - 1)];
+    if (pb->lazy) return zx_pb_fetch(pb, off >> ZX_PAGE_BITS)[off & (ZX_PAGE - 1)];
+    return pb->fill[off >> ZX_PAGE_BITS];
 }
 static inline uint16_t zx_pb_rd16(const zx_pbuf *pb, uint32_t off)
 {

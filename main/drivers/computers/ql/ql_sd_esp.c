@@ -223,3 +223,35 @@ bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user)
     fclose(f);
     return ok;
 }
+
+struct ql_sd_file { FILE *f; };
+
+ql_sd_file *ql_sd_file_open(const char *name, size_t *size)
+{
+    if (!mounted || !name || !name[0]) return NULL;
+    FILE *f = open_listed(name);
+    if (!f) return NULL;
+    long sz = -1;
+    if (fseek(f, 0, SEEK_END) == 0) sz = ftell(f);
+    ql_sd_file *h = sz > 0 ? (ql_sd_file *)malloc(sizeof *h) : NULL;
+    if (!h) {
+        fclose(f);
+        return NULL;
+    }
+    setvbuf(f, NULL, _IONBF, 0);        // (FATFS buffers a sector itself)
+    h->f = f;
+    *size = (size_t)sz;
+    return h;
+}
+
+bool ql_sd_file_read(ql_sd_file *h, uint32_t off, uint8_t *dst, uint32_t n)
+{
+    return h && fseek(h->f, (long)off, SEEK_SET) == 0 && fread(dst, 1, n, h->f) == n;
+}
+
+void ql_sd_file_close(ql_sd_file *h)
+{
+    if (!h) return;
+    fclose(h->f);
+    free(h);
+}

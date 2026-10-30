@@ -39,5 +39,11 @@ int ql_sd_read_sector(void *user, unsigned sector, uint8_t dest[686]);
 uint8_t *ql_sd_load_file(const char *name, size_t *out_size);
 // Read a file a piece at a time: fn gets the file size and each piece in
 // order (false from fn stops). False if the file cannot be read to the end.
+// A file kept open and read at any offset (the Spectrum's tapes and +3
+// disks are read from the card as they play). NULL if it cannot be opened.
+typedef struct ql_sd_file ql_sd_file;
+ql_sd_file *ql_sd_file_open(const char *name, size_t *size);
+bool ql_sd_file_read(ql_sd_file *f, uint32_t off, uint8_t *dst, uint32_t n);
+void ql_sd_file_close(ql_sd_file *f);
 typedef bool (*ql_sd_piece_fn)(void *user, size_t size, const uint8_t *data, size_t n);
 bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user);

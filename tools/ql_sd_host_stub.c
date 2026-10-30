@@ -29,3 +29,6 @@ bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user)
     (void)name; (void)fn; (void)user;
     return false;
 }
+ql_sd_file *ql_sd_file_open(const char *name, size_t *size) { (void)name; (void)size; return NULL; }
+bool ql_sd_file_read(ql_sd_file *f, uint32_t off, uint8_t *dst, uint32_t n) { (void)f; (void)off; (void)dst; (void)n; return false; }
+void ql_sd_file_close(ql_sd_file *f) { (void)f; }

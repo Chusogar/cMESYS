@@ -40,9 +40,12 @@ static uint8_t bits_for_alphabet(uint16_t asd)
 static zt_block *new_block(zx_tape *t, uint8_t type)
 {
     if (t->nblocks == t->cap) {
-        int cap = t->cap ? t->cap * 2 : 64;
+        int cap = t->cap ? t->cap + t->cap / 2 : 32;
         zt_block *n = realloc(t->blocks, sizeof(zt_block) * (size_t)cap);
-        if (!n) return NULL;
+        if (!n) {
+            t->oom = true;
+            return NULL;
+        }
         t->blocks = n;
         t->cap = cap;
     }
@@ -718,6 +721,7 @@ bool zt_load_pbuf(zx_tape *t, zx_pbuf *file, const char **error)
     else ok = parse_tzx(t, P, size, error);
     t->loaded = ok && t->nblocks > 0;
     if (!t->loaded) {
+        if (error && t->oom) *error = "out of memory for the tape blocks";
         if (error && !*error) *error = "no usable tape blocks";
         clear(t);
     }
