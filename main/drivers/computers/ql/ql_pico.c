@@ -41,7 +41,7 @@ static const struct { uint8_t usage, key; } keymap[] = {
 
 static uint16_t rgb(uint8_t r, uint8_t g, uint8_t b) { return pico_rgb565(r, g, b); }
 
-static void render(void *user, int y, int n, uint16_t *out)
+static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 {
     (void)user;
     static int v;

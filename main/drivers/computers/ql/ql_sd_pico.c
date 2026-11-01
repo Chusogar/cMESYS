@@ -1,6 +1,6 @@
 // ql_sd_pico.c - microSD on the Waveshare RP2040-PiZero for QL cartridges.
-// SPI0: CS=GP5, SCK=GP6, MISO=GP4, MOSI=GP7 (PWM audio must not use GP4;
-// the QL build sets PICO_AUDIO_PIN=22).
+// The board's own slot (as dsp-cpp): SPI0 SCK=GP18, MOSI=GP19, MISO=GP20,
+// CS=GP21. (GP22-29 are the HDMI pairs; the PWM sound stays on GP4.)
 #include "ql_sd.h"
 #include "ql_mdv.h"
 #include <stdio.h>
@@ -10,10 +10,10 @@
 #include "hardware/spi.h"
 #include "hardware/gpio.h"
 
-#define PIN_SD_CS   5
-#define PIN_SD_SCK  6
-#define PIN_SD_MISO 4
-#define PIN_SD_MOSI 7
+#define PIN_SD_CS   21
+#define PIN_SD_SCK  18
+#define PIN_SD_MISO 20
+#define PIN_SD_MOSI 19
 #define SD_SPI      spi0
 
 static bool mounted, is_sdhc;
@@ -79,6 +79,7 @@ static int sd_init_card(void)
     gpio_set_function(PIN_SD_SCK, GPIO_FUNC_SPI);
     gpio_set_function(PIN_SD_MOSI, GPIO_FUNC_SPI);
     gpio_set_function(PIN_SD_MISO, GPIO_FUNC_SPI);
+    gpio_pull_up(PIN_SD_MISO);
     gpio_init(PIN_SD_CS);
     gpio_set_dir(PIN_SD_CS, GPIO_OUT);
     cs(false);

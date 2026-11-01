@@ -112,9 +112,7 @@ elseif(GAME STREQUAL "ql")
     set(SRCS ${D}/ql_pico.c ${D}/ql_core.c ${D}/ql_view.c ${D}/ql_cart_host.c ${D}/ql_sd_pico.c ${D}/rom_data.c ${M68K}
              ${M}/cpu/mcs48/mcs48.c ${M}/machine/zx8302.c ${M}/machine/ql_mdv.c ${M}/video/zx8301.c)
     set(DEFS M68K_FLASH_TABLES)
-    set(RAM_CODE m68kcpu.c.o mcs48.c.o ql_core.c.o zx8302.c.o ql_mdv.c.o)
-    # SD MISO is GP4; move PWM audio off that pin for the QL build.
-    set(QL_AUDIO_PIN 22)
+    set(RAM_CODE m68kcpu.c.o mcs48.c.o ql_core.c.o zx8302.c.o ql_mdv.c.o ql_view.c.o)   # ql_view: core 1 draws with it
 elseif(IS_ZXSPEC)
     set(SRCS ${D}/zxspec_pico.c ${D}/zxspec_core.c ${D}/zx48.c ${D}/zx128.c ${D}/zxclone.c ${D}/rom_data_${GAME}.c
              ${QL_DIR}/ql_sd_pico.c ${M}/cpu/z80dsp/z80dsp.c ${M}/machine/zx_tape.c ${M}/machine/zx_snap.c
@@ -141,8 +139,6 @@ elseif(IS_ZXSPEC)
         set(ZX_HOT_OBJ zxclone.c.o)
     endif()
     set(RAM_CODE z80dsp.c.o zxspec_core.c.o ${ZX_HOT_OBJ} ay8910.c.o)
-    # Same SD MISO conflict as QL: keep PWM audio on GP22.
-    set(QL_AUDIO_PIN 22)
 else()
     message(FATAL_ERROR "Unknown GAME '${GAME}'")
 endif()

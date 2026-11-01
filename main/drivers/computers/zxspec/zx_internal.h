@@ -55,6 +55,9 @@ struct zxspec {
     const uint8_t *rom[4];  // 16 KB ROM pages
     uint8_t *ram[ZX_MAX_PAGES];
     int ram_pages;
+    // Scorpion without room for 256K (RP2040, a full CYD): ram[8..15] are
+    // NULL and live here, 256 bytes at a time (zxclone.c)
+    struct zx_sparse *sparse;
     // 48K: ram[5] ram[2] ram[0] are $4000 / $8000 / $C000
     // 128K / +3: marco = banks at the four slots (8+ = ROM page n-8)
     uint8_t marco[4];
@@ -144,6 +147,8 @@ void zx48_reset(zxspec *m);
 void zx128_setup(zxspec *m);
 void zx128_reset(zxspec *m);
 void zx128_apply_snap(zxspec *m, const zx_snap *s);
+bool zxclone_sparse_init(zxspec *m);
+void zxclone_sparse_free(zxspec *m);
 void zxclone_setup(zxspec *m);
 void zxclone_reset(zxspec *m);
 void zxclone_apply_snap(zxspec *m, const zx_snap *s);

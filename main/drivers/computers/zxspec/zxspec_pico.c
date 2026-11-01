@@ -35,7 +35,7 @@ static const struct { uint8_t usage; int key; } keymap[] = {
     { 0x10, ZXK_M }, { 0x11, ZXK_N }, { 0x05, ZXK_B },
 };
 
-static void render(void *user, int y, int n, uint16_t *out)
+static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 {
     (void)user;
     for (int i = 0; i < n; i++)
