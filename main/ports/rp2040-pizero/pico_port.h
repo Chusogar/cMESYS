@@ -17,6 +17,11 @@
 #define PICO_PORT_H
 #include <stdint.h>
 #include <stdbool.h>
+#ifdef PICO_ON_DEVICE
+#include "pico.h"                   /* __not_in_flash_func: the render callback runs from RAM */
+#else
+#define __not_in_flash_func(f) f    /* tools/pico_host.c */
+#endif
 
 #define PICO_W 320
 #define PICO_H 240

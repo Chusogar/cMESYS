@@ -25,6 +25,9 @@
 #ifndef PICO_AUDIO_PIN
 #define PICO_AUDIO_PIN 4
 #endif
+#if PICO_AUDIO_PIN >= 22
+#error "GP22-29 are the HDMI pairs (D2 22/23, D1 24/25, D0 26/27, CLK 28/29)"
+#endif
 #define AUDIO_RING 2048u            // samples, power of two
 #define AUDIO_DMA_SAMPLES 256u
 #define AUDIO_DMA_IRQ 1             // DMA_IRQ_1 on core 0 (PicoDVI has DMA_IRQ_0 on core 1)
