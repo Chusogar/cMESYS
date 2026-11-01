@@ -63,13 +63,93 @@ static void ZX_HOT on_m1(void *user, uint16_t pc)
     }
 }
 
+// ---------------------------------------------------------------------------
+// The Scorpion's upper 128K when it does not fit (the RP2040 has ~205 KB of
+// heap; its BIOS tests and needs all 256K): banks 8-15 in 256-byte blocks,
+// a block kept only while it is not all one byte. The BIOS leaves them
+// almost empty (~13 blocks); 128K software never touches them.
+// ---------------------------------------------------------------------------
+#define SP_BLOCKS (ZX_BANK / 256)
+struct zx_sparse {
+    uint8_t *blk[8][SP_BLOCKS];
+    uint8_t fill[8][SP_BLOCKS];
+    uint16_t diff[8][SP_BLOCKS];        // bytes of blk that are not fill
+};
+
+bool zxclone_sparse_init(zxspec *m)
+{
+    m->sparse = calloc(1, sizeof *m->sparse);
+    return m->sparse != NULL;
+}
+
+void zxclone_sparse_free(zxspec *m)
+{
+    if (!m->sparse) return;
+    for (int b = 0; b < 8; b++)
+        for (int i = 0; i < SP_BLOCKS; i++) free(m->sparse->blk[b][i]);
+    free(m->sparse);
+    m->sparse = NULL;
+}
+
+static void sparse_clear(zxspec *m)
+{
+    struct zx_sparse *s = m->sparse;
+    for (int b = 0; b < 8; b++)
+        for (int i = 0; i < SP_BLOCKS; i++) {
+            free(s->blk[b][i]);
+            s->blk[b][i] = NULL;
+            s->fill[b][i] = 0;
+            s->diff[b][i] = 0;
+        }
+}
+
+static uint8_t ZX_HOT sparse_read(const zxspec *m, uint16_t off)
+{
+    const int b = (m->ram3 - 8) & 7, i = off >> 8;
+    const uint8_t *p = m->sparse->blk[b][i];
+    return p ? p[off & 255] : m->sparse->fill[b][i];
+}
+
+static void ZX_HOT sparse_write(zxspec *m, uint16_t off, uint8_t v)
+{
+    struct zx_sparse *s = m->sparse;
+    const int b = (m->ram3 - 8) & 7, i = off >> 8, o = off & 255;
+    uint8_t *p = s->blk[b][i];
+    const uint8_t f = s->fill[b][i];
+    if (!p) {
+        if (v == f) return;
+        if (!(p = malloc(256))) return;          // (out of memory: the write is lost)
+        memset(p, f, 256);
+        s->blk[b][i] = p;
+    }
+    const uint8_t old = p[o];
+    p[o] = v;
+    s->diff[b][i] = (uint16_t)(s->diff[b][i] + (v != f) - (old != f));
+    if (s->diff[b][i] == 0) {                     // all `fill` again
+        free(p);
+        s->blk[b][i] = NULL;
+    } else if (s->diff[b][i] == 256) {
+        // all different from fill: maybe all one other byte (a RAM test's
+        // pattern); then that byte becomes the fill
+        bool same = true;
+        for (int k = 1; k < 256 && same; k++) same = p[k] == p[0];
+        if (same) {
+            s->fill[b][i] = p[0];
+            s->diff[b][i] = 0;
+            free(p);
+            s->blk[b][i] = NULL;
+        }
+    }
+}
+
 static uint8_t ZX_HOT mem_read(void *user, uint16_t addr)
 {
     zxspec *m = (zxspec *)user;
     if (addr < 0x4000) return m->page0_ram ? m->ram[0][addr] : m->rom[m->rom_page][addr];
     if (addr < 0x8000) return m->ram[5][addr & 0x3fff];
     if (addr < 0xc000) return m->ram[2][addr & 0x3fff];
-    return m->ram[m->ram3][addr & 0x3fff];
+    const uint8_t *p = m->ram[m->ram3];
+    return p ? p[addr & 0x3fff] : sparse_read(m, addr & 0x3fff);
 }
 
 static void ZX_HOT mem_write(void *user, uint16_t addr, uint8_t value)
@@ -81,7 +161,8 @@ static void ZX_HOT mem_write(void *user, uint16_t addr, uint8_t value)
     }
     if (addr < 0x8000) m->ram[5][addr & 0x3fff] = value;
     else if (addr < 0xc000) m->ram[2][addr & 0x3fff] = value;
-    else m->ram[m->ram3][addr & 0x3fff] = value;
+    else if (m->ram[m->ram3]) m->ram[m->ram3][addr & 0x3fff] = value;
+    else sparse_write(m, addr & 0x3fff, value);
 }
 
 static uint8_t io_in(void *user, uint16_t port)
@@ -206,7 +287,9 @@ void zxclone_setup(zxspec *m)
 
 void zxclone_reset(zxspec *m)
 {
-    for (int i = 0; i < m->ram_pages; i++) memset(m->ram[i], 0, ZX_BANK);
+    for (int i = 0; i < m->ram_pages; i++)
+        if (m->ram[i]) memset(m->ram[i], 0, ZX_BANK);
+    if (m->sparse) sparse_clear(m);
     m->port_7ffd = m->port_1ffd = m->port_dffd = 0;
     m->paging_locked = false;
     m->nmi_pending = false;

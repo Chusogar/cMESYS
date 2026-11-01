@@ -468,7 +468,7 @@ Los ZX Spectrum / clones comparten el núcleo en `main/drivers/computers/zxspec/
 
 `tools/gen_roms_zxspec.py` comprueba los CRC de MAME (si no coinciden solo avisa) y sigue aceptando los nombres antiguos (`48.rom`, `128.rom`, `pentagon.rom` de 32 KB…).
 
-**TR-DOS**: en el Pentagon, el Pentagon 1024 y el Scorpion la ROM de TR-DOS (banco 3) entra al ejecutar en 3D00-3DFF con el BASIC 48K seleccionado y sale al ejecutar desde la RAM, y la interfaz Beta 128 (WD1793) lee y escribe discos `.trd` / `.scl` (ver más abajo). **Scorpion ZS-256**: su ROM comprueba los 256 KB de RAM al arrancar; en el escritorio y la web los tiene, pero en el CYD y la RP2040 no hay memoria para más de 128 KB y la ROM se para en esa prueba (borde verde). **Pentagon 1024**: 1 MB de RAM (64 páginas, puerto #DFFD) en el escritorio y la web; en las placas, 128 KB.
+**TR-DOS**: en el Pentagon, el Pentagon 1024 y el Scorpion la ROM de TR-DOS (banco 3) entra al ejecutar en 3D00-3DFF con el BASIC 48K seleccionado y sale al ejecutar desde la RAM, y la interfaz Beta 128 (WD1793) lee y escribe discos `.trd` / `.scl` (ver más abajo). **Scorpion ZS-256**: su ROM comprueba los 256 KB de RAM al arrancar y se para si no están. En el escritorio y la web son 256 KB reales; en la RP2040 (y en el CYD si no queda memoria) los 128 KB altos se guardan «dispersos», en bloques de 256 bytes que solo ocupan memoria mientras no son todos del mismo valor: la prueba de la ROM los deja casi vacíos (unos 3 KB) y el software de 128K no los usa. Es idéntico, frame a frame, a tener los 256 KB; un programa que llene los 256 KB se quedaría sin memoria en la placa. **Pentagon 1024**: 1 MB de RAM (64 páginas, puerto #DFFD) en el escritorio y la web; en las placas, 128 KB.
 
 ### ZX Spectrum: migración de dsp-cpp
 

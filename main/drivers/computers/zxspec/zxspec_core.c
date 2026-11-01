@@ -491,7 +491,7 @@ static int pages_wanted(zx_model_t model)
 #endif
     case ZX_SCORPION:
 #if defined(ZX_SMALL) && !defined(ESP_PLATFORM)
-        return 8;               // the RP2040
+        return 8;               // the RP2040: the upper 128K sparse (zxclone.c)
 #else
         return 16;
 #endif
@@ -503,6 +503,7 @@ static int pages_wanted(zx_model_t model)
 static void free_machine(zxspec *m)
 {
     for (int b = 0; b < ZX_MAX_PAGES; b++) free(m->ram[b]);
+    zxclone_sparse_free(m);
     free(m->pic);
     free(m->if2_rom);
     zt_free(&m->tape);
@@ -560,6 +561,8 @@ zxspec *zxspec_create(zx_model_t model)
             m->ram[b] = NULL;
         }
         m->ram_pages = pages;
+        // the Scorpion's BIOS needs its 256K: what did not fit, sparse
+        if (model == ZX_SCORPION && pages < 16 && zxclone_sparse_init(m)) m->ram_pages = 16;
     }
 
     switch (m->kind) {
