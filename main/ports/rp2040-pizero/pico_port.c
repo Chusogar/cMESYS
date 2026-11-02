@@ -439,6 +439,18 @@ void pico_port_frame_done(void)
     stat_frames++;
 #ifdef PICO_EMU_TEST
     if (stat_frames % 10 == 0) printf("frame %u at %u ms\n", (unsigned)stat_frames, (unsigned)(now / 1000));
+    if (stat_frames % 50 == 0 && cfg.render) {
+        // what core 1 would spend drawing one picture (the HDMI's budget:
+        // 240 rows in ~15 ms at 252 MHz, ~45 us a row with the TMDS encode)
+        uint64_t t0 = time_us_64();
+        for (int y = 0; y < PICO_H; y += PICO_BAND) cfg.render(cfg.user, y, PICO_BAND, band_buf);
+        uint64_t t1 = time_us_64();
+        uint32_t *tmds = (uint32_t *)dma_buf;    // (scratch: 2 x 1 KB, enough for one channel)
+        for (int y = 0; y < PICO_H; y++)
+            tmds_encode_data_channel_16bpp((const uint32_t *)band_buf, tmds, PICO_W / 2, DVI_16BPP_BLUE_MSB, DVI_16BPP_BLUE_LSB);
+        printf("render: %u us a picture, TMDS (1 channel, half row): %u us\n", (unsigned)(t1 - t0),
+               (unsigned)(time_us_64() - t1));
+    }
     if (0) {
 #else
     if (now - stat_t >= 5000000) {
