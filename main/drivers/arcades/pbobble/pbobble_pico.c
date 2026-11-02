@@ -53,7 +53,7 @@ static inline uint16_t colour(const uint16_t *p, int i)
 }
 static int16_t audio[1200];
 
-static void render(void *user, int y, int n, uint16_t *out)
+static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 {
     (void)user;
     int top = y - Y0, i = 0;

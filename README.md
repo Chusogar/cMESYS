@@ -389,7 +389,7 @@ Firmware para la [Waveshare RP2040-PiZero](https://www.waveshare.com/wiki/RP2040
 
 | Función | Conexión | Notas |
 |---|---|---|
-| HDMI | D0 26/27, D1 24/25, D2 22/23, CLK 28/29 | 640x480 a 60 Hz desde una imagen de 320x240 (cada píxel doble). No hay frame buffer: el núcleo 1 le pide al juego su imagen por franjas de 4 líneas (2 en OutRun y Puzzle Bobble) mientras salen y las codifica en TMDS. Si una franja no llega a tiempo sale una línea roja; la emulación nunca espera a la pantalla |
+| HDMI | D0 26/27, D1 24/25, D2 22/23, CLK 28/29 | 640x480 a 60 Hz desde una imagen de 320x240 (cada píxel doble). No hay frame buffer: el núcleo 1 le pide al juego su imagen por franjas de 4 líneas (2 en OutRun y Puzzle Bobble) mientras salen y las codifica en TMDS. Si una franja no llega a tiempo sale una línea roja. Todo lo que hace el núcleo 1 está en RAM; las ROM gráficas se leen de la flash, que comparte con el núcleo 0 (un 68000 la usa sin parar), así que cuando le quedan pocas líneas preparadas el núcleo 1 para al núcleo 0 un momento (una interrupción que espera desde la RAM) hasta ponerse al día: la imagen tiene prioridad sobre la velocidad del juego |
 | Mandos | puerto USB-C nativo (marcado USB) | teclado USB y/o mando HID, también por un hub; alimenta la placa y el mando con un cable OTG / Y |
 | Sonido | GPIO4 | PWM de 10 bits, mono; pon un filtro RC (p. ej. 1 kΩ + 10 nF) antes del amplificador |
 | microSD | ranura de la placa: SPI0 SCK 18, MOSI 19, MISO 20, CS 21 | FAT16/FAT32; la usan el QL y los Spectrum |

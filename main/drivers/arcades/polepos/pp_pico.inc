@@ -20,7 +20,7 @@ static pp_core core;
 static uint16_t pal[128];
 static int16_t abuf[1024];
 
-static void render(void *user, int y, int n, uint16_t *out)
+static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 {
     (void)user;
     uint8_t row[PP_W];

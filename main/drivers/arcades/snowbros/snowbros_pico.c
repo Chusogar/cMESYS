@@ -45,7 +45,7 @@ static uint16_t pal[256];
 static sb_video_t snap;
 static int16_t audio[1024];
 
-static void render(void *user, int y, int n, uint16_t *out)
+static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 {
     (void)user;
     for (int i = 0; i < n; i++, out += PICO_W) {

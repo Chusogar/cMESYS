@@ -54,6 +54,7 @@ set(M68K ${M}/cpu/m68k/m68kcpu.c ${M}/cpu/m68k/m68kops.c ${M}/cpu/m68k/m68kopac.
 # RP2040's 16 KB flash cache cannot hold an emulator: every miss stalls the
 # core), and the rows core 1 renders at a time.
 set(BAND 4)
+set(TMDS_SLACK 2)                   # TMDS rows beyond a band (3.75 KB each)
 if(GAME STREQUAL "indytemp" OR GAME STREQUAL "roadrunn")
     set(SRCS ${D}/${GAME}_pico.c ${AS1}/atarisy1_core.c ${D}/rom_data.c ${M68K}
              ${M}/sound/ym2151.c ${M}/sound/pokey.c ${M}/sound/tms5220.c ${M}/machine/via6522.c
@@ -69,9 +70,10 @@ elseif(GAME STREQUAL "outrun")
     set(SRCS ${D}/outrun_pico.c ${D}/or_core.c ${D}/or_video.c ${D}/or_sound.c ${D}/rom_data.c ${M68K}
              ${M}/cpu/z80/z80.c ${M}/sound/ym2151.c ${M}/sound/segapcm.c ${M}/machine/sega_315_5195.c)
     set(DEFS M68K_FLASH_TABLES)
-    set(RAM_CODE m68kcpu.c.o)
+    set(RAM_CODE m68kcpu.c.o or_video.c.o)
     set(HOT_MAX 100)                # (RAM: 128 KB of the board's RAM + the sound board)
     set(BAND 2)
+    set(TMDS_SLACK 0)               # (its heap is nearly all the game's)
 elseif(GAME STREQUAL "snowbros")
     set(SRCS ${D}/snowbros_pico.c ${D}/sb_core.c ${D}/rom_data.c ${M68K}
              ${M}/cpu/z80/z80.c ${M}/sound/emu8950/emu8950.c ${M}/sound/emu8950/emuadpcm.c)
@@ -86,19 +88,21 @@ elseif(GAME STREQUAL "pbobble")
     set(SRCS ${D}/pbobble_pico.c ${D}/pb_core.c ${D}/rom_data.c ${M68K} ${M}/cpu/z80/z80.c
              ${M}/sound/ym2610.c ${M}/machine/tc0140syt.c ${M}/machine/eeprom93c46.c ${M}/video/tc0180vcu.c)
     set(DEFS M68K_FLASH_TABLES)
-    set(RAM_CODE m68kcpu.c.o)
+    set(RAM_CODE m68kcpu.c.o tc0180vcu.c.o)
     set(BAND 2)                     # (RAM: 64 KB work RAM + 64 KB tile RAM + ...)
+    set(TMDS_SLACK 0)
 elseif(GAME STREQUAL "retofinv")
     set(SRCS ${D}/retofinv_pico.c ${D}/rv_core.c ${D}/rv_video.c ${D}/rom_data.c ${M}/cpu/z80/z80.c
              ${M}/cpu/m6805/m6805.c ${M}/machine/taito68705.c ${M}/sound/sn76489.c)
     set(DEFS)
     set(RAM_CODE z80.c.o rv_core.c.o rv_video.c.o m6805.c.o taito68705.c.o sn76489.c.o)
+    set(BAND 8)                     # (its picture is drawn in strips of native columns)
 elseif(GAME STREQUAL "robocop")
     set(SRCS ${D}/robocop_pico.c ${D}/rc_core.c ${D}/rc_video.c ${D}/rc_sound.c ${D}/rom_data.c ${M68K}
              ${M}/cpu/h6280/h6280.c ${M}/sound/ym2610.c ${M}/sound/okim6295.c
              ${M}/sound/emu8950/emu8950.c ${M}/sound/emu8950/emuadpcm.c)
     set(DEFS M68K_FLASH_TABLES)
-    set(RAM_CODE m68kcpu.c.o rc_core.c.o rc_sound.c.o ym2610.c.o emu8950.c.o)
+    set(RAM_CODE m68kcpu.c.o rc_core.c.o rc_video.c.o rc_sound.c.o ym2610.c.o emu8950.c.o)
 elseif(GAME STREQUAL "polepos" OR GAME STREQUAL "polepos2")
     # core in polepos/, shared; the Z8002's helpers and busiest handlers go to
     # RAM through cpu/z8002/z8002_hot.h (.time_critical), not the whole core
@@ -156,10 +160,12 @@ set(EXE ${GAME}_pizero)
 add_executable(${EXE} ${SRCS} ${PORT_DIR}/pico_port.c)
 target_include_directories(${EXE} PRIVATE ${PORT_DIR} ${D} ${AS1} ${QL_DIR} ${M}/drivers/arcades/polepos ${M}/cpu ${M}/cpu/m68k ${M}/cpu/m6502
     ${M}/cpu/mc6809 ${M}/cpu/mcs48 ${M}/cpu/z80 ${M}/sound ${M}/machine ${M}/video)
-math(EXPR NBUF "${BAND} + 2")
+# TMDS rows: a band, the one on screen, the one being freed and the slack
+math(EXPR NBUF "${BAND} + 2 + ${TMDS_SLACK}")
 target_compile_definitions(${EXE} PRIVATE ${DEFS} NDEBUG PICO_BAND=${BAND}
     DVI_VERTICAL_REPEAT=2 DVI_N_TMDS_BUFFERS=${NBUF}
     PICO_MALLOC_PANIC=0 RENDER_NO_OWN_BUFFERS
+    PICO_MEM_IN_RAM=1 PICO_DIVIDER_IN_RAM=1   # (core 1 draws with memset / divisions: not from flash)
     PICO_STACK_SIZE=0x1000 PICO_CORE1_STACK_SIZE=0xE00)
 if(DEFINED QL_AUDIO_PIN)
     target_compile_definitions(${EXE} PRIVATE PICO_AUDIO_PIN=${QL_AUDIO_PIN})

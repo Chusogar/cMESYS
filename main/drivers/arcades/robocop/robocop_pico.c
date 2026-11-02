@@ -39,7 +39,7 @@ static void on_frame(void *user, rc_core *c)
     }
 }
 
-static void render(void *user, int y, int n, uint16_t *out)
+static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 {
     (void)user;
     rc_render(&vframe, shown_sprites, &core.roms, y, y + n, cband, pband);

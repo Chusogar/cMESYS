@@ -49,6 +49,42 @@ static const struct dvi_serialiser_cfg pizero_dvi = {
 static uint16_t band_buf[PICO_BAND * PICO_W] __attribute__((aligned(4)));
 static volatile bool video_on;
 
+// Core 1 has to hand the HDMI each row in time (a 320-pixel row every
+// 63.5 us), and the games draw from their ROMs in flash. Flash is one bus
+// through a 16 KB cache shared by both cores, and core 0 can keep it busy
+// (a 68000 reads its program, its opcode tables and most of its handlers
+// from it): then core 1 is late and PicoDVI sends red lines. So when few
+// encoded rows are left in the queue, core 1 holds core 0 (an interrupt
+// that waits from RAM, not touching flash) until it has caught up. A game
+// that draws in time never holds it.
+#define HOLD_BELOW 2                // queued rows: hold core 0 below this...
+#define RELEASE_AT (DVI_N_TMDS_BUFFERS > 5 ? DVI_N_TMDS_BUFFERS - 3 : 2)   // ...and let it go at this many
+                                    // (one buffer is on screen, one being freed)
+static volatile bool core0_hold;
+
+static void __not_in_flash_func(core0_hold_irq)(void)
+{
+    while (multicore_fifo_rvalid()) (void)sio_hw->fifo_rd;
+    multicore_fifo_clear_irq();
+    while (core0_hold) __wfe();
+}
+
+static inline void __not_in_flash_func(hold_core0)(void)
+{
+    if (core0_hold) return;
+    core0_hold = true;
+    __dmb();
+    if (multicore_fifo_wready()) sio_hw->fifo_wr = 1;
+}
+
+static inline void __not_in_flash_func(release_core0)(void)
+{
+    if (!core0_hold) return;
+    core0_hold = false;
+    __dmb();
+    __sev();
+}
+
 static void __not_in_flash_func(core1_main)(void)
 {
     dvi_register_irqs_this_core(&dvi, DMA_IRQ_0);
@@ -57,10 +93,12 @@ static void __not_in_flash_func(core1_main)(void)
     for (;;) {
         for (int y = 0; y < PICO_H; y += PICO_BAND) {
             int n = PICO_H - y < PICO_BAND ? PICO_H - y : PICO_BAND;
+            if (queue_get_level(&dvi.q_tmds_valid) < HOLD_BELOW) hold_core0();
             if (video_on && cfg.render) cfg.render(cfg.user, y, n, band_buf);
             else for (int i = 0; i < n * PICO_W; i++) band_buf[i] = 0;
             for (int i = 0; i < n; i++) {
                 uint32_t *tmds;
+                if (queue_get_level(&dvi.q_tmds_valid) < HOLD_BELOW) hold_core0();
                 queue_remove_blocking_u32(&dvi.q_tmds_free, &tmds);
                 const uint32_t *pix = (const uint32_t *)(band_buf + i * PICO_W);
                 tmds_encode_data_channel_16bpp(pix, tmds + 0 * words, PICO_W, DVI_16BPP_BLUE_MSB, DVI_16BPP_BLUE_LSB);
@@ -68,6 +106,7 @@ static void __not_in_flash_func(core1_main)(void)
                 tmds_encode_data_channel_16bpp(pix, tmds + 2 * words, PICO_W, DVI_16BPP_RED_MSB, DVI_16BPP_RED_LSB);
                 queue_add_blocking_u32(&dvi.q_tmds_valid, &tmds);
             }
+            if (queue_get_level(&dvi.q_tmds_valid) >= RELEASE_AT) release_core0();
         }
     }
 }
@@ -80,7 +119,14 @@ static void video_init(void)
     dvi_init(&dvi, next_striped_spin_lock_num(), next_striped_spin_lock_num());
     // core 1 must not wait for the bus behind core 0
     hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
-    multicore_launch_core1(core1_main);      // on its stack in SCRATCH_X (PICO_CORE1_STACK_SIZE)
+    multicore_launch_core1(core1_main);
+    // core 1 holds core 0 through the FIFO (see core0_hold_irq): lowest
+    // priority, so the sound's DMA interrupt still runs while it waits
+    multicore_fifo_drain();
+    multicore_fifo_clear_irq();
+    irq_set_exclusive_handler(SIO_IRQ_PROC0, core0_hold_irq);
+    irq_set_priority(SIO_IRQ_PROC0, PICO_LOWEST_IRQ_PRIORITY);
+    irq_set_enabled(SIO_IRQ_PROC0, true);      // on its stack in SCRATCH_X (PICO_CORE1_STACK_SIZE)
 }
 
 // ---------------------------------------------------------------------------
