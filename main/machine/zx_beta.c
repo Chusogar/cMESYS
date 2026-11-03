@@ -203,7 +203,7 @@ oom:
 // ---------------------------------------------------------------------------
 // WD1793 (wd1793.cpp)
 // ---------------------------------------------------------------------------
-enum { K_BUSY = 0x01, K_DRQ = 0x02, K_TRACK0 = 0x04, K_RNF = 0x10, K_WP = 0x40, K_NOTREADY = 0x80 };
+enum { K_BUSY = 0x01, K_DRQ = 0x02, K_TRACK0 = 0x04, K_LOST = 0x04, K_RNF = 0x10, K_WP = 0x40, K_NOTREADY = 0x80 };
 
 static void wd_reset(zx_beta *b)
 {
@@ -238,6 +238,21 @@ static void complete_io(zx_beta *b, bool rnf)
     b->intrq = true;
     b->writing = false;
     b->status = rnf ? K_RNF : 0;
+}
+
+// A WD1793 does not wait for the CPU: a byte not taken in time is lost and
+// the command still ends (INTRQ). Here the data waits as long as needed, so
+// a program that polls the status with a read or write command pending and
+// never moves its bytes (TR-DOS waiting for INTRQ after a mistyped command,
+// as the Bruce Lee loader makes it do) would wait forever: after enough
+// polls the command ends with LOST DATA, as on the real controller.
+#define LOST_AFTER_POLLS 64
+static void poll_pending(zx_beta *b)
+{
+    if (!b->drq || b->type1) return;
+    if (++b->idle_polls < LOST_AFTER_POLLS) return;
+    complete_io(b, false);
+    b->status = K_LOST;
 }
 
 static void start_read_sector(zx_beta *b)
@@ -296,6 +311,7 @@ static void start_read_address(zx_beta *b)
 
 static uint8_t wd_status_r(zx_beta *b)
 {
+    poll_pending(b);
     uint8_t value = 0;
     if (!ready(b)) value |= K_NOTREADY;
     if (b->busy) value |= K_BUSY;
@@ -308,12 +324,14 @@ static uint8_t wd_status_r(zx_beta *b)
         if (b->drq) value |= K_DRQ;
         if (b->status & K_RNF) value |= K_RNF;
         if (b->status & K_WP) value |= K_WP;
+        if (b->status & K_LOST) value |= K_LOST;
     }
     return value;
 }
 
 static void wd_command_w(zx_beta *b, uint8_t value)
 {
+    b->idle_polls = 0;
     b->command = value;
     b->intrq = false;
     const uint8_t type = (uint8_t)(value & 0xf0);
@@ -347,6 +365,7 @@ static void wd_command_w(zx_beta *b, uint8_t value)
 
 static uint8_t wd_data_r(zx_beta *b)
 {
+    b->idle_polls = 0;
     if (!b->drq || b->buf_pos >= b->buf_len) return b->data;
     b->data = b->buf[b->buf_pos++];
     if (b->buf_pos >= b->buf_len) {
@@ -363,6 +382,7 @@ static uint8_t wd_data_r(zx_beta *b)
 
 static void wd_data_w(zx_beta *b, uint8_t value)
 {
+    b->idle_polls = 0;
     b->data = value;
     if (!b->writing || !b->drq) return;
     if (b->buf_pos < b->buf_len) b->buf[b->buf_pos++] = value;
@@ -423,9 +443,10 @@ uint8_t zx_beta_track_r(zx_beta *b) { return b->active ? b->trk : 0xff; }
 uint8_t zx_beta_sector_r(zx_beta *b) { return b->active ? b->sec : 0xff; }
 uint8_t zx_beta_data_r(zx_beta *b) { return b->active ? wd_data_r(b) : 0xff; }
 
-uint8_t zx_beta_state_r(const zx_beta *b)
+uint8_t zx_beta_state_r(zx_beta *b)
 {
     if (!b->active) return 0xff;
+    poll_pending(b);
     uint8_t value = 0x3f;
     if (b->drq) value |= 0x40;
     if (b->intrq) value |= 0x80;

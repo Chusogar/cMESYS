@@ -26,6 +26,7 @@ typedef struct {
     bool drq, intrq, busy, type1, writing, index_pulse;
     uint8_t buf[TRD_SECTOR];
     int buf_len, buf_pos;
+    int idle_polls;             // status reads with a byte waiting and none taken (lost data)
     // Beta 128
     bool active;
     uint8_t control;
@@ -45,7 +46,7 @@ uint8_t zx_beta_status_r(zx_beta *b);
 uint8_t zx_beta_track_r(zx_beta *b);
 uint8_t zx_beta_sector_r(zx_beta *b);
 uint8_t zx_beta_data_r(zx_beta *b);
-uint8_t zx_beta_state_r(const zx_beta *b);
+uint8_t zx_beta_state_r(zx_beta *b);
 void zx_beta_command_w(zx_beta *b, uint8_t v);
 void zx_beta_track_w(zx_beta *b, uint8_t v);
 void zx_beta_sector_w(zx_beta *b, uint8_t v);

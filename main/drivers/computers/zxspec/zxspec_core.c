@@ -418,13 +418,21 @@ static void run_rzx_frame(zxspec *m)
 {
     if (!zx_rzx_begin_frame(&m->rzx)) return;
     frame_begin(m);
-    zd_set_irq(&m->cpu, ZD_HOLD, 0xff);
-    // until the frame's fetch budget is spent (one interrupt per RZX frame)
-    int safety = m->t_frame * 4;
-    while (m->rzx.fetches_left > 0 && safety-- > 0) {
-        if (zd_run(&m->cpu, 1) <= 0) break;
-        if (m->frame_t >= 32) zd_set_irq(&m->cpu, ZD_CLEAR, 0xff);
+    // The frame's interrupt comes when the last frame's fetch count runs
+    // out, as the recording emulators (Fuse, SPIN) play it: taken there and
+    // then if IFF1 is set, even right after an EI, and lost if it is not (no
+    // 32 T-state window: with one, a recording drifts out of step, e.g. a
+    // BASIC game that reads the keyboard with interrupts off half the time)
+    if (m->cpu.iff1) {
+        m->cpu.after_ei = false;
+        zd_set_irq(&m->cpu, ZD_HOLD, 0xff);
+        zd_run(&m->cpu, 1);
+        zd_set_irq(&m->cpu, ZD_CLEAR, 0xff);
     }
+    // until the frame's fetch budget is spent
+    int safety = m->t_frame * 4;
+    while (m->rzx.fetches_left > 0 && safety-- > 0)
+        if (zd_run(&m->cpu, 1) <= 0) break;
     zx_finish_frame(m);
 }
 
