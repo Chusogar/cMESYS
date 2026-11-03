@@ -22,13 +22,18 @@ static void on_frame(void *user, rv_core *c)
     rv_get_video(c, &shown);
 }
 
-static void render(void *user, int y, int n, uint16_t *out)
+// The band's native columns in one call (a call draws every tile and sprite
+// clipped to its columns: once a row was 4-8 times the work)
+#define RV_BAND_ROWS (PICO_BAND * RV_H / PICO_H + 2)
+static uint8_t rows[RV_BAND_ROWS][RV_W];
+
+static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 {
     (void)user;
-    uint8_t row[RV_W];
+    const int s0 = y * RV_H / PICO_H, s1 = (y + n - 1) * RV_H / PICO_H + 1;
+    rv_render(&shown, s0, s1, rows[0]);
     for (int i = 0; i < n; i++, out += PICO_W) {
-        int sy = (y + i) * RV_H / PICO_H;
-        rv_render(&shown, sy, sy + 1, row);
+        const uint8_t *row = rows[(y + i) * RV_H / PICO_H - s0];
         pico_fill(out, X0, 0);
         for (int x = 0; x < RV_W; x++) out[X0 + x] = pal[row[x]];
         pico_fill(out + X0 + RV_W, PICO_W - X0 - RV_W, 0);

@@ -389,7 +389,7 @@ Firmware para la [Waveshare RP2040-PiZero](https://www.waveshare.com/wiki/RP2040
 
 | Función | Conexión | Notas |
 |---|---|---|
-| HDMI | D0 26/27, D1 24/25, D2 22/23, CLK 28/29 | 640x480 a 60 Hz desde una imagen de 320x240 (cada píxel doble). No hay frame buffer: el núcleo 1 le pide al juego su imagen por franjas de 4 líneas (2 en OutRun y Puzzle Bobble) mientras salen y las codifica en TMDS. Si una franja no llega a tiempo sale una línea roja; la emulación nunca espera a la pantalla |
+| HDMI | D0 26/27, D1 24/25, D2 22/23, CLK 28/29 | 640x480 a 60 Hz desde una imagen de 320x240 (cada píxel doble). No hay frame buffer: el núcleo 1 le pide al juego su imagen por franjas de 4 líneas (2 en OutRun y Puzzle Bobble) mientras salen y las codifica en TMDS. Si una franja no llega a tiempo sale una línea roja. Todo lo que hace el núcleo 1 está en RAM; las ROM gráficas se leen de la flash, que comparte con el núcleo 0 (un 68000 la usa sin parar), así que cuando le quedan pocas líneas preparadas el núcleo 1 para al núcleo 0 un momento (una interrupción que espera desde la RAM) hasta ponerse al día: la imagen tiene prioridad sobre la velocidad del juego |
 | Mandos | puerto USB-C nativo (marcado USB) | teclado USB y/o mando HID, también por un hub; alimenta la placa y el mando con un cable OTG / Y |
 | Sonido | GPIO4 | PWM de 10 bits, mono; pon un filtro RC (p. ej. 1 kΩ + 10 nF) antes del amplificador |
 | microSD | ranura de la placa: SPI0 SCK 18, MOSI 19, MISO 20, CS 21 | FAT16/FAT32; la usan el QL y los Spectrum |
@@ -397,7 +397,7 @@ Firmware para la [Waveshare RP2040-PiZero](https://www.waveshare.com/wiki/RP2040
 
 Teclas (teclado USB): `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset. Mando: cruceta o stick, A/B/X = botones 1/2/3, SELECT moneda, START start, SELECT+START reset. Cada juego usa los mismos botones que en el escritorio. En la imagen: los de 336 de ancho (Indy, Road Runner, Gauntlet) muestran las 320 columnas centrales; Return of the Invaders (224x288, vertical) quita una de cada 6 líneas; el resto va centrado.
 
-**Sinclair QL**: el teclado USB es el del QL (Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1** monta / desmonta el cartucho actual; **F9** abre el menú (microSD FAT: `.mdv` en la raíz; cartucho del firmware; eyectar) por el UART. **F6** es el F1 del QL, F11 cambia la vista, F12 reinicia. Audio PWM en GPIO4; microSD en la ranura de la placa. Mando: cursores, A = ESPACIO, B = ENTER.
+**Sinclair QL**: la RP2040 no llega a la velocidad del QL (unos 20 frames/s de 50): la pantalla «F1...monitor / F2...TV» tarda unos 5 s en salir, en negro hasta entonces. La imagen entera (512x256 promediada a 320x240) la dibuja el núcleo 1 mientras sale por el HDMI, con tablas por planos de color desde la RAM. El teclado USB es el del QL (Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1** monta / desmonta el cartucho actual; **F9** abre el menú (microSD FAT: `.mdv` en la raíz; cartucho del firmware; eyectar) por el UART. **F6** es el F1 del QL, F11 cambia la vista, F12 reinicia. Audio PWM en GPIO4; microSD en la ranura de la placa. Mando: cursores, A = ESPACIO, B = ENTER.
 
 **ZX Spectrum / clones**: teclado USB = matriz Spectrum. **F1**/**F6** cinta play/pausa, **F9** menú microSD (todos los formatos), **F3** reset, **F5** botón mágico, **F12 TURBO** (sin sonido ni límite de velocidad). Audio PWM en GPIO4; microSD en la ranura de la placa. Mando = Kempston.
 

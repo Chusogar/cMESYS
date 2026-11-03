@@ -28,7 +28,7 @@ static void on_frame(void *user, gt_core *c)
     }
 }
 
-static void render(void *user, int y, int n, uint16_t *out)
+static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 {
     (void)user;
     gt_compose(&rend, &core.roms, &core.v, y, y + n, cband);
