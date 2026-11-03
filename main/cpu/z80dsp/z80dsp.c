@@ -210,6 +210,10 @@ static inline void set_af(zd_z80 *z, uint16_t v) { z->a = (uint8_t)(v >> 8); z->
 static inline void bump_r_m1(zd_z80 *z)
 {
     z->r = (uint8_t)(((z->r + 1) & 0x7f) | (z->r & 0x80));
+    if (z->refetch) {           // (fetched twice here, one M1 on the chip)
+        z->refetch = false;
+        return;
+    }
     if (z->m1) z->m1(z->user);
 }
 
@@ -825,6 +829,7 @@ static void exec_index(zd_z80 *z, uint16_t *index_reg)
             // and keep interrupts out between the prefix and the opcode.
             z->pc = (uint16_t)(z->pc - 1);
             z->r = (uint8_t)(((z->r - 1) & 0x7f) | (z->r & 0x80));
+            z->refetch = true;  // its M1 (the RZX fetch count) was counted above
             z->after_ei = true;
         }
         break;
@@ -1153,6 +1158,7 @@ void zd_reset(zd_z80 *z)
     z->iff1 = z->iff2 = false;
     z->halted = false;
     z->after_ei = false;
+    z->refetch = false;
     z->irq_state = ZD_CLEAR;
     z->nmi_state = ZD_CLEAR;
     z->nmi_latched = false;

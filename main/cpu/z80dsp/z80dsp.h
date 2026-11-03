@@ -34,6 +34,7 @@ struct zd_z80 {
 
     // private
     bool fetching_opcode, after_ei, nmi_latched;
+    bool refetch;        // the opcode after an ignored DD/FD prefix: its M1 was already counted
     int t_in_instr;      // base T-states elapsed inside the current instruction
     int cycles_, executed;
     uint8_t irq_state, nmi_state, irq_vector;
