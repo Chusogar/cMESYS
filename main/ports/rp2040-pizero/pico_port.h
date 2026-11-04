@@ -71,6 +71,16 @@ int pico_port_next_press(void);
 // emulation at the real speed (when there is no sound: at cfg.fps).
 void pico_port_audio(const int16_t *samples, int n);
 void pico_port_frame_done(void);            // counts frames, paces without sound, logs fps
+// On-screen text over the whole picture (the computers' media menus):
+// PICO_OSD_ROWS lines of PICO_OSD_COLS characters (5x7 font, upper case).
+#define PICO_OSD_COLS 52
+#define PICO_OSD_ROWS 30
+void pico_osd_show(bool on);
+void pico_osd_clear(void);
+void pico_osd_text(int row, const char *text, bool highlight);
+// A list with a title, the selected item highlighted and kept in view, and
+// a line of help at the bottom (clears the screen first).
+void pico_osd_list(const char *title, const char *const *items, int n, int sel, const char *help);
 // A colour in the picture's format (for palettes)
 static inline uint16_t pico_rgb565(uint8_t r, uint8_t g, uint8_t b)
 {

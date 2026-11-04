@@ -8,7 +8,6 @@
 //   F9   cartridge menu (microSD .mdv list / firmware / eject)
 //   F6   the QL's F1 (F2-F5 are the QL's)     F11  view     F12  reset
 //
-// Note: PWM audio is on GP22 for the QL build (GP4 is SD MISO on this board).
 #include <stdio.h>
 #include <string.h>
 #include "pico_port.h"
@@ -52,35 +51,57 @@ static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
     for (int i = 0; i < n; i++) ql_view_row(v, y + i, out + i * PICO_W);
 }
 
+// The cartridge menu on the screen (and on the UART log): the microSD's .mdv
+// files, the firmware's cartridge, eject, close
 static void cart_menu(void)
 {
     static ql_sd_entry files[QL_SD_MAX_FILES];      // (2.5 KB: not on the 4 KB task stack)
+    static const char *items[QL_SD_MAX_FILES + 3];
+    static char fw[PICO_OSD_COLS + 1], title[PICO_OSD_COLS + 1];
+    static const char help[] = "UP/DOWN  ENTER INSERT IN MDV1  ESC/F9 BACK";
     int nfiles = 0;
+    ql_keys_clear();
     bool sd_ok = ql_sd_mount();
     if (sd_ok) nfiles = ql_sd_list_mdv(files, QL_SD_MAX_FILES);
-    int n = nfiles + 3, sel = 0;
+    for (int i = 0; i < nfiles; i++) items[i] = files[i].name;
+    snprintf(fw, sizeof fw, "FIRMWARE: %s", ql_mdv_image ? ql_mdv_name : "(NONE)");
+    items[nfiles] = fw;
+    items[nfiles + 1] = "EJECT";
+    items[nfiles + 2] = "CLOSE";
+    const int n = nfiles + 3;
+    int sel = 0;
+    snprintf(title, sizeof title, "MDV1: %s%s", ql_cart_loaded(0) ? ql_cart_host_name() : "(EMPTY)",
+             sd_ok ? "" : "  - NO MICROSD CARD");
     printf("\n=== CARTRIDGE MENU (mdv1) ===\n");
-    printf("Now: %s\n", ql_cart_loaded(0) ? ql_cart_host_name() : "(empty)");
-    if (!sd_ok) printf("(no SD card)\n");
-    for (int i = 0; i < nfiles; i++) printf("  %2d  %s\n", i, files[i].name);
-    printf("  %2d  Firmware: %s\n", nfiles, ql_mdv_image ? ql_mdv_name : "(none)");
-    printf("  %2d  Eject\n", nfiles + 1);
-    printf("  %2d  Close\n", nfiles + 2);
-    printf("Arrows select, Enter confirm, Esc closes.\n> %d\n", sel);
+    for (int i = 0; i < n; i++) printf("  %2d  %s\n", i, items[i]);
+    pico_osd_list(title, items, n, sel, help);
+    pico_osd_show(true);
 
     for (;;) {
         pico_port_poll();
         int k;
         while ((k = pico_port_next_press()) >= 0) {
-            if (k == 0x52) { if (sel > 0) sel--; printf("> %d\n", sel); }       // Up
-            else if (k == 0x51) { if (sel < n - 1) sel++; printf("> %d\n", sel); } // Down
-            else if (k == 0x29 || k == 0x42) return;                               // Esc / F9
-            else if (k == 0x28 || k == 0x58) {                                     // Enter
+            if (k == 0x52 || k == 0x51 || k == 0x4b || k == 0x4e) {  // up / down / page up / page down
+                const int step = (k == 0x4b || k == 0x4e) ? PICO_OSD_ROWS - 4 : 1;
+                sel += (k == 0x52 || k == 0x4b) ? -step : step;
+                if (sel < 0) sel = 0;
+                if (sel > n - 1) sel = n - 1;
+                pico_osd_list(title, items, n, sel, help);
+            } else if (k == 0x29 || k == 0x42) {                                   // Esc / F9
+                pico_osd_show(false);
+                return;
+            } else if (k == 0x28 || k == 0x58) {                                   // Enter
                 if (sel < nfiles) {
+                    pico_osd_text(PICO_OSD_ROWS - 1, "LOADING...", true);
                     if (ql_sd_open(files[sel].name) &&
-                        ql_cart_host_load_reader(ql_sd_read_sector, NULL, files[sel].name))
+                        ql_cart_host_load_reader(ql_sd_read_sector, NULL, files[sel].name)) {
                         printf("mdv1: %s\n", files[sel].name);
-                    else { printf("load failed\n"); ql_sd_close(); continue; }
+                    } else {
+                        printf("load failed\n");
+                        ql_sd_close();
+                        pico_osd_text(PICO_OSD_ROWS - 1, "ERROR: NOT A CARTRIDGE (.MDV) OR SD ERROR", true);
+                        continue;
+                    }
                 } else if (sel == nfiles) {
                     ql_sd_close();
                     if (ql_cart_host_firmware()) printf("mdv1: %s\n", ql_mdv_name);
@@ -90,6 +111,7 @@ static void cart_menu(void)
                     ql_cart_host_eject();
                     printf("mdv1: empty\n");
                 }
+                pico_osd_show(false);
                 return;
             }
         }

@@ -1,4 +1,5 @@
-# Firmware for the Waveshare RP2040-PiZero (Pico SDK), one machine per build:
+# Firmware for the Waveshare RP2040-PiZero and RP2350-PiZero (Pico SDK), one
+# machine per build (-DPIZERO=2350 for the RP2350 board; build_pico2.sh):
 #
 #   tools/setup_pico.sh                                   (once: Pico SDK + PicoDVI)
 #   cmake -S main/ports/rp2040-pizero -B build/pico-robocop -DGAME=robocop
@@ -16,8 +17,16 @@ set(PICO_DEPS "${ROOT}/deps/pico" CACHE PATH "Pico SDK and PicoDVI (tools/setup_
 if(NOT PICO_SDK_PATH AND NOT DEFINED ENV{PICO_SDK_PATH})
     set(PICO_SDK_PATH "${PICO_DEPS}/pico-sdk")
 endif()
-set(PICO_PLATFORM rp2040 CACHE STRING "Pico platform")
-set(PICO_BOARD waveshare_rp2040_pizero CACHE STRING "Board")
+set(PIZERO 2040 CACHE STRING "Board: 2040 (RP2040-PiZero) or 2350 (RP2350-PiZero)")
+if(PIZERO STREQUAL "2350")
+    set(PICO_PLATFORM rp2350-arm-s CACHE STRING "Pico platform")
+    set(PICO_BOARD cmesys_rp2350_pizero CACHE STRING "Board")
+    set(PICO_BOARD_HEADER_DIRS "${PORT_DIR}/boards")
+    set(PICO_PIO_USB_PATH "${PICO_DEPS}/Pico-PIO-USB")
+else()
+    set(PICO_PLATFORM rp2040 CACHE STRING "Pico platform")
+    set(PICO_BOARD waveshare_rp2040_pizero CACHE STRING "Board")
+endif()
 
 include(${PORT_DIR}/pico_sdk_import.cmake)
 project(cmesys_pizero C CXX ASM)
@@ -157,6 +166,13 @@ if(LF AND DEFS MATCHES "M68K_FLASH_TABLES")
 endif()
 
 set(EXE ${GAME}_pizero)
+if(PIZERO STREQUAL "2350")
+    # RP2350: PSRAM heap, whole frame buffers (no rows drawn against the
+    # clock), a few TMDS rows of slack
+    list(APPEND SRCS ${PORT_DIR}/rp2350/psram.c ${PORT_DIR}/rp2350/heap.c)
+    set(BAND 2)
+    set(TMDS_SLACK 4)
+endif()
 add_executable(${EXE} ${SRCS} ${PORT_DIR}/pico_port.c)
 target_include_directories(${EXE} PRIVATE ${PORT_DIR} ${D} ${AS1} ${QL_DIR} ${M}/drivers/arcades/polepos ${M}/cpu ${M}/cpu/m68k ${M}/cpu/m6502
     ${M}/cpu/mc6809 ${M}/cpu/mcs48 ${M}/cpu/z80 ${M}/sound ${M}/machine ${M}/video)
@@ -176,9 +192,17 @@ target_compile_options(${EXE} PRIVATE -O2 -Wno-unused-variable -Wno-unused-funct
 set_source_files_properties(${PORT_DIR}/pico_port.c PROPERTIES COMPILE_OPTIONS -fno-tree-loop-distribute-patterns)
 target_link_libraries(${EXE} PRIVATE pico_stdlib pico_multicore pico_sync hardware_dma hardware_pio
     hardware_pwm hardware_clocks hardware_vreg hardware_interp hardware_spi libdvi tinyusb_host)
+if(PIZERO STREQUAL "2350")
+    target_compile_definitions(${EXE} PRIVATE PICO_PIO_USE_GPIO_BASE=1 PIO_USB_DP_PIN_DEFAULT=28)
+    target_link_libraries(${EXE} PRIVATE tinyusb_pico_pio_usb pico_flash)
+endif()
 
 # Linker script: the SDK's, with the RAM_CODE objects' .text moved to RAM.
-file(READ ${PICO_SDK_PATH}/src/rp2_common/pico_crt0/rp2040/memmap_default.ld ld)
+if(PIZERO STREQUAL "2350")
+    file(READ ${PICO_SDK_PATH}/src/rp2_common/pico_crt0/rp2350/memmap_default.ld ld)
+else()
+    file(READ ${PICO_SDK_PATH}/src/rp2_common/pico_crt0/rp2040/memmap_default.ld ld)
+endif()
 set(excl "")
 foreach(o IN LISTS RAM_CODE)
     string(APPEND excl " *${o}")

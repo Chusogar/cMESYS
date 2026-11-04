@@ -117,3 +117,24 @@ void pico_port_frame_done(void)
         exit(0);
     }
 }
+
+// On-screen text: kept as text, printed when shown (the host has no HDMI)
+static char osd[PICO_OSD_ROWS][PICO_OSD_COLS + 1];
+void pico_osd_clear(void) { memset(osd, 0, sizeof osd); }
+void pico_osd_text(int row, const char *text, bool highlight)
+{
+    if (row < 0 || row >= PICO_OSD_ROWS) return;
+    snprintf(osd[row], sizeof osd[row], "%s%s", highlight ? ">" : "", text);
+}
+void pico_osd_show(bool on)
+{
+    if (!on) return;
+    for (int r = 0; r < PICO_OSD_ROWS; r++) if (osd[r][0]) printf("osd %2d: %s\n", r, osd[r]);
+}
+void pico_osd_list(const char *title, const char *const *items, int n, int sel, const char *help)
+{
+    pico_osd_clear();
+    pico_osd_text(0, title, false);
+    for (int i = 0; i < n && i < PICO_OSD_ROWS - 4; i++) pico_osd_text(2 + i, items[i], i == sel);
+    if (help) pico_osd_text(PICO_OSD_ROWS - 1, help, false);
+}

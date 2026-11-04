@@ -397,9 +397,9 @@ Firmware para la [Waveshare RP2040-PiZero](https://www.waveshare.com/wiki/RP2040
 
 Teclas (teclado USB): `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset. Mando: cruceta o stick, A/B/X = botones 1/2/3, SELECT moneda, START start, SELECT+START reset. Cada juego usa los mismos botones que en el escritorio. En la imagen: los de 336 de ancho (Indy, Road Runner, Gauntlet) muestran las 320 columnas centrales; Return of the Invaders (224x288, vertical) quita una de cada 6 líneas; el resto va centrado.
 
-**Sinclair QL**: la RP2040 no llega a la velocidad del QL (unos 20 frames/s de 50): la pantalla «F1...monitor / F2...TV» tarda unos 5 s en salir, en negro hasta entonces. La imagen entera (512x256 promediada a 320x240) la dibuja el núcleo 1 mientras sale por el HDMI, con tablas por planos de color desde la RAM. El teclado USB es el del QL (Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1** monta / desmonta el cartucho actual; **F9** abre el menú (microSD FAT: `.mdv` en la raíz; cartucho del firmware; eyectar) por el UART. **F6** es el F1 del QL, F11 cambia la vista, F12 reinicia. Audio PWM en GPIO4; microSD en la ranura de la placa. Mando: cursores, A = ESPACIO, B = ENTER.
+**Sinclair QL**: la RP2040 no llega a la velocidad del QL (unos 20 frames/s de 50): la pantalla «F1...monitor / F2...TV» tarda unos 5 s en salir, en negro hasta entonces. La imagen entera (512x256 promediada a 320x240) la dibuja el núcleo 1 mientras sale por el HDMI, con tablas por planos de color desde la RAM. El teclado USB es el del QL (Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1** monta / desmonta el cartucho actual; **F9** abre el menú en pantalla (microSD FAT: `.mdv` en la raíz o en `mdv/`; cartucho del firmware; eyectar; cursores, RePág/AvPág, Enter, Esc), también en el log del UART. **F6** es el F1 del QL, F11 cambia la vista, F12 reinicia. Audio PWM en GPIO4; microSD en la ranura de la placa. Mando: cursores, A = ESPACIO, B = ENTER.
 
-**ZX Spectrum / clones**: teclado USB = matriz Spectrum. **F1**/**F6** cinta play/pausa, **F9** menú microSD (todos los formatos), **F3** reset, **F5** botón mágico, **F12 TURBO** (sin sonido ni límite de velocidad). Audio PWM en GPIO4; microSD en la ranura de la placa. Mando = Kempston.
+**ZX Spectrum / clones**: teclado USB = matriz Spectrum. **F1**/**F6** cinta play/pausa, **F9** menú en pantalla con los ficheros de la microSD (todos los formatos; cursores, RePág/AvPág, Enter carga, Esc vuelve; si no carga, dice por qué), cinta play/pausa y TURBO, **F3** reset, **F5** botón mágico, **F12 TURBO** (sin sonido ni límite de velocidad). Audio PWM en GPIO4; microSD en la ranura de la placa. Mando = Kempston.
 
 ### Compilar y flashear
 
@@ -436,6 +436,21 @@ El RP2040 (Cortex-M0+) es bastante más lento que el ESP32, así que las máquin
 
 - `make GAME=<juego> PORT=picohost` compila el frontend `<juego>_pico.c` para el PC con `tools/pico_host.c` (la misma API sin ventana): `PICO_FRAMES=1200 PICO_SHOT=600,1200 PICO_KEYS=1@300:10,4@400:10 build/picohost/<juego>` guarda `shot_600.ppm`… dibujados con el mismo callback que usa el núcleo 1 (y dice cuánta memoria pide el juego).
 - `cmake -S main/ports/rp2040-pizero -B build/picoemu-<juego> -DGAME=<juego> -DPICO_EMU_TEST=ON` hace un firmware para el simulador [rp2040js](https://github.com/wokwi/rp2040js) (un solo núcleo: sin HDMI, USB ni sonido) que escribe los frames por la UART.
+
+## RP2350-PiZero (HDMI)
+
+Firmware para la [Waveshare RP2350-PiZero](https://www.waveshare.com/wiki/RP2350-PiZero) (RP2350B, dos Cortex-M33 a 252 MHz, 520 KB de RAM, 8 MB de PSRAM, 16 MB de flash, HDMI): los mismos frontends `<juego>_pico.c` y `pico_port.c` que la RP2040 (`-DPIZERO=2350`), con lo que cambia en la placa tomado del puerto `rp2350-pizero` de dsp-cpp (pines, PSRAM, PIO-USB).
+
+| Función | Conexión | Notas |
+|---|---|---|
+| HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz desde una imagen de 320x240. Aquí la imagen se guarda entera (150 KB, y otra de 150 KB si cabe en la SRAM): el núcleo 1 manda al HDMI la imagen de delante y, en el tiempo que le sobra, dibuja con el mismo callback de la RP2040 la siguiente en la de atrás; se cambian arriba de la pantalla. Un juego que dibuja despacio enseña menos imágenes por segundo, nunca líneas rojas ni cortes. Si no caben dos (OutRun, Puzzle Bobble, el QL), dibuja sobre la que se ve: alguna línea de corte, como en el CYD |
+| Mandos | puerto PIO-USB: D+ 28, D- 29 | teclado USB y/o mando HID (también por un hub). El USB-C nativo es para alimentar y flashear |
+| Sonido | GPIO18 (pin 12 del conector de 40) | PWM de 10 bits, mono; filtro RC antes del amplificador |
+| microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL y los Spectrum cargan de ella con el menú en pantalla (F9) |
+| PSRAM | QMI CS1 = GPIO47 | APS6404L, 8 MB: el heap sigue en ella cuando se llena la SRAM |
+| Log | UART0: TX GPIO0 | 115200 baudios |
+
+Las teclas y los menús son los de la RP2040 (arriba). Para compilar: `tools/setup_pico.sh` (ahora también baja Pico-PIO-USB) y `./build_pico2.sh` (todas) o `./build_pico2.sh ql spectrum128` → `dist/<juego>_rp2350_pizero.uf2`. Para flashear: BOOT al enchufar el USB-C nativo, aparece la unidad `RP2350` y se copia el `.uf2`. **No está probado en una placa real** (como el de dsp-cpp): compila con el SDK 2.1.1, pero el simulador rp2040js no emula el RP2350.
 
 ## ROMs
 

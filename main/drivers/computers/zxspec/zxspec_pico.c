@@ -42,10 +42,13 @@ static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
         zxspec_render_row565(cpu_m, y + i, out + i * PICO_W);
 }
 
+static const char *load_why = "";
+
 static bool load_sd_name(const char *name)
 {
     const char *why = "";
     bool ok = zx_sd_load(cpu_m, name, &why);
+    load_why = why;
     if (ok) {
         snprintf(media_name, sizeof media_name, "%s", name);
         printf("media: %s\n", media_name);
@@ -55,44 +58,69 @@ static bool load_sd_name(const char *name)
     return ok;
 }
 
+// The menu on the screen (and on the UART log): the microSD's media files,
+// then tape play / pause, TURBO and close
 static void media_menu(void)
 {
     static const char *const exts[] = ZX_MEDIA_EXTS;
     static ql_sd_entry files[QL_SD_MAX_FILES];      // (2.5 KB: not on the 4 KB task stack)
+    static const char *items[QL_SD_MAX_FILES + 3];
+    static char title[PICO_OSD_COLS + 1];
     int nfiles = 0;
+    zxspec_keys_clear(cpu_m);
     bool sd_ok = ql_sd_mount();
     if (sd_ok) nfiles = ql_sd_list_ext(files, QL_SD_MAX_FILES, exts);
-    int n = nfiles + 2, sel = 0;
-    printf("\n=== MEDIA (%s) ===\n", zxspec_title(ZX_MODEL));
-    printf("Now: %s%s\n", media_name[0] ? media_name : "(none)",
-           zxspec_tape_playing(cpu_m) ? " [PLAY]" : "");
-    if (!sd_ok) printf("(no SD card)\n");
-    for (int i = 0; i < nfiles; i++) printf("  %2d  %s\n", i, files[i].name);
-    printf("  %2d  Tape play / pause\n", nfiles);
-    printf("  %2d  Close\n", nfiles + 1);
-    printf("Arrows select, Enter confirm, Esc/F9 closes.\n> %d\n", sel);
+    for (int i = 0; i < nfiles; i++) items[i] = files[i].name;
+    items[nfiles] = zxspec_tape_playing(cpu_m) ? "TAPE: PAUSE" : "TAPE: PLAY";
+    items[nfiles + 1] = turbo ? "TURBO: OFF" : "TURBO: ON";
+    items[nfiles + 2] = "CLOSE";
+    const int n = nfiles + 3;
+    int sel = 0;
+    snprintf(title, sizeof title, "%s - %s", zxspec_title(ZX_MODEL),
+             sd_ok ? (nfiles ? "MICROSD" : "NO MEDIA FILES ON THE MICROSD") : "NO MICROSD CARD");
+    printf("\n=== MEDIA (%s) ===\nNow: %s\n", zxspec_title(ZX_MODEL), media_name[0] ? media_name : "(none)");
+    for (int i = 0; i < n; i++) printf("  %2d  %s\n", i, items[i]);
+    pico_osd_list(title, items, n, sel, "UP/DOWN  ENTER LOAD  ESC/F9 BACK");
+    pico_osd_show(true);
 
     for (;;) {
         pico_port_poll();
         int k;
         while ((k = pico_port_next_press()) >= 0) {
-            if (k == 0x52) { if (sel > 0) sel--; printf("> %d\n", sel); }
-            else if (k == 0x51) { if (sel < n - 1) sel++; printf("> %d\n", sel); }
-            else if (k == 0x29 || k == 0x42) return;
-            else if (k == 0x28 || k == 0x58) {
+            if (k == 0x52 || k == 0x51 || k == 0x4b || k == 0x4e) {  // up / down / page up / page down
+                const int step = (k == 0x4b || k == 0x4e) ? PICO_OSD_ROWS - 4 : 1;
+                sel += (k == 0x52 || k == 0x4b) ? -step : step;
+                if (sel < 0) sel = 0;
+                if (sel > n - 1) sel = n - 1;
+                pico_osd_list(title, items, n, sel, "UP/DOWN  ENTER LOAD  ESC/F9 BACK");
+            } else if (k == 0x29 || k == 0x42) {
+                pico_osd_show(false);
+                return;
+            } else if (k == 0x28 || k == 0x58) {
                 if (sel < nfiles) {
-                    if (!load_sd_name(files[sel].name)) printf("load failed\n");
+                    pico_osd_text(PICO_OSD_ROWS - 1, "LOADING...", true);
+                    if (!load_sd_name(files[sel].name)) {
+                        const char *why = load_why;
+                        char msg[PICO_OSD_COLS + 1];
+                        snprintf(msg, sizeof msg, "ERROR: %s", why && why[0] ? why : "CANNOT LOAD");
+                        pico_osd_text(PICO_OSD_ROWS - 1, msg, true);
+                        continue;                          // stay in the menu
+                    }
                 } else if (sel == nfiles) {
                     zxspec_tape_toggle(cpu_m);
                     printf("tape: %s\n", zxspec_tape_playing(cpu_m) ? "play" :
                            (zxspec_tape_loaded(cpu_m) ? "pause" : "empty"));
+                } else if (sel == nfiles + 1) {
+                    turbo = !turbo;
+                    printf("TURBO %s\n", turbo ? "on" : "off");
                 }
+                pico_osd_show(false);
                 return;
             }
         }
         const int16_t *audio;
         int ns = zxspec_run_frame(cpu_m, &audio);
-        pico_port_audio(audio, ns);
+        if (!turbo) pico_port_audio(audio, ns);
         pico_port_frame_done();
     }
 }
