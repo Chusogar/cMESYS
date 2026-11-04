@@ -1,6 +1,7 @@
 #!/bin/sh
-# Downloads what the RP2040-PiZero firmwares are built with into deps/pico
-# (or $PICO_DEPS): the Pico SDK 2.1.1 with TinyUSB, and PicoDVI. Run once.
+# Downloads what the RP2040-PiZero and RP2350-PiZero firmwares are built with
+# into deps/pico (or $PICO_DEPS): the Pico SDK 2.1.1 with TinyUSB, PicoDVI and
+# Pico-PIO-USB (the RP2350 board's keyboard port). Run once.
 # Needs git, cmake 3.13+, python3 and the Arm toolchain
 # (Debian/Ubuntu: gcc-arm-none-eabi libnewlib-arm-none-eabi).
 set -e
@@ -19,5 +20,6 @@ fetch() {   # name url revision
 fetch pico-sdk https://github.com/raspberrypi/pico-sdk 2.1.1
 [ -e "$DEPS/pico-sdk/lib/tinyusb/src/tusb.h" ] || git -C "$DEPS/pico-sdk" submodule update -q --init --depth 1 lib/tinyusb
 fetch PicoDVI https://github.com/Wren6991/PicoDVI dccd738bfa9af75badcb32acde3e41bd6a3fa30a
+fetch Pico-PIO-USB https://github.com/sekigon-gonnoc/Pico-PIO-USB 0.7.2
 command -v arm-none-eabi-gcc >/dev/null || echo "setup: warning: arm-none-eabi-gcc not found"
 echo "setup: done ($DEPS)"

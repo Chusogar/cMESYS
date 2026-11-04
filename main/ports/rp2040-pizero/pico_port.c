@@ -1,9 +1,11 @@
-// pico_port.c - common code of the RP2040-PiZero ports. See pico_port.h.
-// HDMI and sound follow dsp-cpp's ports/rp2040-pizero (video_dvi.c,
-// audio_pwm.c); USB input its usb_input.cpp / hid.cpp, here in C.
+// pico_port.c - common code of the RP2040-PiZero and RP2350-PiZero ports.
+// See pico_port.h. HDMI and sound follow dsp-cpp's ports/rp2040-pizero and
+// rp2350-pizero (video_dvi.c, audio_pwm.c, psram.c); USB input its
+// usb_input.cpp / hid.cpp, here in C.
 #include "pico_port.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "dvi.h"
@@ -22,11 +24,27 @@
 #include "pico/sync.h"
 #include "tusb.h"
 
+#if PICO_RP2350
+// RP2350-PiZero: a 320x240 frame buffer (or two) in SRAM, PSRAM for the
+// heap, keyboards on the PIO-USB port (GPIO28/29), sound on GPIO18
+#define PIZERO_FB 1
+#include "hardware/pio.h"
+#include "rp2350/psram.h"
+#if CFG_TUH_RPI_PIO_USB
+#include "pio_usb.h"
+#endif
+#ifndef PICO_AUDIO_PIN
+#define PICO_AUDIO_PIN 18
+#endif
+#define PSRAM_CS_PIN 47
+void pico_heap_sram_only(bool on);
+#else
 #ifndef PICO_AUDIO_PIN
 #define PICO_AUDIO_PIN 4
 #endif
 #if PICO_AUDIO_PIN >= 22
 #error "GP22-29 are the HDMI pairs (D2 22/23, D1 24/25, D0 26/27, CLK 28/29)"
+#endif
 #endif
 #define AUDIO_RING 2048u            // samples, power of two
 #define AUDIO_DMA_SAMPLES 256u
@@ -39,6 +57,15 @@ static pico_port_cfg cfg;
 // HDMI (core 1)
 // ---------------------------------------------------------------------------
 static struct dvi_inst dvi;
+#ifdef PIZERO_FB
+static const struct dvi_serialiser_cfg pizero_dvi = {
+    .pio = pio1,                     // (GPIO base 16: the pins are above 31)
+    .sm_tmds = {0, 1, 2},
+    .pins_tmds = {36, 34, 32},       // D0 36/37, D1 34/35, D2 32/33
+    .pins_clk = 38,                  // CLK 38/39
+    .invert_diffpairs = false,
+};
+#else
 static const struct dvi_serialiser_cfg pizero_dvi = {
     .pio = pio1,
     .sm_tmds = {0, 1, 2},
@@ -46,9 +73,166 @@ static const struct dvi_serialiser_cfg pizero_dvi = {
     .pins_clk = 28,                  // CLK 28/29
     .invert_diffpairs = false,
 };
+#endif
 static uint16_t band_buf[PICO_BAND * PICO_W] __attribute__((aligned(4)));
 static volatile bool video_on;
 
+// ---------------------------------------------------------------------------
+// On-screen text (menus): drawn by core 1 over the rows it sends
+// ---------------------------------------------------------------------------
+#include "../esp32-cyd/font5x7.h"        // ASCII 32..90, column-major, bit 0 = top
+static char osd_chars[PICO_OSD_ROWS][PICO_OSD_COLS];
+static bool osd_hl[PICO_OSD_ROWS];
+static volatile bool osd_on;
+#define OSD_BG  0x0008                   // dark blue
+#define OSD_FG  0xffff
+#define OSD_HBG 0xfd20                   // orange bar
+#define OSD_HFG 0x0000
+
+void pico_osd_show(bool on) { osd_on = on; }
+
+void pico_osd_clear(void)
+{
+    memset(osd_chars, ' ', sizeof osd_chars);
+    memset(osd_hl, 0, sizeof osd_hl);
+}
+
+void pico_osd_text(int row, const char *text, bool highlight)
+{
+    if (row < 0 || row >= PICO_OSD_ROWS) return;
+    int i = 0;
+    for (; i < PICO_OSD_COLS && text[i]; i++) {
+        char c = text[i];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        if (c < 32 || c > 90) c = c == '_' ? '-' : '?';
+        osd_chars[row][i] = c;
+    }
+    for (; i < PICO_OSD_COLS; i++) osd_chars[row][i] = ' ';
+    osd_hl[row] = highlight;
+}
+
+void pico_osd_list(const char *title, const char *const *items, int n, int sel, const char *help)
+{
+    pico_osd_clear();
+    pico_osd_text(0, title, false);
+    const int view = PICO_OSD_ROWS - 4;          // rows 2 .. 27
+    int top = sel - view / 2;
+    if (top > n - view) top = n - view;
+    if (top < 0) top = 0;
+    for (int i = 0; i < view && top + i < n; i++) {
+        char line[PICO_OSD_COLS + 1];
+        snprintf(line, sizeof line, " %s", items[top + i]);
+        pico_osd_text(2 + i, line, top + i == sel);
+    }
+    if (help) pico_osd_text(PICO_OSD_ROWS - 1, help, false);
+}
+
+// Row y of the text screen (6x8 cells, 2 pixels of margin left / right)
+static void __not_in_flash_func(osd_row)(int y, uint16_t *out)
+{
+    const int r = y / 8, gy = y & 7;
+    const bool hl = r < PICO_OSD_ROWS && osd_hl[r];
+    const uint16_t bg = hl ? OSD_HBG : OSD_BG, fg = hl ? OSD_HFG : OSD_FG;
+    for (int x = 0; x < PICO_W; x++) out[x] = bg;
+    if (r >= PICO_OSD_ROWS || gy == 7) return;
+    for (int c = 0; c < PICO_OSD_COLS; c++) {
+        const uint8_t *g = font5x7[osd_chars[r][c] - 32];
+        uint16_t *o = out + 4 + c * 6;
+        for (int k = 0; k < 5; k++)
+            if ((g[k] >> gy) & 1) o[k] = fg;
+    }
+}
+
+#ifdef PIZERO_FB
+// ---------------------------------------------------------------------------
+// RP2350: the picture is kept whole. Core 1 TMDS-encodes the rows of the
+// front picture as the HDMI needs them, and in the time left draws the game's
+// next picture (the same render callback as the RP2040's, a band at a time)
+// into the back one; the two swap at the top of the screen once the back one
+// is whole. A game that draws slowly shows fewer pictures a second, never red
+// lines or a tear. With no room for a second picture it draws into the one on
+// screen just behind the rows being sent (a tear only when a picture takes
+// longer than a scan to draw).
+// ---------------------------------------------------------------------------
+static uint16_t fb0[PICO_W * PICO_H] __attribute__((aligned(4)));
+static uint16_t *fb_front = fb0, *fb_back;     // fb_back NULL: one picture
+static volatile uint32_t frame_seq;            // frames the game has finished
+
+#define FB_RENDER_ROWS 2                       // rows drawn between two checks of the HDMI queue
+
+static void __not_in_flash_func(encode_row)(const uint16_t *row, uint words)
+{
+    uint32_t *tmds;
+    queue_remove_blocking_u32(&dvi.q_tmds_free, &tmds);
+    const uint32_t *pix = (const uint32_t *)row;
+    tmds_encode_data_channel_16bpp(pix, tmds + 0 * words, PICO_W, DVI_16BPP_BLUE_MSB, DVI_16BPP_BLUE_LSB);
+    tmds_encode_data_channel_16bpp(pix, tmds + 1 * words, PICO_W, DVI_16BPP_GREEN_MSB, DVI_16BPP_GREEN_LSB);
+    tmds_encode_data_channel_16bpp(pix, tmds + 2 * words, PICO_W, DVI_16BPP_RED_MSB, DVI_16BPP_RED_LSB);
+    queue_add_blocking_u32(&dvi.q_tmds_valid, &tmds);
+}
+
+static void __not_in_flash_func(core1_main)(void)
+{
+    dvi_register_irqs_this_core(&dvi, DMA_IRQ_0);
+    dvi_start(&dvi);
+    const uint words = dvi.timing->h_active_pixels / DVI_SYMBOLS_PER_WORD;
+    int out_y = 0;                  // next row to the HDMI
+    uint32_t scan = 0;              // pictures sent so far
+    int draw_y = 0;                 // next row to draw
+    uint32_t draw_scan = 0;         // (one picture: the scan the drawing started in)
+    bool drawing = false, ready = false, top = false;
+    uint32_t seq_drawn = 0;
+    for (;;) {
+        // the HDMI first: every free TMDS buffer gets its row
+        while (queue_get_level(&dvi.q_tmds_free) > 0) {
+            if (out_y == 0 && ready) {           // top of the screen: show the new picture
+                uint16_t *t = fb_front;
+                fb_front = fb_back;
+                fb_back = t;
+                ready = false;
+            }
+            if (osd_on) {
+                osd_row(out_y, band_buf);
+                encode_row(band_buf, words);
+            } else {
+                encode_row(fb_front + out_y * PICO_W, words);
+            }
+            if (++out_y == PICO_H) {
+                out_y = 0;
+                scan++;
+                top = true;
+            }
+        }
+        // then the next picture, a few rows at a time. With one picture it is
+        // drawn behind the rows already sent, from the top of a scan: whole on
+        // the next one if it takes less than a scan (no tear line)
+        if (!drawing && !ready && video_on && cfg.render && frame_seq != seq_drawn && (fb_back || top)) {
+            seq_drawn = frame_seq;
+            drawing = true;
+            draw_y = 0;
+            draw_scan = scan;
+        }
+        top = false;
+        bool drew = false;
+        if (drawing) {
+            const int n = PICO_H - draw_y < FB_RENDER_ROWS ? PICO_H - draw_y : FB_RENDER_ROWS;
+            if (fb_back || scan != draw_scan || draw_y + n <= out_y) {
+                uint16_t *dst = fb_back ? fb_back : fb_front;
+                cfg.render(cfg.user, draw_y, n, dst + draw_y * PICO_W);
+                draw_y += n;
+                drew = true;
+                if (draw_y >= PICO_H) {
+                    drawing = false;
+                    ready = fb_back != NULL;
+                }
+            }
+        }
+        if (!drew) __wfe();         // (the DMA interrupt frees a buffer: an event)
+    }
+}
+#endif
+
+#ifndef PIZERO_FB
 // Core 1 has to hand the HDMI each row in time (a 320-pixel row every
 // 63.5 us), and the games draw from their ROMs in flash. Flash is one bus
 // through a 16 KB cache shared by both cores, and core 0 can keep it busy
@@ -94,7 +278,8 @@ static void __not_in_flash_func(core1_main)(void)
         for (int y = 0; y < PICO_H; y += PICO_BAND) {
             int n = PICO_H - y < PICO_BAND ? PICO_H - y : PICO_BAND;
             if (queue_get_level(&dvi.q_tmds_valid) < HOLD_BELOW) hold_core0();
-            if (video_on && cfg.render) cfg.render(cfg.user, y, n, band_buf);
+            if (osd_on) for (int i = 0; i < n; i++) osd_row(y + i, band_buf + i * PICO_W);
+            else if (video_on && cfg.render) cfg.render(cfg.user, y, n, band_buf);
             else for (int i = 0; i < n * PICO_W; i++) band_buf[i] = 0;
             for (int i = 0; i < n; i++) {
                 uint32_t *tmds;
@@ -110,9 +295,13 @@ static void __not_in_flash_func(core1_main)(void)
         }
     }
 }
+#endif
 
 static void video_init(void)
 {
+#ifdef PIZERO_FB
+    pio_set_gpio_base(pio1, 16);
+#endif
     dvi.timing = &dvi_timing_640x480p_60hz;
     dvi.ser_cfg = pizero_dvi;
     dvi.scanline_callback = 0;
@@ -120,6 +309,7 @@ static void video_init(void)
     // core 1 must not wait for the bus behind core 0
     hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
     multicore_launch_core1(core1_main);
+#ifndef PIZERO_FB
     // core 1 holds core 0 through the FIFO (see core0_hold_irq): lowest
     // priority, so the sound's DMA interrupt still runs while it waits
     multicore_fifo_drain();
@@ -127,6 +317,7 @@ static void video_init(void)
     irq_set_exclusive_handler(SIO_IRQ_PROC0, core0_hold_irq);
     irq_set_priority(SIO_IRQ_PROC0, PICO_LOWEST_IRQ_PRIORITY);
     irq_set_enabled(SIO_IRQ_PROC0, true);      // on its stack in SCRATCH_X (PICO_CORE1_STACK_SIZE)
+#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -483,6 +674,10 @@ void pico_port_frame_done(void)
         while (time_us_64() < next_frame_us) { tuh_task(); sleep_us(500); }
     }
     stat_frames++;
+#ifdef PIZERO_FB
+    frame_seq++;                    // core 1 draws this frame's picture
+    __sev();
+#endif
 #ifdef PICO_EMU_TEST
     if (stat_frames % 10 == 0) printf("frame %u at %u ms\n", (unsigned)stat_frames, (unsigned)(now / 1000));
     if (stat_frames % 50 == 0 && cfg.render) {
@@ -519,7 +714,28 @@ void pico_port_open(const pico_port_cfg *c)
     sleep_ms(10);
     set_sys_clock_khz(252000, true);
     stdio_init_all();
+#ifdef PIZERO_FB
+    printf("\ncMESYS %s on the RP2350-PiZero, %u MHz\n", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));
+    // the 8 MB PSRAM: the heap goes on there once the SRAM is full
+    const size_t psram = dsp_psram_setup(PSRAM_CS_PIN);
+    if (psram) dsp_heap_add_psram(DSP_PSRAM_BASE, psram);
+    // a second picture if it fits in SRAM (core 1 reads it 60 times a second:
+    // not from the PSRAM, which shares its cache with the program in flash)
+    pico_heap_sram_only(true);
+    fb_back = calloc(PICO_W * PICO_H, sizeof *fb_back);
+    pico_heap_sram_only(false);
+    printf("PSRAM %u KB; frame buffers: %s\n", (unsigned)(psram / 1024), fb_back ? "2" : "1 (no room for 2)");
+#if CFG_TUH_RPI_PIO_USB
+    // PIO0 and DMA channel 0 for PIO-USB, before PicoDVI claims its own
+    pio_usb_configuration_t pcfg = PIO_USB_DEFAULT_CONFIG;
+    pcfg.pin_dp = 28;
+    pcfg.pio_tx_num = 0;
+    pcfg.pio_rx_num = 0;
+    tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pcfg);
+#endif
+#else
     printf("\ncMESYS %s on the RP2040-PiZero, %u MHz\n", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));
+#endif
 #ifndef PICO_EMU_TEST
     tuh_init(BOARD_TUH_RHPORT);
     video_init();
