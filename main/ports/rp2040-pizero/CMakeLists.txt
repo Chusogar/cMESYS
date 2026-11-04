@@ -42,7 +42,25 @@ endif()
 if(NOT EXISTS "${PICO_DEPS}/PicoDVI/software/libdvi")
     message(FATAL_ERROR "${PICO_DEPS}/PicoDVI is missing: run tools/setup_pico.sh first")
 endif()
-add_subdirectory(${PICO_DEPS}/PicoDVI/software/libdvi ${CMAKE_BINARY_DIR}/libdvi)
+if(PIZERO STREQUAL "2350")
+    # PicoDVI's serialiser sets the TMDS pins' directions with 32-bit masks
+    # (3u << pin): the RP2350-PiZero's pins 32-39 would shift out and stay
+    # inputs (no signal). A copy of libdvi with the 64-bit SDK calls.
+    set(LIBDVI_SRC ${CMAKE_BINARY_DIR}/libdvi_src)
+    file(COPY ${PICO_DEPS}/PicoDVI/software/libdvi/ DESTINATION ${LIBDVI_SRC})
+    file(READ ${LIBDVI_SRC}/dvi_serialiser.pio pio_src)
+    string(REPLACE "pio_sm_set_pins_with_mask(pio, sm, 2u << data_pins, 3u << data_pins);"
+                   "pio_sm_set_pins_with_mask64(pio, sm, 2ull << data_pins, 3ull << data_pins);" pio2 "${pio_src}")
+    string(REPLACE "pio_sm_set_pindirs_with_mask(pio, sm, ~0u, 3u << data_pins);"
+                   "pio_sm_set_pindirs_with_mask64(pio, sm, ~0ull, 3ull << data_pins);" pio2 "${pio2}")
+    if(pio2 STREQUAL pio_src)
+        message(FATAL_ERROR "dvi_serialiser.pio of this PicoDVI has no pin mask lines to fix")
+    endif()
+    file(WRITE ${LIBDVI_SRC}/dvi_serialiser.pio "${pio2}")
+    add_subdirectory(${LIBDVI_SRC} ${CMAKE_BINARY_DIR}/libdvi)
+else()
+    add_subdirectory(${PICO_DEPS}/PicoDVI/software/libdvi ${CMAKE_BINARY_DIR}/libdvi)
+endif()
 
 set(ZX_GAMES spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion)
 set(IS_ZXSPEC 0)
