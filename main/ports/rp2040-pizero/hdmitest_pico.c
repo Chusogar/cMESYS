@@ -1,7 +1,8 @@
 // hdmitest_pico.c - a board test for the RP2040-PiZero / RP2350-PiZero, no
 // game: colour bars with a square moving over them (HDMI), the last key or
 // pad button pressed on the screen (USB) and a tone while one is held
-// (sound). Build with -DGAME=hdmitest.
+// (sound). Build with -DGAME=hdmitest. The USB host and the PSRAM are not
+// started (PICO_VIDEO_ONLY): the picture and the sound alone.
 #include <stdio.h>
 #include <string.h>
 #include "pico_port.h"

@@ -149,7 +149,7 @@ elseif(GAME STREQUAL "ql")
 elseif(GAME STREQUAL "hdmitest")
     # the board test (hdmitest_pico.c): HDMI, USB and sound, no game
     set(SRCS ${PORT_DIR}/hdmitest_pico.c)
-    set(DEFS)
+    set(DEFS PICO_VIDEO_ONLY)       # (no USB, no PSRAM: the picture and the sound alone)
     set(RAM_CODE)
 elseif(IS_ZXSPEC)
     set(SRCS ${D}/zxspec_pico.c ${D}/zxspec_core.c ${D}/zx48.c ${D}/zx128.c ${D}/zxclone.c ${D}/rom_data_${GAME}.c
