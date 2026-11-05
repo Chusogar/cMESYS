@@ -81,6 +81,7 @@ static volatile bool video_on;
 // On-screen text (menus): drawn by core 1 over the rows it sends
 // ---------------------------------------------------------------------------
 #include "../esp32-cyd/font5x7.h"        // ASCII 32..90, column-major, bit 0 = top
+static uint8_t osd_font[59][5];         // (a copy in RAM: core 1 draws with it)
 static char osd_chars[PICO_OSD_ROWS][PICO_OSD_COLS];
 static bool osd_hl[PICO_OSD_ROWS];
 static volatile bool osd_on;
@@ -93,6 +94,7 @@ void pico_osd_show(bool on) { osd_on = on; }
 
 void pico_osd_clear(void)
 {
+    if (!osd_font[1][2]) memcpy(osd_font, font5x7, sizeof osd_font);   // ('!' has a dot there)
     memset(osd_chars, ' ', sizeof osd_chars);
     memset(osd_hl, 0, sizeof osd_hl);
 }
@@ -136,7 +138,7 @@ static void __not_in_flash_func(osd_row)(int y, uint16_t *out)
     for (int x = 0; x < PICO_W; x++) out[x] = bg;
     if (r >= PICO_OSD_ROWS || gy == 7) return;
     for (int c = 0; c < PICO_OSD_COLS; c++) {
-        const uint8_t *g = font5x7[osd_chars[r][c] - 32];
+        const uint8_t *g = osd_font[osd_chars[r][c] - 32];
         uint16_t *o = out + 4 + c * 6;
         for (int k = 0; k < 5; k++)
             if ((g[k] >> gy) & 1) o[k] = fg;
@@ -623,7 +625,7 @@ uint32_t pico_port_keys(void)
     return k;
 }
 
-#ifdef PICO_EMU_TEST
+#if defined(PICO_EMU_TEST) || defined(PICO_VIDEO_ONLY)
 #define tuh_task() do { } while (0)
 #endif
 
@@ -710,14 +712,26 @@ void pico_port_open(const pico_port_cfg *c)
 {
     cfg = *c;
     // 640x480 DVI needs a 252 MHz system clock (the TMDS bit rate)
+#ifdef PIZERO_FB
+    vreg_set_voltage(VREG_VOLTAGE_1_25);     // (the RP2350 at 252 MHz: some headroom, as XRoar's port)
+#else
     vreg_set_voltage(VREG_VOLTAGE_1_20);
+#endif
     sleep_ms(10);
     set_sys_clock_khz(252000, true);
     stdio_init_all();
 #ifdef PIZERO_FB
+    // PSRAM and PIO-USB before core 1 starts: TinyUSB's alarm pool and the
+    // PSRAM set-up must not run while core 1 sends the picture (as in
+    // XRoar's port for this board). Then the picture, with what the start-up
+    // did on it (and on the UART)
     printf("\ncMESYS %s on the RP2350-PiZero, %u MHz\n", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));
     // the 8 MB PSRAM: the heap goes on there once the SRAM is full
+#ifdef PICO_VIDEO_ONLY
+    const size_t psram = 0;                  // (hdmitest: the picture and the sound only)
+#else
     const size_t psram = dsp_psram_setup(PSRAM_CS_PIN);
+#endif
     if (psram) dsp_heap_add_psram(DSP_PSRAM_BASE, psram);
     // a second picture if it fits in SRAM (core 1 reads it 60 times a second:
     // not from the PSRAM, which shares its cache with the program in flash)
@@ -725,17 +739,47 @@ void pico_port_open(const pico_port_cfg *c)
     fb_back = calloc(PICO_W * PICO_H, sizeof *fb_back);
     pico_heap_sram_only(false);
     printf("PSRAM %u KB; frame buffers: %s\n", (unsigned)(psram / 1024), fb_back ? "2" : "1 (no room for 2)");
-#if CFG_TUH_RPI_PIO_USB
-    // PIO0 and DMA channel 0 for PIO-USB, before PicoDVI claims its own
+#if CFG_TUH_RPI_PIO_USB && !defined(PICO_EMU_TEST) && !defined(PICO_VIDEO_ONLY)
+    // PIO0 and DMA channel 0, before PicoDVI claims its own
     pio_usb_configuration_t pcfg = PIO_USB_DEFAULT_CONFIG;
     pcfg.pin_dp = 28;
     pcfg.pio_tx_num = 0;
     pcfg.pio_rx_num = 0;
     tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pcfg);
 #endif
+#if !defined(PICO_EMU_TEST) && !defined(PICO_VIDEO_ONLY)
+    tuh_init(BOARD_TUH_RHPORT);
+    printf("USB host on PIO-USB (GPIO28/29)\n");
+    const char *usb_line = "USB (PIO-USB, GPIO28/29): OK";
+#else
+    const char *usb_line = "USB: NOT STARTED (VIDEO TEST)";
+#endif
+    char line[PICO_OSD_COLS + 1];
+    int row = 0;
+    pico_osd_clear();
+    snprintf(line, sizeof line, "CMESYS %s - RP2350-PIZERO %u MHZ", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));
+    pico_osd_text(row++, line, true);
+    snprintf(line, sizeof line, "PSRAM: %u KB  PICTURES: %d", (unsigned)(psram / 1024), fb_back ? 2 : 1);
+    pico_osd_text(row++, line, false);
+    pico_osd_text(row++, usb_line, false);
+    pico_osd_show(true);
+#ifndef PICO_EMU_TEST
+    video_init();
+#endif
+    pico_osd_text(row++, "HDMI 640X480 60 HZ: OK", false);
+    pico_osd_text(row, "SOUND...", false);
+#ifndef PICO_EMU_TEST
+    if (cfg.audio_rate) audio_init(cfg.audio_rate);
+#endif
+    snprintf(line, sizeof line, "SOUND: %s", cfg.audio_rate ? "PWM ON GPIO18" : "NONE");
+    pico_osd_text(row++, line, false);
+    pico_osd_text(row++, "STARTING...", false);
+    printf("start-up done\n");
+    const uint64_t t_end = time_us_64() + 1500000;
+    while (time_us_64() < t_end) sleep_ms(5);
+    pico_osd_show(false);
 #else
     printf("\ncMESYS %s on the RP2040-PiZero, %u MHz\n", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));
-#endif
 #ifndef PICO_EMU_TEST
     tuh_init(BOARD_TUH_RHPORT);
     video_init();
@@ -745,6 +789,7 @@ void pico_port_open(const pico_port_cfg *c)
 #endif
 #ifndef PICO_EMU_TEST
     if (cfg.audio_rate) audio_init(cfg.audio_rate);
+#endif
 #endif
     video_on = true;
     stat_t = time_us_64();

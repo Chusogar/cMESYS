@@ -42,13 +42,33 @@ endif()
 if(NOT EXISTS "${PICO_DEPS}/PicoDVI/software/libdvi")
     message(FATAL_ERROR "${PICO_DEPS}/PicoDVI is missing: run tools/setup_pico.sh first")
 endif()
-add_subdirectory(${PICO_DEPS}/PicoDVI/software/libdvi ${CMAKE_BINARY_DIR}/libdvi)
+if(PIZERO STREQUAL "2350")
+    # PicoDVI's serialiser sets the TMDS pins' directions with 32-bit masks
+    # (3u << pin): the RP2350-PiZero's pins 32-39 would shift out and stay
+    # inputs (no signal). A copy of libdvi with the 64-bit SDK calls.
+    set(LIBDVI_SRC ${CMAKE_BINARY_DIR}/libdvi_src)
+    file(COPY ${PICO_DEPS}/PicoDVI/software/libdvi/ DESTINATION ${LIBDVI_SRC})
+    file(READ ${LIBDVI_SRC}/dvi_serialiser.pio pio_src)
+    string(REPLACE "pio_sm_set_pins_with_mask(pio, sm, 2u << data_pins, 3u << data_pins);"
+                   "pio_sm_set_pins_with_mask64(pio, sm, 2ull << data_pins, 3ull << data_pins);" pio2 "${pio_src}")
+    string(REPLACE "pio_sm_set_pindirs_with_mask(pio, sm, ~0u, 3u << data_pins);"
+                   "pio_sm_set_pindirs_with_mask64(pio, sm, ~0ull, 3ull << data_pins);" pio2 "${pio2}")
+    if(pio2 STREQUAL pio_src)
+        message(FATAL_ERROR "dvi_serialiser.pio of this PicoDVI has no pin mask lines to fix")
+    endif()
+    file(WRITE ${LIBDVI_SRC}/dvi_serialiser.pio "${pio2}")
+    add_subdirectory(${LIBDVI_SRC} ${CMAKE_BINARY_DIR}/libdvi)
+else()
+    add_subdirectory(${PICO_DEPS}/PicoDVI/software/libdvi ${CMAKE_BINARY_DIR}/libdvi)
+endif()
 
 set(ZX_GAMES spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion)
 set(IS_ZXSPEC 0)
 set(QL_DIR ${M}/drivers/computers/ql)
 if(GAME STREQUAL "ql")
     set(D ${M}/drivers/computers/${GAME})
+elseif(GAME STREQUAL "hdmitest")
+    set(D ${PORT_DIR})
 elseif(GAME IN_LIST ZX_GAMES)
     set(D ${M}/drivers/computers/zxspec)
     set(IS_ZXSPEC 1)
@@ -126,6 +146,11 @@ elseif(GAME STREQUAL "ql")
              ${M}/cpu/mcs48/mcs48.c ${M}/machine/zx8302.c ${M}/machine/ql_mdv.c ${M}/video/zx8301.c)
     set(DEFS M68K_FLASH_TABLES)
     set(RAM_CODE m68kcpu.c.o mcs48.c.o ql_core.c.o zx8302.c.o ql_mdv.c.o ql_view.c.o zx8301.c.o)   # ql_view, zx8301: core 1 draws with them
+elseif(GAME STREQUAL "hdmitest")
+    # the board test (hdmitest_pico.c): HDMI, USB and sound, no game
+    set(SRCS ${PORT_DIR}/hdmitest_pico.c)
+    set(DEFS PICO_VIDEO_ONLY)       # (no USB, no PSRAM: the picture and the sound alone)
+    set(RAM_CODE)
 elseif(IS_ZXSPEC)
     set(SRCS ${D}/zxspec_pico.c ${D}/zxspec_core.c ${D}/zx48.c ${D}/zx128.c ${D}/zxclone.c ${D}/rom_data_${GAME}.c
              ${QL_DIR}/ql_sd_pico.c ${M}/cpu/z80dsp/z80dsp.c ${M}/machine/zx_tape.c ${M}/machine/zx_snap.c
@@ -209,7 +234,7 @@ foreach(o IN LISTS RAM_CODE)
 endforeach()
 string(REPLACE "*(EXCLUDE_FILE(*libgcc.a: *libc.a:*lib_a-mem*.o *libm.a:) .text*)"
                "*(EXCLUDE_FILE(*libgcc.a: *libc.a:*lib_a-mem*.o *libm.a:${excl}) .text*)" ld2 "${ld}")
-if(ld2 STREQUAL ld)
+if(ld2 STREQUAL ld AND RAM_CODE)
     message(FATAL_ERROR "memmap_default.ld of this SDK has no .text exclusion line to extend")
 endif()
 file(WRITE ${CMAKE_BINARY_DIR}/memmap_cmesys.ld "${ld2}")
