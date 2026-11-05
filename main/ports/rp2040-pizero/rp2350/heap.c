@@ -27,6 +27,13 @@ size_t dsp_heap_psram_used(void) { return (size_t)(psram_next - psram_base); }
 
 void pico_heap_sram_only(bool on) { sram_only = on; }
 
+// SRAM not yet given to the heap (what newlib has freed inside it is not counted)
+size_t pico_heap_sram_free(void)
+{
+    if (!sram_next) sram_next = &end;
+    return (size_t)(&__StackLimit - sram_next);
+}
+
 void *_sbrk(int incr)
 {
     if (!sram_next) sram_next = &end;
