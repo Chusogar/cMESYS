@@ -38,6 +38,7 @@
 #endif
 #define PSRAM_CS_PIN 47
 void pico_heap_sram_only(bool on);
+size_t pico_heap_sram_free(void);
 #else
 #ifndef PICO_AUDIO_PIN
 #define PICO_AUDIO_PIN 4
@@ -157,64 +158,79 @@ static void __not_in_flash_func(osd_row)(int y, uint16_t *out)
 // longer than a scan to draw).
 // ---------------------------------------------------------------------------
 static uint16_t fb0[PICO_W * PICO_H] __attribute__((aligned(4)));
-static uint16_t *fb_front = fb0, *fb_back;     // fb_back NULL: one picture
+static uint16_t *volatile fb_front = fb0, *volatile fb_back;     // fb_back NULL: one picture
 static volatile uint32_t frame_seq;            // frames the game has finished
 
-#define FB_RENDER_ROWS 2                       // rows drawn between two checks of the HDMI queue
+#define FB_RENDER_ROWS 2                       // rows drawn at a time
 
-static void __not_in_flash_func(encode_row)(const uint16_t *row, uint words)
+// The rows go to the HDMI from its DMA interrupt (PicoDVI's scanline
+// callback, every second line): a game's drawing on core 1, however long a
+// band takes, never makes a row late.
+static volatile int out_y;                      // next row to the HDMI
+static volatile uint32_t scan;                  // pictures sent so far
+static volatile bool fb_ready;                  // fb_back is whole: show it at the top
+static uint dvi_words;
+
+static void __not_in_flash_func(encode_into)(uint32_t *tmds, const uint16_t *row)
+{
+    const uint32_t *pix = (const uint32_t *)row;
+    tmds_encode_data_channel_16bpp(pix, tmds + 0 * dvi_words, PICO_W, DVI_16BPP_BLUE_MSB, DVI_16BPP_BLUE_LSB);
+    tmds_encode_data_channel_16bpp(pix, tmds + 1 * dvi_words, PICO_W, DVI_16BPP_GREEN_MSB, DVI_16BPP_GREEN_LSB);
+    tmds_encode_data_channel_16bpp(pix, tmds + 2 * dvi_words, PICO_W, DVI_16BPP_RED_MSB, DVI_16BPP_RED_LSB);
+}
+
+static uint16_t osd_line[PICO_W] __attribute__((aligned(4)));
+
+static void __not_in_flash_func(feed_hdmi)(void)
 {
     uint32_t *tmds;
-    queue_remove_blocking_u32(&dvi.q_tmds_free, &tmds);
-    const uint32_t *pix = (const uint32_t *)row;
-    tmds_encode_data_channel_16bpp(pix, tmds + 0 * words, PICO_W, DVI_16BPP_BLUE_MSB, DVI_16BPP_BLUE_LSB);
-    tmds_encode_data_channel_16bpp(pix, tmds + 1 * words, PICO_W, DVI_16BPP_GREEN_MSB, DVI_16BPP_GREEN_LSB);
-    tmds_encode_data_channel_16bpp(pix, tmds + 2 * words, PICO_W, DVI_16BPP_RED_MSB, DVI_16BPP_RED_LSB);
-    queue_add_blocking_u32(&dvi.q_tmds_valid, &tmds);
+    while (queue_try_remove_u32(&dvi.q_tmds_free, &tmds)) {
+        int y = out_y;
+        if (y == 0 && fb_ready) {               // top of the screen: show the new picture
+            uint16_t *t = fb_front;
+            fb_front = fb_back;
+            fb_back = t;
+            fb_ready = false;
+        }
+        if (osd_on) {
+            osd_row(y, osd_line);
+            encode_into(tmds, osd_line);
+        } else {
+            encode_into(tmds, fb_front + y * PICO_W);
+        }
+        queue_try_add_u32(&dvi.q_tmds_valid, &tmds);
+        if (++y == PICO_H) {
+            y = 0;
+            scan++;
+        }
+        out_y = y;
+    }
 }
 
 static void __not_in_flash_func(core1_main)(void)
 {
+    dvi_words = dvi.timing->h_active_pixels / DVI_SYMBOLS_PER_WORD;
+    feed_hdmi();                    // the first rows before the start
     dvi_register_irqs_this_core(&dvi, DMA_IRQ_0);
     dvi_start(&dvi);
-    const uint words = dvi.timing->h_active_pixels / DVI_SYMBOLS_PER_WORD;
-    int out_y = 0;                  // next row to the HDMI
-    uint32_t scan = 0;              // pictures sent so far
     int draw_y = 0;                 // next row to draw
     uint32_t draw_scan = 0;         // (one picture: the scan the drawing started in)
-    bool drawing = false, ready = false, top = false;
+    uint32_t last_scan = 0;
+    bool drawing = false;
     uint32_t seq_drawn = 0;
     for (;;) {
-        // the HDMI first: every free TMDS buffer gets its row
-        while (queue_get_level(&dvi.q_tmds_free) > 0) {
-            if (out_y == 0 && ready) {           // top of the screen: show the new picture
-                uint16_t *t = fb_front;
-                fb_front = fb_back;
-                fb_back = t;
-                ready = false;
-            }
-            if (osd_on) {
-                osd_row(out_y, band_buf);
-                encode_row(band_buf, words);
-            } else {
-                encode_row(fb_front + out_y * PICO_W, words);
-            }
-            if (++out_y == PICO_H) {
-                out_y = 0;
-                scan++;
-                top = true;
-            }
-        }
-        // then the next picture, a few rows at a time. With one picture it is
-        // drawn behind the rows already sent, from the top of a scan: whole on
-        // the next one if it takes less than a scan (no tear line)
-        if (!drawing && !ready && video_on && cfg.render && frame_seq != seq_drawn && (fb_back || top)) {
+        // the next picture, a band at a time. With one picture it is drawn
+        // behind the rows already sent, from the top of a scan: whole on the
+        // next one if it takes less than a scan (no tear line)
+        const uint32_t sc = scan;
+        const bool top = sc != last_scan;
+        last_scan = sc;
+        if (!drawing && !fb_ready && video_on && cfg.render && frame_seq != seq_drawn && (fb_back || top)) {
             seq_drawn = frame_seq;
             drawing = true;
             draw_y = 0;
-            draw_scan = scan;
+            draw_scan = sc;
         }
-        top = false;
         bool drew = false;
         if (drawing) {
             const int n = PICO_H - draw_y < FB_RENDER_ROWS ? PICO_H - draw_y : FB_RENDER_ROWS;
@@ -225,11 +241,11 @@ static void __not_in_flash_func(core1_main)(void)
                 drew = true;
                 if (draw_y >= PICO_H) {
                     drawing = false;
-                    ready = fb_back != NULL;
+                    if (fb_back) fb_ready = true;
                 }
             }
         }
-        if (!drew) __wfe();         // (the DMA interrupt frees a buffer: an event)
+        if (!drew) __wfe();         // (the HDMI interrupt and frame_done are events)
     }
 }
 #endif
@@ -306,8 +322,20 @@ static void video_init(void)
 #endif
     dvi.timing = &dvi_timing_640x480p_60hz;
     dvi.ser_cfg = pizero_dvi;
+#ifdef PIZERO_FB
+    dvi.scanline_callback = feed_hdmi;
+    // the TMDS rows in SRAM (the DMA reads them all the time: not the PSRAM)
+    pico_heap_sram_only(true);
+    dvi_init(&dvi, next_striped_spin_lock_num(), next_striped_spin_lock_num());
+    // then a second picture, if it fits in SRAM with 48 KB left over for the
+    // game's later needs (the rest of its heap goes on in the PSRAM)
+    if (pico_heap_sram_free() >= PICO_W * PICO_H * 2 + 48 * 1024)
+        fb_back = calloc(PICO_W * PICO_H, sizeof *fb_back);
+    pico_heap_sram_only(false);
+#else
     dvi.scanline_callback = 0;
     dvi_init(&dvi, next_striped_spin_lock_num(), next_striped_spin_lock_num());
+#endif
     // core 1 must not wait for the bus behind core 0
     hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
     multicore_launch_core1(core1_main);
@@ -733,12 +761,7 @@ void pico_port_open(const pico_port_cfg *c)
     const size_t psram = dsp_psram_setup(PSRAM_CS_PIN);
 #endif
     if (psram) dsp_heap_add_psram(DSP_PSRAM_BASE, psram);
-    // a second picture if it fits in SRAM (core 1 reads it 60 times a second:
-    // not from the PSRAM, which shares its cache with the program in flash)
-    pico_heap_sram_only(true);
-    fb_back = calloc(PICO_W * PICO_H, sizeof *fb_back);
-    pico_heap_sram_only(false);
-    printf("PSRAM %u KB; frame buffers: %s\n", (unsigned)(psram / 1024), fb_back ? "2" : "1 (no room for 2)");
+    printf("PSRAM %u KB\n", (unsigned)(psram / 1024));
 #if CFG_TUH_RPI_PIO_USB && !defined(PICO_EMU_TEST) && !defined(PICO_VIDEO_ONLY)
     // PIO0 and DMA channel 0, before PicoDVI claims its own
     pio_usb_configuration_t pcfg = PIO_USB_DEFAULT_CONFIG;
@@ -759,14 +782,17 @@ void pico_port_open(const pico_port_cfg *c)
     pico_osd_clear();
     snprintf(line, sizeof line, "CMESYS %s - RP2350-PIZERO %u MHZ", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));
     pico_osd_text(row++, line, true);
-    snprintf(line, sizeof line, "PSRAM: %u KB  PICTURES: %d", (unsigned)(psram / 1024), fb_back ? 2 : 1);
+    snprintf(line, sizeof line, "PSRAM: %u KB", (unsigned)(psram / 1024));
     pico_osd_text(row++, line, false);
     pico_osd_text(row++, usb_line, false);
     pico_osd_show(true);
 #ifndef PICO_EMU_TEST
     video_init();
 #endif
-    pico_osd_text(row++, "HDMI 640X480 60 HZ: OK", false);
+    printf("frame buffers: %s; SRAM heap left %u KB\n", fb_back ? "2" : "1", (unsigned)(pico_heap_sram_free() / 1024));
+    snprintf(line, sizeof line, "HDMI 640X480 60 HZ: OK  PICTURES: %d  SRAM FREE: %u KB", fb_back ? 2 : 1,
+             (unsigned)(pico_heap_sram_free() / 1024));
+    pico_osd_text(row++, line, false);
     pico_osd_text(row, "SOUND...", false);
 #ifndef PICO_EMU_TEST
     if (cfg.audio_rate) audio_init(cfg.audio_rate);

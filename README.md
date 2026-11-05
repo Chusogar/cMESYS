@@ -443,7 +443,7 @@ Firmware para la [Waveshare RP2350-PiZero](https://www.waveshare.com/wiki/RP2350
 
 | Función | Conexión | Notas |
 |---|---|---|
-| HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz desde una imagen de 320x240. Aquí la imagen se guarda entera (150 KB, y otra de 150 KB si cabe en la SRAM): el núcleo 1 manda al HDMI la imagen de delante y, en el tiempo que le sobra, dibuja con el mismo callback de la RP2040 la siguiente en la de atrás; se cambian arriba de la pantalla. Un juego que dibuja despacio enseña menos imágenes por segundo, nunca líneas rojas ni cortes. Si no caben dos (OutRun, Puzzle Bobble, el QL), dibuja sobre la que se ve: alguna línea de corte, como en el CYD |
+| HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz desde una imagen de 320x240. Aquí la imagen se guarda entera (150 KB, y otra de 150 KB si cabe en la SRAM dejando 48 KB libres; las líneas TMDS siempre en SRAM, nunca en la PSRAM): las filas salen al HDMI desde la interrupción de su DMA (el callback de línea de PicoDVI), y el núcleo 1 dibuja con el mismo callback de la RP2040 la imagen siguiente en la de atrás; se cambian arriba de la pantalla. Un juego que dibuja despacio enseña menos imágenes por segundo, nunca líneas rojas ni cortes. Si no caben dos (OutRun, Puzzle Bobble, el QL), dibuja sobre la que se ve: alguna línea de corte, como en el CYD |
 | Mandos | puerto PIO-USB: D+ 28, D- 29 | teclado USB y/o mando HID (también por un hub). El USB-C nativo es para alimentar y flashear |
 | Sonido | GPIO18 (pin 12 del conector de 40) | PWM de 10 bits, mono; filtro RC antes del amplificador |
 | microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL y los Spectrum cargan de ella con el menú en pantalla (F9) |
