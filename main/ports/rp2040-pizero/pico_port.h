@@ -78,6 +78,8 @@ void pico_port_frame_done(void);            // counts frames, paces without soun
 #define PICO_OSD_COLS 52
 #define PICO_OSD_ROWS 30
 void pico_osd_show(bool on);
+// A line of text over the top of the picture for `ms` milliseconds
+void pico_osd_toast(const char *text, int ms);
 void pico_osd_clear(void);
 void pico_osd_text(int row, const char *text, bool highlight);
 // A list with a title, the selected item highlighted and kept in view, and

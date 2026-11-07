@@ -143,6 +143,44 @@ static void __not_in_flash_func(osd_row)(int y, uint16_t *out)
     }
 }
 
+// A line of text over the top of the picture for a moment (TURBO ON...)
+#define TOAST_H 10
+static char toast_chars[PICO_OSD_COLS];
+static volatile uint32_t toast_until;           // time_us_32()
+
+void pico_osd_toast(const char *text, int ms)
+{
+    if (!osd_font[1][2]) memcpy(osd_font, font5x7, sizeof osd_font);
+    int i = 0;
+    for (; i < PICO_OSD_COLS && text[i]; i++) {
+        char c = text[i];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        if (c < 32 || c > 90) c = '?';
+        toast_chars[i] = c;
+    }
+    for (; i < PICO_OSD_COLS; i++) toast_chars[i] = ' ';
+    toast_until = time_us_32() + (uint32_t)ms * 1000u;
+}
+
+static inline bool __not_in_flash_func(toast_on)(void)
+{
+    return toast_until && (int32_t)(toast_until - time_us_32()) > 0;
+}
+
+// Row y (< TOAST_H) of the toast: an orange bar, black text
+static void __not_in_flash_func(toast_row)(int y, uint16_t *out)
+{
+    for (int x = 0; x < PICO_W; x++) out[x] = OSD_HBG;
+    const int gy = y - 1;
+    if (gy < 0 || gy >= 7) return;
+    for (int c = 0; c < PICO_OSD_COLS; c++) {
+        const uint8_t *g = osd_font[toast_chars[c] - 32];
+        uint16_t *o = out + 4 + c * 6;
+        for (int k = 0; k < 5; k++)
+            if ((g[k] >> gy) & 1) o[k] = OSD_HFG;
+    }
+}
+
 #ifdef PIZERO_FB
 // ---------------------------------------------------------------------------
 // RP2350: the picture is kept whole. Core 1 TMDS-encodes the rows of the
@@ -182,6 +220,9 @@ static bool __not_in_flash_func(feed_row)(void)
     const uint16_t *src = fb_front + y * PICO_W;
     if (osd_on) {
         osd_row(y, osd_line);
+        src = osd_line;
+    } else if (y < TOAST_H && toast_on()) {
+        toast_row(y, osd_line);
         src = osd_line;
     }
     if (!pzhdmi_try_row(2 * y, 2, src, PICO_W)) return false;
@@ -297,6 +338,8 @@ static void __not_in_flash_func(core1_main)(void)
             if (osd_on) for (int i = 0; i < n; i++) osd_row(y + i, band_buf + i * PICO_W);
             else if (video_on && cfg.render) cfg.render(cfg.user, y, n, band_buf);
             else for (int i = 0; i < n * PICO_W; i++) band_buf[i] = 0;
+            if (!osd_on && y < TOAST_H && toast_on())
+                for (int i = 0; i < n && y + i < TOAST_H; i++) toast_row(y + i, band_buf + i * PICO_W);
             for (int i = 0; i < n; i++) {
                 uint32_t *tmds;
                 if (queue_get_level(&dvi.q_tmds_valid) < HOLD_BELOW) hold_core0();

@@ -113,6 +113,7 @@ static void media_menu(void)
                 } else if (sel == nfiles + 1) {
                     turbo = !turbo;
                     printf("TURBO %s\n", turbo ? "on" : "off");
+                    pico_osd_toast(turbo ? "TURBO ON (F12)" : "TURBO OFF", 1500);
                 }
                 pico_osd_show(false);
                 return;
@@ -142,6 +143,7 @@ static void game(void)
             if (k == 0x45) {                                         // F12: TURBO
                 turbo = !turbo;
                 printf("TURBO %s\n", turbo ? "on" : "off");
+                pico_osd_toast(turbo ? "TURBO ON (F12)" : "TURBO OFF", 1500);
             }
         }
         zxspec_keys_clear(cpu_m);
