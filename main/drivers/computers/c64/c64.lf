@@ -1,0 +1,11 @@
+# Hot code in IRAM (out of the flash cache)
+[mapping:c64_hot]
+archive: libmain.a
+entries:
+    m65xx (noflash)
+    c64_core (noflash)
+    mos6569 (noflash)
+    sid6581 (noflash)
+    mos6526 (noflash)
+    c1541 (noflash)
+    via6522 (noflash)

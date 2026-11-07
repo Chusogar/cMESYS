@@ -17,6 +17,10 @@ ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   D     := $(M)/drivers/computers/zxspec
+else ifeq ($(GAME),cpc6128)
+  D     := $(M)/drivers/computers/cpc
+else ifneq ($(filter $(GAME),c64 lynx),)
+  D     := $(M)/drivers/computers/$(GAME)
 else
   D     := $(M)/drivers/arcades/$(GAME)
 endif
@@ -114,13 +118,28 @@ else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   LDFLAGS += -sFORCE_FILESYSTEM=1 \
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
+else ifneq ($(filter $(GAME),cpc6128 c64 lynx),)
+  ifeq ($(GAME),cpc6128)
+    SRC := $(D)/cpc_sdl.c $(D)/cpc_core.c $(D)/rom_data.c $(M)/cpu/z80dsp/z80dsp.c $(M)/sound/ay8910.c \
+           $(M)/machine/zx_nec765.c $(M)/machine/zx_tape.c $(M)/machine/zx_pbuf.c $(M)/machine/zx_inflate.c
+  else ifeq ($(GAME),c64)
+    SRC := $(D)/c64_sdl.c $(D)/c64_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/video/mos6569.c \
+           $(M)/sound/sid6581.c $(M)/machine/mos6526.c $(M)/machine/c1541.c $(M)/machine/via6522.c $(M)/machine/zx_pbuf.c
+  else
+    SRC := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/machine/zx_pbuf.c
+  endif
+  DEFS :=
+  # the upload bar / drag-and-drop (common/comp_sdl.h)
+  LDFLAGS += -sFORCE_FILESYSTEM=1 \
+             "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
+             "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024 or scorpion)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64 or lynx)
 endif
 
 PORTSRC := $(M)/ports/web/sdl_port.c
 GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql \
-           spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion
+           spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx
 
 $(OUT)/$(GAME).html: $(SRC) $(PORTSRC) $(wildcard $(PP)/*.inc) $(M)/ports/web/shell.html $(M)/ports/web/Makefile
 	@mkdir -p $(OUT)

@@ -30,6 +30,8 @@ typedef struct ay8910 {
 void ay8910_init(ay8910 *ay, uint32_t clock, int sample_rate);
 void ay8910_reset(ay8910 *ay);
 void ay8910_set_clock(ay8910 *ay, uint32_t clock);
+/* Output level (dsp-cpp's constructor argument; 2.0 by default, the CPC 0.8). */
+void ay8910_set_amplitude(ay8910 *ay, float amplitude);
 
 /* Spectrum 128K: write address (reg select) then data. */
 void ay8910_address_w(ay8910 *ay, uint8_t addr);

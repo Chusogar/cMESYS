@@ -48,7 +48,7 @@ endif()
 pico_sdk_init()
 
 if(NOT GAME)
-    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion>")
+    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx>")
 endif()
 # HDMI: PicoDVI on the RP2040; on the RP2350 rp2350/hdmi (pico_lib's DVI,
 # which also sends the sound to the TV, in data islands)
@@ -69,6 +69,10 @@ elseif(GAME STREQUAL "hdmitest" OR GAME STREQUAL "hdmitest2")
 elseif(GAME IN_LIST ZX_GAMES)
     set(D ${M}/drivers/computers/zxspec)
     set(IS_ZXSPEC 1)
+elseif(GAME STREQUAL "cpc6128")
+    set(D ${M}/drivers/computers/cpc)
+elseif(GAME STREQUAL "c64" OR GAME STREQUAL "lynx")
+    set(D ${M}/drivers/computers/${GAME})
 else()
     set(D ${M}/drivers/arcades/${GAME})
 endif()
@@ -143,6 +147,23 @@ elseif(GAME STREQUAL "ql")
              ${M}/cpu/mcs48/mcs48.c ${M}/machine/zx8302.c ${M}/machine/ql_mdv.c ${M}/video/zx8301.c)
     set(DEFS M68K_FLASH_TABLES)
     set(RAM_CODE m68kcpu.c.o mcs48.c.o ql_core.c.o zx8302.c.o ql_mdv.c.o ql_view.c.o zx8301.c.o)   # ql_view, zx8301: core 1 draws with them
+elseif(GAME STREQUAL "cpc6128")
+    set(SRCS ${D}/cpc_pico.c ${D}/cpc_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c ${M}/cpu/z80dsp/z80dsp.c
+             ${M}/sound/ay8910.c ${M}/machine/zx_nec765.c ${M}/machine/zx_tape.c ${M}/machine/zx_pbuf.c
+             ${M}/machine/zx_inflate.c)
+    set(DEFS)
+    set(RAM_CODE z80dsp.c.o cpc_core.c.o ay8910.c.o)
+elseif(GAME STREQUAL "c64")
+    set(SRCS ${D}/c64_pico.c ${D}/c64_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c ${M}/cpu/m6502/m65xx.c
+             ${M}/video/mos6569.c ${M}/sound/sid6581.c ${M}/machine/mos6526.c ${M}/machine/c1541.c
+             ${M}/machine/via6522.c ${M}/machine/zx_pbuf.c)
+    set(DEFS)
+    set(RAM_CODE m65xx.c.o c64_core.c.o mos6569.c.o sid6581.c.o mos6526.c.o c1541.c.o via6522.c.o)
+elseif(GAME STREQUAL "lynx")
+    set(SRCS ${D}/lynx_pico.c ${D}/lynx_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c ${M}/cpu/m6502/m65xx.c
+             ${M}/machine/zx_pbuf.c)
+    set(DEFS)
+    set(RAM_CODE m65xx.c.o lynx_core.c.o)
 elseif(GAME STREQUAL "hdmitest" OR GAME STREQUAL "hdmitest2")
     # the board test (hdmitest_pico.c): HDMI, USB and sound, no game
     set(SRCS ${PORT_DIR}/hdmitest_pico.c)

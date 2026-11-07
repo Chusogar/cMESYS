@@ -1,6 +1,6 @@
 // via6522.h - MOS 6522 VIA. C port of dsp-cpp's machine/via6522 (from
 // dsp-emulator's via6522.pas): timers, ports with DDR/latches, PCR
-// handshakes, shift register, IER/IFR. Port callbacks; no IRQ output needed.
+// handshakes, shift register, IER/IFR. Port callbacks, IRQ and CA2 outputs.
 #ifndef VIA6522_H
 #define VIA6522_H
 
@@ -13,6 +13,8 @@ typedef struct via6522 {
     uint8_t (*pb_in)(void *user);
     void (*pb_out)(void *user, uint8_t v);
     void *user;
+    void (*irq)(void *user, bool on);           // the IRQ output (optional)
+    void (*ca2_out)(void *user, bool level);    // CA2 as an output (optional)
 
     uint8_t out_a, out_b, in_a, in_b, latch_a, latch_b, ddr_a, ddr_b;
     uint8_t t1ll, t1lh, t2ll, t2lh;
@@ -33,5 +35,9 @@ void via6522_reset(via6522 *v);
 uint8_t via6522_read(via6522 *v, uint8_t reg);
 void via6522_write(via6522 *v, uint8_t reg, uint8_t value);
 void via6522_tick(via6522 *v, int cycles);
+// External inputs and the combined port B (the 1541)
+void via6522_write_pa(via6522 *v, uint8_t value);
+void via6522_write_ca1(via6522 *v, bool state);
+uint8_t via6522_out_b(const via6522 *v);
 
 #endif

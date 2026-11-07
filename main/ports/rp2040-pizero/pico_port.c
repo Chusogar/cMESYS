@@ -746,6 +746,25 @@ int pico_port_next_press(void)
     return k;
 }
 
+uint32_t pico_port_pad(void)
+{
+    uint32_t k = 0;
+    for (int i = 0; i < CFG_TUH_HID; i++) {
+        const hid_dev *d = &devs[i];
+        if (!d->used || !d->is_pad) continue;
+        if (d->up) k |= SP_UP;
+        if (d->down) k |= SP_DOWN;
+        if (d->left) k |= SP_LEFT;
+        if (d->right) k |= SP_RIGHT;
+        if (d->b[1]) k |= SP_B1;
+        if (d->b[2]) k |= SP_B2;
+        if (d->b[3]) k |= SP_B3;
+        if (d->b[d->buttons >= 10 ? 9 : 7]) k |= SP_COIN1;
+        if (d->b[d->buttons >= 10 ? 10 : 8]) k |= SP_START1;
+    }
+    return k;
+}
+
 uint32_t pico_port_keys(void)
 {
     uint32_t k = 0;
