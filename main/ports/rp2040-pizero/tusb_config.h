@@ -16,13 +16,14 @@
 #define CFG_TUSB_DEBUG 0
 
 #define CFG_TUH_ENABLED 1
-#if PICO_RP2350
+#if PICO_RP2350 && !PICO_USB_NATIVE
 // RP2350-PiZero: the keyboard / pad on the PIO-USB port (root port 1, D+
 // GPIO28, D- GPIO29); the native USB-C is for power and flashing
 #define CFG_TUH_RPI_PIO_USB 1
 #define BOARD_TUH_RHPORT 1
 #define CFG_TUSB_RHPORT1_MODE OPT_MODE_HOST
 #else
+// (RP2350 with PICO_USB_NATIVE: on the native USB-C, as the RP2040)
 #define CFG_TUH_RPI_PIO_USB 0
 #define BOARD_TUH_RHPORT 0
 #define CFG_TUSB_RHPORT0_MODE OPT_MODE_HOST

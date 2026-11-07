@@ -1,7 +1,8 @@
 // usb_frame.c - the 1 ms frame of the RP2350-PiZero's PIO-USB host, with a
 // workaround for erratum RP2350-E9.
 //
-// RP2350-E9 (chips up to A2): a pad with its input buffer enabled leaks, and
+// RP2350-E9 (chips up to A3; A3, revision 3, is A2's silicon with a new
+// boot ROM, and the RP2350-PiZero tested has one): a pad with its input buffer enabled leaks, and
 // a line that has been high stays at about 2 V: the pull-down cannot bring it
 // back. A USB host relies on its pull-downs to see whether something is
 // plugged in (SE0: nothing; J on D+ or D-: a device's pull-up), so with the
@@ -17,7 +18,9 @@
 //   lines drain through the pull-downs) and are switched on just to look at
 //   the lines, a microsecond after;
 // - while a device is plugged in, the lines are drained for a few
-//   microseconds every 16 frames, so that pulling it out reads as SE0.
+//   microseconds at the start of every frame (before the SOF: the bus is
+//   idle), so that a line left high reads low again (a test board showed
+//   D+ and D- both high, SE1, with a keyboard in: never enumerated).
 #include "tusb.h"
 
 #if CFG_TUH_RPI_PIO_USB && PICO_RP2350
@@ -29,7 +32,7 @@
 #include "pio_usb_ll.h"
 
 #define FRAME_ALARM 2                   // (the one Pico-PIO-USB takes itself)
-#define DRAIN_EVERY 16u                 // frames
+#define DRAIN_EVERY 1u                  // frames
 #define DRAIN_US 5u
 
 static repeating_timer_t frame_timer;
@@ -95,7 +98,7 @@ void pico_usb_frame_start(void)
 {
     const uint32_t id = sysinfo_hw->chip_id;
     const uint32_t rev = (id & SYSINFO_CHIP_ID_REVISION_BITS) >> SYSINFO_CHIP_ID_REVISION_LSB;
-    e9 = rev <= 2;
+    e9 = rev <= 3;
     alarm_pool_add_repeating_timer_us(alarm_pool_create(FRAME_ALARM, 1), -1000, frame, NULL, &frame_timer);
     printf("PIO-USB: chip revision %u, RP2350-E9 workaround %s\n", (unsigned)rev, e9 ? "on" : "off");
 }

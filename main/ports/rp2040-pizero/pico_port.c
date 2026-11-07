@@ -852,8 +852,13 @@ void pico_port_open(const pico_port_cfg *c)
 #if CFG_TUH_RPI_PIO_USB
     pico_usb_frame_start();
 #endif
+#if CFG_TUH_RPI_PIO_USB
     printf("USB host on PIO-USB (GPIO28/29)\n");
     const char *usb_line = "USB (PIO-USB, GPIO28/29): OK";
+#else
+    printf("USB host on the native USB-C\n");
+    const char *usb_line = "USB: NATIVE USB-C (POWER THE BOARD BY AN OTG / Y CABLE)";
+#endif
 #else
     const char *usb_line = "USB: NOT STARTED (TEST)";
 #endif
