@@ -78,6 +78,7 @@ static void input(const comp_cyd_in *in)
 static int frame(const int16_t **audio)
 {
     lynx_buttons(cpu_m, held | typed);
+    lynx_set_turbo(cpu_m, cyd_turbo);
     return lynx_run_frame(cpu_m, audio);
 }
 

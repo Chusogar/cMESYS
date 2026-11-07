@@ -84,6 +84,8 @@ void cpc_reset(cpc *m);
 int cpc_run_frame(cpc *m, const int16_t **audio);
 
 void cpc_keys_clear(cpc *m);
+/* TURBO: no sound (the frames give no samples) */
+void cpc_set_turbo(cpc *m, bool on);
 void cpc_key(cpc *m, int code, bool down);
 void cpc_joy(cpc *m, uint8_t bits);
 void cpc_set_color_monitor(cpc *m, bool color);   /* false: the green monitor */

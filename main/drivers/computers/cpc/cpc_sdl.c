@@ -164,6 +164,7 @@ int main(int argc, char **argv)
         cpc_joy(m, joy);
 
         const int16_t *audio;
+        cpc_set_turbo(m, sdl_port_turbo());
         int n = cpc_run_frame(m, &audio);
         sdl_port_audio(audio, n);
         {

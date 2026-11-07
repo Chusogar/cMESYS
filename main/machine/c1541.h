@@ -34,6 +34,8 @@ typedef struct {
     int zero_run;
 
     int half_track, stepper_prev, cycle_debt;
+    int idle_cycles;                    // in the DOS's idle loop with the motor off ...
+    bool asleep;                        // ... long enough: not run until the bus moves
     bool motor_on, led_on;
 
     uint8_t track[C1541_TRACK_BYTES];   // the bit stream under the head, MSB first

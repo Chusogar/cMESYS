@@ -49,6 +49,7 @@ static void item_do(int i) { if (i == 0) lynx_reset(cpu_m); }
 static void frame(bool sound)
 {
     const int16_t *audio;
+    lynx_set_turbo(cpu_m, !sound);         // (no sound, less drawing: as fast as it goes)
     const int n = lynx_run_frame(cpu_m, &audio);
     if (sound) pico_port_audio(audio, n);
 }

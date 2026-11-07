@@ -84,6 +84,7 @@ static void item_do(int i)
 static void frame(bool sound)
 {
     const int16_t *audio;
+    c64_set_turbo(cpu_m, !sound);         // (no sound, less drawing: as fast as it goes)
     const int n = c64_run_frame(cpu_m, &audio);
     if (sound) pico_port_audio(audio, n);
 }

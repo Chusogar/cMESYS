@@ -31,6 +31,8 @@ struct c64 {
     m65xx cpu;
     bool drive_on;                  // the 1541 runs (on the boards: from the first disk on)
     bool fast_load;                 // the KERNAL's LOAD from a .d64 done at once (fast_load_trap)
+    bool turbo;                     // no sound, the picture drawn one frame in 8
+    unsigned turbo_frames;
     uint16_t pal565[16];
     mos6569 vic;
     sid6581 sid;
@@ -361,6 +363,7 @@ static bool fast_load_trap(c64 *m)
 }
 
 void c64_set_fast_load(c64 *m, bool on) { m->fast_load = on; }
+void c64_set_turbo(c64 *m, bool on) { m->turbo = on; }
 
 static void on_cycles(void *user, int cycles)
 {
@@ -379,6 +382,7 @@ static void on_cycles(void *user, int cycles)
     mos6526_tick(&m->cia1, cycles);
     mos6526_tick(&m->cia2, cycles);
     if (drive_active(m)) c1541_run(&m->drive, cycles);
+    if (m->turbo) return;
     m->audio_acc += (int64_t)cycles * m->audio_rate;
     while (m->audio_acc >= CPU_CLOCK) {
         m->audio_acc -= CPU_CLOCK;
@@ -532,10 +536,11 @@ int c64_run_frame(c64 *m, const int16_t **audio)
     m->cia1.joystick2 = (uint8_t)~m->joy2;
     m->naudio = 0;
     update_pending_prg(m);
+    const bool draw = !m->turbo || (m->turbo_frames++ & 7) == 0;
     for (int line = 0; line < SCANLINES; line++) {
         int cpu_cycles = CYCLES_PER_LINE;
         const int vis_y = line - 16;
-        const bool shown = vis_y >= 0 && vis_y < VIC_H;
+        const bool shown = draw && vis_y >= 0 && vis_y < VIC_H;
         const int stolen = mos6569_update_line(&m->vic, line, shown ? m->line_pixels : NULL);
         const int y = vis_y - m->crop_y;
         if (shown && y >= 0 && y < C64_PIC_H) {

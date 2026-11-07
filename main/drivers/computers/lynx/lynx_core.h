@@ -52,3 +52,5 @@ bool lynx_load_pbuf(lynx *m, zx_pbuf *pb, const char *name);  /* takes the pages
 bool lynx_load_file(lynx *m, const char *path);
 const char *lynx_last_error(const lynx *m);
 bool lynx_has_boot_rom(const lynx *m);
+/* TURBO: no sound (the frames give no samples) */
+void lynx_set_turbo(lynx *m, bool on);

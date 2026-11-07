@@ -94,6 +94,7 @@ struct lynx {
     uint8_t last_sysctl, mapctl;
     int audio_rate;
     uint64_t audio_acc;
+    bool turbo;                         // no sound
     int16_t audio[LYNX_AUDIO_MAX];
     int naudio;
     uint8_t screen[LYNX_W / 2 * LYNX_H];  // the last frame's display, 4 bits a pixel
@@ -1008,6 +1009,7 @@ static void on_cycles(void *user, int cycles)
     mk_tick(m, cycles);
     sz_tick(&m->sz, cycles);
     if (m->cpu.halted && !m->sz.busy) m->cpu.halted = false;
+    if (m->turbo) return;
     m->audio_acc += (uint64_t)cycles * (uint32_t)m->audio_rate;
     while (m->audio_acc >= CPU_CLOCK) {
         m->audio_acc -= CPU_CLOCK;
@@ -1069,6 +1071,7 @@ void lynx_set_boot_rom(lynx *m, const uint8_t *rom)
 }
 
 bool lynx_has_boot_rom(const lynx *m) { return m->bios_loaded; }
+void lynx_set_turbo(lynx *m, bool on) { m->turbo = on; }
 
 void lynx_set_rgb565(lynx *m, uint16_t (*fn)(uint8_t r, uint8_t g, uint8_t b)) { m->rgb565 = fn; }
 
