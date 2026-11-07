@@ -70,6 +70,8 @@ int pico_port_next_press(void);
 // Queues the frame's sound; waits while the queue is full, which paces the
 // emulation at the real speed (when there is no sound: at cfg.fps).
 void pico_port_audio(const int16_t *samples, int n);
+// USB state in one line (hdmitest): devices, HID interfaces, reports...
+void pico_port_usb_info(char *buf, int n);
 void pico_port_frame_done(void);            // counts frames, paces without sound, logs fps
 // On-screen text over the whole picture (the computers' media menus):
 // PICO_OSD_ROWS lines of PICO_OSD_COLS characters (5x7 font, upper case).

@@ -29,7 +29,7 @@
 #endif
 #define CFG_TUH_MAX_SPEED OPT_MODE_FULL_SPEED
 
-#define CFG_TUH_ENUMERATION_BUFSIZE 256
+#define CFG_TUH_ENUMERATION_BUFSIZE 1024   // (some keyboards have long configuration descriptors)
 #define CFG_TUH_HUB 1
 #define CFG_TUH_DEVICE_MAX (3 * CFG_TUH_HUB + 1)
 #define CFG_TUH_HID 4

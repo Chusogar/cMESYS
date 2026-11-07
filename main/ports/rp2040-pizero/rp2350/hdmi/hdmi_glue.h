@@ -7,8 +7,9 @@ extern "C" {
 #endif
 
 // 640x480 at 60 Hz on GPIO32-39 (PIO1), sound at audio_hz (32000, 44100 or
-// 48000; 0: none) in HDMI data islands. line_cb(user) runs in the DMA
-// interrupt after every line, on the core that calls pzhdmi_core1_start().
+// 48000; 0: none) in HDMI data islands. line_cb(user) runs after every line,
+// in a low priority interrupt (the DMA's raises it) on the core that calls
+// pzhdmi_core1_start().
 void pzhdmi_init(int audio_hz, void (*line_cb)(void *), void *user);
 void pzhdmi_core1_start(void);
 // A row of `width` RGB565 pixels (a multiple of 4, 4-byte aligned), pixel

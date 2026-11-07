@@ -15,6 +15,10 @@ Changes for cMESYS (in `dvi/dvi.h`, `dvi/dvi.cpp`, marked `cMESYS`):
   doubled, queued if a TMDS buffer is free.
 - A queued buffer whose lines have already gone by is dropped instead of
   blocking the queue (and the picture) for the rest of the frame.
+- When the sound ring runs empty the last sample is repeated (not 0: no
+  click).
 - `getActiveLine()`: the output line being set up (-1 in the blanking).
 
-`hdmi_glue.cpp` is the C interface `pico_port.c` uses.
+`hdmi_glue.cpp` is the C interface `pico_port.c` uses: the rows are encoded
+in a low priority interrupt that the line callback raises, so the DMA's own
+interrupt (which builds the data islands with the sound) is never late.

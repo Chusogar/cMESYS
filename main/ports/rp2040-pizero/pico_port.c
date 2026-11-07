@@ -36,6 +36,8 @@
 #include "rp2350/hdmi/hdmi_glue.h"
 #if CFG_TUH_RPI_PIO_USB
 #include "pio_usb.h"
+#include "pio_usb_ll.h"
+#include "hardware/regs/sysinfo.h"
 void pico_usb_frame_start(void);    // rp2350/usb_frame.c
 #endif
 #define HDMI_AUDIO_HZ 44100
@@ -158,7 +160,7 @@ static volatile uint32_t frame_seq;            // frames the game has finished
 
 #define FB_RENDER_ROWS 2                       // rows drawn at a time
 
-// The rows go to the HDMI from its DMA interrupt (after every line): a
+// The rows go to the HDMI from an interrupt after every line: a
 // game's drawing on core 1, however long a band takes, never makes a row
 // late. One row each time (each row is shown on two lines, so they keep
 // ahead), more before the start.
@@ -200,7 +202,8 @@ static void __not_in_flash_func(feed_hdmi)(void *user)
     // (rows already queued for the next picture are ahead, not behind)
     if (line >= 0 && 2 * out_y <= line && line - 2 * out_y < 2 * PICO_H - 16 && line < 2 * PICO_H - 2)
         out_y = line / 2 + 1;
-    feed_row();
+    // (two at most: this interrupt may have been held up a line)
+    if (feed_row()) feed_row();
 }
 
 static void __not_in_flash_func(core1_main)(void)
@@ -596,8 +599,27 @@ static void kb_report(const uint8_t *r, uint32_t len)
     if (!cfg.computer && kb_state[0x3c] && !old[0x3c]) reset_req = true;
 }
 
+// USB diagnostics (pico_port_usb_info)
+static volatile uint32_t usb_mounts, usb_hid_mounts, usb_reports;
+static volatile uint8_t usb_last_vid_pid_ok;
+static volatile uint16_t usb_vid, usb_pid;
+
+void tuh_mount_cb(uint8_t dev)
+{
+    usb_mounts++;
+    uint16_t vid = 0, pid = 0;
+    if (tuh_vid_pid_get(dev, &vid, &pid)) { usb_vid = vid; usb_pid = pid; usb_last_vid_pid_ok = 1; }
+    printf("usb: device %u mounted (%04x:%04x)\n", dev, vid, pid);
+}
+
+void tuh_umount_cb(uint8_t dev)
+{
+    printf("usb: device %u unmounted\n", dev);
+}
+
 void tuh_hid_mount_cb(uint8_t dev, uint8_t inst, uint8_t const *desc, uint16_t len)
 {
+    usb_hid_mounts++;
     hid_dev *d = NULL;
     for (int i = 0; i < CFG_TUH_HID; i++) if (!devs[i].used) { d = &devs[i]; break; }
     if (!d) return;
@@ -622,6 +644,7 @@ void tuh_hid_umount_cb(uint8_t dev, uint8_t inst)
 
 void tuh_hid_report_received_cb(uint8_t dev, uint8_t inst, uint8_t const *r, uint16_t len)
 {
+    usb_reports++;
     for (int i = 0; i < CFG_TUH_HID; i++) {
         hid_dev *d = &devs[i];
         if (!d->used || d->dev != dev || d->inst != inst) continue;
@@ -634,6 +657,22 @@ void tuh_hid_report_received_cb(uint8_t dev, uint8_t inst, uint8_t const *r, uin
         }
     }
     tuh_hid_receive_report(dev, inst);
+}
+
+void pico_port_usb_info(char *buf, int n)
+{
+#if CFG_TUH_RPI_PIO_USB
+    const root_port_t *root = PIO_USB_ROOT_PORT(0);
+    const uint32_t id = *(io_ro_32 *)(SYSINFO_BASE + SYSINFO_CHIP_ID_OFFSET);
+    snprintf(buf, (size_t)n, "REV %u D+%d D-%d %s%s DEV %u HID %u REP %u ID %04X:%04X",
+             (unsigned)((id & SYSINFO_CHIP_ID_REVISION_BITS) >> SYSINFO_CHIP_ID_REVISION_LSB),
+             gpio_get(root->pin_dp) ? 0 : 1, gpio_get(root->pin_dm) ? 0 : 1,
+             root->connected ? "CON" : "NC", root->is_fullspeed ? " FS" : " LS",
+             (unsigned)usb_mounts, (unsigned)usb_hid_mounts, (unsigned)usb_reports, usb_vid, usb_pid);
+#else
+    snprintf(buf, (size_t)n, "DEV %u HID %u REP %u ID %04X:%04X", (unsigned)usb_mounts, (unsigned)usb_hid_mounts,
+             (unsigned)usb_reports, usb_vid, usb_pid);
+#endif
 }
 
 bool pico_port_key(int usage) { return usage >= 0 && usage < 256 && kb_state[usage]; }

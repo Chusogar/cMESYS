@@ -306,6 +306,11 @@ namespace dvi
             {
                 const auto *p = audioSampleRing_.getReadPointer();
                 audioFrameCount_ = packet.setAudioSample(p, n, audioFrameCount_);
+                // cMESYS: an empty ring repeats the last sample, not 0 (no click)
+                for (auto &h : holdSamples_)
+                {
+                    h = p[n - 1];
+                }
                 audioSampleRing_.advanceReadPointer(n);
                 audioSamplePos_ -= n << 16;
                 return true;
@@ -316,8 +321,7 @@ namespace dvi
                 // hardfault core1 if reached during an XIP-off window,
                 // and would also add a cold-cache flash fetch to the
                 // first frames after boot.
-                static AudioSample __not_in_flash("dvi_silence") silence[4] = {};
-                audioFrameCount_ = packet.setAudioSample(silence, due, audioFrameCount_);
+                audioFrameCount_ = packet.setAudioSample(holdSamples_, due, audioFrameCount_);
                 audioSamplePos_ -= due << 16;
                 return true;
             }

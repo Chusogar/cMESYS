@@ -180,6 +180,7 @@ namespace dvi
 
         int pendingAudioLineCount_ = 0;
 
+        AudioSample holdSamples_[4]{};  // cMESYS: sent when the ring is empty
         LineCallback lineCb_{};
         void *lineCbUser_{};
     };
