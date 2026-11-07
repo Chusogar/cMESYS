@@ -461,7 +461,8 @@ bool zx_beta_load_pbuf(zx_beta *b, zx_pbuf *file, const char **error)
         b->src_scl = false;
     }
     if (ok && file->lazy) {             // the disk stays on the card
-        b->src = *file;
+        b->src = *file;                 // (the disk owns it now: the caller's copy
+        zx_pb_init(file);               //  must not free it, nor close the file)
         b->has_src = true;
         return true;
     }
