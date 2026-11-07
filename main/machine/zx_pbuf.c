@@ -5,24 +5,34 @@
 
 void zx_pb_init(zx_pbuf *pb) { memset(pb, 0, sizeof *pb); }
 
-#define LAZY_SLOTS 8            // 2 KB of cache
+#define LAZY_SLOTS 8            // 2 KB of cache by default
 
 struct zx_pb_lazy {
     zx_pb_read_fn read;
     zx_pb_close_fn close;
     void *ctx;
-    uint8_t buf[LAZY_SLOTS][ZX_PAGE];
-    int32_t page[LAZY_SLOTS];       // the page in each slot (-1: none)
+    int nslots;
     int next;                       // slot to reuse (round robin)
+    int32_t *page;                  // the page in each slot (-1: none)
+    uint8_t (*buf)[ZX_PAGE];
 };
 
-bool zx_pb_open_lazy(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close_fn close, void *ctx)
+bool zx_pb_open_lazy_n(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close_fn close, void *ctx, int slots)
 {
     zx_pb_init(pb);
+    if (slots < 1) slots = LAZY_SLOTS;
     struct zx_pb_lazy *z = calloc(1, sizeof *z);
     const uint32_t n = (size + ZX_PAGE - 1) >> ZX_PAGE_BITS;
     pb->pages = calloc(n ? n : 1, sizeof *pb->pages);
-    if (!z || !pb->pages) {
+    if (z) {
+        z->page = malloc((size_t)slots * sizeof *z->page);
+        z->buf = malloc((size_t)slots * ZX_PAGE);
+    }
+    if (!z || !pb->pages || !z->page || !z->buf) {
+        if (z) {
+            free(z->page);
+            free(z->buf);
+        }
         free(z);
         free(pb->pages);
         pb->pages = NULL;
@@ -32,11 +42,17 @@ bool zx_pb_open_lazy(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close
     z->read = read;
     z->close = close;
     z->ctx = ctx;
-    for (int i = 0; i < LAZY_SLOTS; i++) z->page[i] = -1;
+    z->nslots = slots;
+    for (int i = 0; i < slots; i++) z->page[i] = -1;
     pb->lazy = z;
     pb->size = size;
     pb->npages = pb->cap = n;
     return true;
+}
+
+bool zx_pb_open_lazy(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close_fn close, void *ctx)
+{
+    return zx_pb_open_lazy_n(pb, size, read, close, ctx, LAZY_SLOTS);
 }
 
 // Reads `page` into a cache slot; the slot's previous page is dropped from
@@ -46,7 +62,7 @@ const uint8_t *zx_pb_fetch(const zx_pbuf *cpb, uint32_t page)
     zx_pbuf *pb = (zx_pbuf *)cpb;           // (the cache changes, the content does not)
     struct zx_pb_lazy *z = pb->lazy;
     const int s = z->next;
-    z->next = (z->next + 1) % LAZY_SLOTS;
+    z->next = (z->next + 1) % z->nslots;
     if (z->page[s] >= 0) pb->pages[z->page[s]] = NULL;
     const uint32_t off = page << ZX_PAGE_BITS;
     uint32_t n = pb->size - off < ZX_PAGE ? pb->size - off : ZX_PAGE;
@@ -66,6 +82,8 @@ void zx_pb_free(zx_pbuf *pb)
     free(pb->flat);
     if (pb->lazy) {
         if (pb->lazy->close) pb->lazy->close(pb->lazy->ctx);
+        free(pb->lazy->page);
+        free(pb->lazy->buf);
         free(pb->lazy);
         free(pb->pages);
         free(pb->fill);

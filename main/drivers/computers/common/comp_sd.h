@@ -9,6 +9,9 @@
 #include "zx_pbuf.h"
 #include "../ql/ql_sd.h"
 
+// pages of cache of the files left on the card (comp_sd_pbuf's lazy ones)
+static int comp_sd_lazy_slots = 8;
+
 static bool comp_sd_piece(void *user, size_t size, const uint8_t *data, size_t n)
 {
     (void)size;
@@ -44,7 +47,7 @@ static bool comp_sd_pbuf(const char *name, const char *const *lazy_exts, zx_pbuf
             *why = "SD: cannot open the file";
             return false;
         }
-        if (!zx_pb_open_lazy(pb, (uint32_t)size, comp_sd_read, comp_sd_close, f)) {
+        if (!zx_pb_open_lazy_n(pb, (uint32_t)size, comp_sd_read, comp_sd_close, f, comp_sd_lazy_slots)) {
             *why = "out of memory for the page cache";
             return false;
         }

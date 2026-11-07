@@ -1,0 +1,10 @@
+# Hot code in IRAM (out of the flash cache)
+[mapping:msx_hot]
+archive: libmain.a
+entries:
+    z80dsp (noflash)
+    msx_core (noflash)
+    tms9918 (noflash)
+    v9938 (noflash)
+    ay8910 (noflash)
+    msx_cart (noflash)

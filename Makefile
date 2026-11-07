@@ -25,6 +25,8 @@ else ifeq ($(GAME),c64)
   D     := $(M)/drivers/computers/c64
 else ifeq ($(GAME),lynx)
   D     := $(M)/drivers/computers/lynx
+else ifneq ($(filter $(GAME),msx1 msx2),)
+  D     := $(M)/drivers/computers/msx
 else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   D     := $(M)/drivers/computers/zxspec
 else
@@ -147,6 +149,10 @@ else ifeq ($(GAME),c64)
 else ifeq ($(GAME),lynx)
   SRC  := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/machine/zx_pbuf.c
   DEFS :=
+else ifneq ($(filter $(GAME),msx1 msx2),)
+  SRC  := $(D)/msx_sdl.c $(D)/msx_core.c $(D)/rom_data_$(GAME).c $(M)/cpu/z80dsp/z80dsp.c $(M)/video/tms9918.c \
+          $(M)/video/v9938.c $(M)/sound/ay8910.c $(M)/machine/msx_cart.c $(M)/machine/msx_disk.c $(M)/machine/zx_pbuf.c
+  DEFS := -DMSX_MODEL=$(subst msx,,$(GAME))
 else ifeq ($(GAME),spectrum48)
   SRC  := $(ZX_SRC)
   DEFS := -DZX_MODEL=ZX_SPEC48
@@ -179,7 +185,7 @@ ifeq ($(PORT),picohost)
   PORTSRC := tools/pico_host.c
   CFLAGS += -I$(M)/ports/rp2040-pizero -I$(M)/drivers/computers/ql -DPICO_BAND=4
   # microSD is board-only; stub the API so ql / zxspec *_pico.c link on the host.
-  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx),)
+  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2),)
     PORTSRC += tools/ql_sd_host_stub.c
   endif
   SDL_CFLAGS :=
@@ -217,6 +223,8 @@ all:
 	$(MAKE) GAME=cpc6128 TARGET=$(TARGET)
 	$(MAKE) GAME=c64 TARGET=$(TARGET)
 	$(MAKE) GAME=lynx TARGET=$(TARGET)
+	$(MAKE) GAME=msx1 TARGET=$(TARGET)
+	$(MAKE) GAME=msx2 TARGET=$(TARGET)
 
 clean:
 	rm -rf $(OUT)

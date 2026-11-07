@@ -64,6 +64,10 @@ void pico_port_run(void (*fn)(void)) __attribute__((noreturn));
 bool pico_port_poll(void);
 uint32_t pico_port_keys(void);              // SP_* bits held
 uint32_t pico_port_pad(void);               // the same from the gamepads only (the computers)
+#ifdef PIZERO_FB
+// RP2350 with render == NULL: row y of the picture, for the game to write
+uint16_t *pico_port_fb_row(int y);
+#endif
 // Keyboard state by HID usage (0x04 = A ... see the USB HID usage tables),
 // modifiers as 0xE0-0xE7, and the next usage pressed (-1: none).
 bool pico_port_key(int usage);

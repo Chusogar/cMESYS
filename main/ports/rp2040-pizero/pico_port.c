@@ -842,6 +842,12 @@ void pico_port_audio(const int16_t *s, int n)
     }
 }
 
+#ifdef PIZERO_FB
+// A game with no render callback writes its rows here itself, as it makes
+// them (no picture of its own to keep: the MSX2 needs that RAM)
+uint16_t *pico_port_fb_row(int y) { return (fb_back ? fb_back : (uint16_t *)fb_front) + y * PICO_W; }
+#endif
+
 void pico_port_frame_done(void)
 {
     uint64_t now = time_us_64();
@@ -854,6 +860,7 @@ void pico_port_frame_done(void)
     stat_frames++;
 #ifdef PIZERO_FB
     frame_seq++;                    // core 1 draws this frame's picture
+    if (!cfg.render && fb_back) fb_ready = true;     // (or the game drew it: pico_port_fb_row)
     __sev();
 #endif
 #ifdef PICO_EMU_TEST
