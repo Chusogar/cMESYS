@@ -39,26 +39,12 @@ pico_sdk_init()
 if(NOT GAME)
     message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion>")
 endif()
-if(NOT EXISTS "${PICO_DEPS}/PicoDVI/software/libdvi")
-    message(FATAL_ERROR "${PICO_DEPS}/PicoDVI is missing: run tools/setup_pico.sh first")
-endif()
-if(PIZERO STREQUAL "2350")
-    # PicoDVI's serialiser sets the TMDS pins' directions with 32-bit masks
-    # (3u << pin): the RP2350-PiZero's pins 32-39 would shift out and stay
-    # inputs (no signal). A copy of libdvi with the 64-bit SDK calls.
-    set(LIBDVI_SRC ${CMAKE_BINARY_DIR}/libdvi_src)
-    file(COPY ${PICO_DEPS}/PicoDVI/software/libdvi/ DESTINATION ${LIBDVI_SRC})
-    file(READ ${LIBDVI_SRC}/dvi_serialiser.pio pio_src)
-    string(REPLACE "pio_sm_set_pins_with_mask(pio, sm, 2u << data_pins, 3u << data_pins);"
-                   "pio_sm_set_pins_with_mask64(pio, sm, 2ull << data_pins, 3ull << data_pins);" pio2 "${pio_src}")
-    string(REPLACE "pio_sm_set_pindirs_with_mask(pio, sm, ~0u, 3u << data_pins);"
-                   "pio_sm_set_pindirs_with_mask64(pio, sm, ~0ull, 3ull << data_pins);" pio2 "${pio2}")
-    if(pio2 STREQUAL pio_src)
-        message(FATAL_ERROR "dvi_serialiser.pio of this PicoDVI has no pin mask lines to fix")
+# HDMI: PicoDVI on the RP2040; on the RP2350 rp2350/hdmi (pico_lib's DVI,
+# which also sends the sound to the TV, in data islands)
+if(NOT PIZERO STREQUAL "2350")
+    if(NOT EXISTS "${PICO_DEPS}/PicoDVI/software/libdvi")
+        message(FATAL_ERROR "${PICO_DEPS}/PicoDVI is missing: run tools/setup_pico.sh first")
     endif()
-    file(WRITE ${LIBDVI_SRC}/dvi_serialiser.pio "${pio2}")
-    add_subdirectory(${LIBDVI_SRC} ${CMAKE_BINARY_DIR}/libdvi)
-else()
     add_subdirectory(${PICO_DEPS}/PicoDVI/software/libdvi ${CMAKE_BINARY_DIR}/libdvi)
 endif()
 
@@ -149,7 +135,7 @@ elseif(GAME STREQUAL "ql")
 elseif(GAME STREQUAL "hdmitest")
     # the board test (hdmitest_pico.c): HDMI, USB and sound, no game
     set(SRCS ${PORT_DIR}/hdmitest_pico.c)
-    set(DEFS PICO_VIDEO_ONLY)       # (no USB, no PSRAM: the picture and the sound alone)
+    set(DEFS PICO_VIDEO_ONLY)       # (no PSRAM)
     set(RAM_CODE)
 elseif(IS_ZXSPEC)
     set(SRCS ${D}/zxspec_pico.c ${D}/zxspec_core.c ${D}/zx48.c ${D}/zx128.c ${D}/zxclone.c ${D}/rom_data_${GAME}.c
@@ -194,7 +180,11 @@ set(EXE ${GAME}_pizero)
 if(PIZERO STREQUAL "2350")
     # RP2350: PSRAM heap, whole frame buffers (no rows drawn against the
     # clock), a few TMDS rows of slack
-    list(APPEND SRCS ${PORT_DIR}/rp2350/psram.c ${PORT_DIR}/rp2350/heap.c)
+    set(HD ${PORT_DIR}/rp2350/hdmi)
+    list(APPEND SRCS ${PORT_DIR}/rp2350/psram.c ${PORT_DIR}/rp2350/heap.c ${PORT_DIR}/rp2350/usb_frame.c
+         ${HD}/hdmi_glue.cpp ${HD}/dvi/dvi.cpp ${HD}/dvi/dma.cpp ${HD}/dvi/data_packet.cpp ${HD}/dvi/timing.cpp
+         ${HD}/dvi/tmds_encode.cpp ${HD}/dvi/tmds_encode.S)
+    list(APPEND RAM_CODE dvi.cpp.o)  # (its DMA interrupt, every line: not from flash)
     set(BAND 2)
     set(TMDS_SLACK 4)
 endif()
@@ -211,15 +201,24 @@ target_compile_definitions(${EXE} PRIVATE ${DEFS} NDEBUG PICO_BAND=${BAND}
 if(DEFINED QL_AUDIO_PIN)
     target_compile_definitions(${EXE} PRIVATE PICO_AUDIO_PIN=${QL_AUDIO_PIN})
 endif()
-target_compile_definitions(libdvi INTERFACE DVI_VERTICAL_REPEAT=2 DVI_N_TMDS_BUFFERS=${NBUF})
+if(NOT PIZERO STREQUAL "2350")
+    target_compile_definitions(libdvi INTERFACE DVI_VERTICAL_REPEAT=2 DVI_N_TMDS_BUFFERS=${NBUF})
+endif()
 target_compile_options(${EXE} PRIVATE -O2 -Wno-unused-variable -Wno-unused-function -Wno-sign-compare
     -Wno-maybe-uninitialized -Wno-unused-but-set-variable -Wno-implicit-fallthrough -Wno-psabi)
 set_source_files_properties(${PORT_DIR}/pico_port.c PROPERTIES COMPILE_OPTIONS -fno-tree-loop-distribute-patterns)
 target_link_libraries(${EXE} PRIVATE pico_stdlib pico_multicore pico_sync hardware_dma hardware_pio
-    hardware_pwm hardware_clocks hardware_vreg hardware_interp hardware_spi libdvi tinyusb_host)
+    hardware_pwm hardware_clocks hardware_vreg hardware_interp hardware_spi tinyusb_host)
 if(PIZERO STREQUAL "2350")
-    target_compile_definitions(${EXE} PRIVATE PICO_PIO_USE_GPIO_BASE=1 PIO_USB_DP_PIN_DEFAULT=28)
-    target_link_libraries(${EXE} PRIVATE tinyusb_pico_pio_usb pico_flash)
+    target_compile_definitions(${EXE} PRIVATE PICO_PIO_USE_GPIO_BASE=1 PIO_USB_DP_PIN_DEFAULT=28
+        DVI_N_LINE_BUFFERS=2)       # (pico_lib's line buffers: not used here)
+    target_include_directories(${EXE} PRIVATE ${HD})
+    pico_generate_pio_header(${EXE} ${HD}/dvi/dvi_serialiser.pio)
+    target_link_libraries(${EXE} PRIVATE tinyusb_pico_pio_usb pico_flash hardware_timer pico_util)
+    set_source_files_properties(${HD}/hdmi_glue.cpp ${HD}/dvi/dvi.cpp ${HD}/dvi/dma.cpp ${HD}/dvi/data_packet.cpp
+        ${HD}/dvi/timing.cpp ${HD}/dvi/tmds_encode.cpp PROPERTIES COMPILE_OPTIONS "-std=gnu++17;-fno-exceptions;-fno-rtti")
+else()
+    target_link_libraries(${EXE} PRIVATE libdvi)
 endif()
 
 # Linker script: the SDK's, with the RAM_CODE objects' .text moved to RAM.

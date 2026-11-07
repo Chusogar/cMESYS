@@ -443,9 +443,9 @@ Firmware para la [Waveshare RP2350-PiZero](https://www.waveshare.com/wiki/RP2350
 
 | Función | Conexión | Notas |
 |---|---|---|
-| HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz desde una imagen de 320x240. Aquí la imagen se guarda entera (150 KB, y otra de 150 KB si cabe en la SRAM dejando 48 KB libres; las líneas TMDS siempre en SRAM, nunca en la PSRAM): las filas salen al HDMI desde la interrupción de su DMA (el callback de línea de PicoDVI), y el núcleo 1 dibuja con el mismo callback de la RP2040 la imagen siguiente en la de atrás; se cambian arriba de la pantalla. Un juego que dibuja despacio enseña menos imágenes por segundo, nunca líneas rojas ni cortes. Si no caben dos (OutRun, Puzzle Bobble, el QL), dibuja sobre la que se ve: alguna línea de corte, como en el CYD |
-| Mandos | puerto PIO-USB: D+ 28, D- 29 | teclado USB y/o mando HID (también por un hub). El USB-C nativo es para alimentar y flashear |
-| Sonido | GPIO18 (pin 12 del conector de 40) | PWM de 10 bits, mono; filtro RC antes del amplificador |
+| HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz desde una imagen de 320x240. Aquí la imagen se guarda entera (150 KB, y otra de 150 KB si cabe en la SRAM dejando 48 KB libres; las líneas TMDS siempre en SRAM, nunca en la PSRAM): las filas salen al HDMI desde la interrupción de su DMA (un callback de línea en el `DVI` de pico_lib, `rp2350/hdmi`), y el núcleo 1 dibuja con el mismo callback de la RP2040 la imagen siguiente en la de atrás; se cambian arriba de la pantalla. Un juego que dibuja despacio enseña menos imágenes por segundo, nunca líneas rojas ni cortes. Si no caben dos (OutRun, Puzzle Bobble, el QL), dibuja sobre la que se ve: alguna línea de corte, como en el CYD |
+| Mandos | puerto PIO-USB: D+ 28, D- 29 | teclado USB y/o mando HID (también por un hub). El USB-C nativo es para alimentar y flashear. El frame de 1 ms del PIO-USB va en `rp2350/usb_frame.c`, con un arreglo para la errata RP2350-E9 (con las entradas siempre activas las líneas D+/D- se quedan altas y no se ve el teclado) |
+| Sonido | por el HDMI (la tele) | 44,1 kHz en las *data islands* del HDMI (pico_lib de Shuichi Takano / Frank Hoedemakers, MIT); el sonido del juego se remuestrea y va igual a los dos canales |
 | microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL y los Spectrum cargan de ella con el menú en pantalla (F9) |
 | PSRAM | QMI CS1 = GPIO47 | APS6404L, 8 MB: el heap sigue en ella cuando se llena la SRAM |
 | Log | UART0: TX GPIO0 | 115200 baudios |
