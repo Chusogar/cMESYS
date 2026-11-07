@@ -34,7 +34,10 @@ static bool zx_sd_ext(const char *name, const char *ext)
 // false: *why says why
 static bool zx_sd_load(zxspec *m, const char *name, const char **why)
 {
-    static const char *const kept_on_card[] = { ".tap", ".tzx", ".cdt", ".csw", ".pzx", ".dsk" };
+    // (TR-DOS disks too: their tracks are copied out of the file read from
+    // the card, without a whole second copy of it in RAM; a 640 KB .scl did
+    // not fit on the RP2350-PiZero, which has no PSRAM fitted)
+    static const char *const kept_on_card[] = { ".tap", ".tzx", ".cdt", ".csw", ".pzx", ".dsk", ".trd", ".scl" };
     zx_pbuf pb;
     bool lazy = false;
     for (size_t i = 0; i < sizeof kept_on_card / sizeof kept_on_card[0]; i++)

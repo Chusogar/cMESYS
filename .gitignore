@@ -11,3 +11,4 @@ dist/*.bin
 # Pico SDK and PicoDVI (tools/setup_pico.sh)
 deps/
 dist/*.uf2
+dist/*.zip

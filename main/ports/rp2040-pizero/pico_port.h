@@ -70,12 +70,18 @@ int pico_port_next_press(void);
 // Queues the frame's sound; waits while the queue is full, which paces the
 // emulation at the real speed (when there is no sound: at cfg.fps).
 void pico_port_audio(const int16_t *samples, int n);
+// USB state in one line (hdmitest): devices, HID interfaces, reports...
+void pico_port_usb_info(char *buf, int n);
+// Memory in one line (after a load error): free SRAM, the PSRAM and its use
+void pico_port_mem_info(char *buf, int n);
 void pico_port_frame_done(void);            // counts frames, paces without sound, logs fps
 // On-screen text over the whole picture (the computers' media menus):
 // PICO_OSD_ROWS lines of PICO_OSD_COLS characters (5x7 font, upper case).
 #define PICO_OSD_COLS 52
 #define PICO_OSD_ROWS 30
 void pico_osd_show(bool on);
+// A line of text over the top of the picture for `ms` milliseconds
+void pico_osd_toast(const char *text, int ms);
 void pico_osd_clear(void);
 void pico_osd_text(int row, const char *text, bool highlight);
 // A list with a title, the selected item highlighted and kept in view, and

@@ -1,10 +1,11 @@
 // hdmitest_pico.c - a board test for the RP2040-PiZero / RP2350-PiZero, no
 // game: colour bars with a square moving over them (HDMI), the last key or
 // pad button pressed on the screen (USB) and a tone while one is held
-// (sound). Build with -DGAME=hdmitest. The USB host and the PSRAM are not
-// started (PICO_VIDEO_ONLY): the picture and the sound alone.
+// (sound: PWM on the RP2040, the TV's on the RP2350). Build with
+// -DGAME=hdmitest. The PSRAM is not set up (PICO_VIDEO_ONLY).
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include "pico_port.h"
 
 #define RATE 22050
@@ -26,7 +27,9 @@ static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 
 static void loop(void)
 {
-    int dx = 2, dy = 1, last = -1, phase = 0, shown = 0;
+    int dx = 2, dy = 1, last = -1;
+    uint32_t phase = 0, frames = 0;
+    bool osd = true;
     static int16_t tone[RATE / 50];
     char line[PICO_OSD_COLS + 1];
     for (;;) {
@@ -35,25 +38,30 @@ static void loop(void)
         while ((k = pico_port_next_press()) >= 0) {
             last = k;
             printf("key: HID usage 0x%02x\n", k);
+            if (k == 0x29) osd = !osd;             // Esc: the bars / the text
         }
         const uint32_t pad = pico_port_keys();
         bool held = pad != 0 || (last >= 0 && pico_port_key(last));
-        if (last >= 0 || pad) {
+        if (frames++ % 10 == 0) {
+            // the USB's state on the screen: no UART needed
             pico_osd_clear();
-            snprintf(line, sizeof line, "HDMI TEST - LAST KEY: HID 0X%02X  PAD BITS: %04X", last < 0 ? 0 : last, (unsigned)pad);
-            pico_osd_text(0, line, true);
-            pico_osd_text(2, "ESC HIDES THIS; A TONE SOUNDS WHILE A KEY IS HELD", false);
-            pico_osd_show(last != 0x29);
-            shown = 1;
+            pico_osd_text(0, "HDMI TEST", true);
+            snprintf(line, sizeof line, "LAST KEY: HID 0X%02X  PAD BITS: %04X", last < 0 ? 0 : last, (unsigned)pad);
+            pico_osd_text(2, line, false);
+            pico_port_usb_info(line, sizeof line);
+            pico_osd_text(4, "USB:", false);
+            pico_osd_text(5, line, false);
+            pico_osd_text(7, "HOLD A KEY: 441 HZ SINE TONE", false);
+            pico_osd_text(8, "ESC: COLOUR BARS / THIS TEXT", false);
+            pico_osd_show(osd);
         }
-        (void)shown;
         box_x += dx;
         box_y += dy;
         if (box_x < 0 || box_x > PICO_W - 24) dx = -dx;
         if (box_y < 0 || box_y > 200 - 24) dy = -dy;
         for (int i = 0; i < RATE / 50; i++) {
             phase = (phase + 1) % 50;                 // 441 Hz
-            tone[i] = held ? (int16_t)(phase < 25 ? 6000 : -6000) : 0;
+            tone[i] = held ? (int16_t)(8000 * sinf(phase * (2 * 3.14159265f / 50))) : 0;
         }
         pico_port_audio(tone, RATE / 50);
         pico_port_frame_done();

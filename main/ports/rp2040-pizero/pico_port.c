@@ -8,10 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "dvi.h"
+#if !PICO_RP2350
+#include "dvi.h"                    // PicoDVI
 #include "dvi_serialiser.h"
 #include "dvi_timing.h"
 #include "tmds_encode.h"
+#endif
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
@@ -26,16 +28,19 @@
 
 #if PICO_RP2350
 // RP2350-PiZero: a 320x240 frame buffer (or two) in SRAM, PSRAM for the
-// heap, keyboards on the PIO-USB port (GPIO28/29), sound on GPIO18
+// heap, keyboards on the PIO-USB port (GPIO28/29), picture and sound on the
+// HDMI (rp2350/hdmi: pico_lib's DVI, with data islands for the sound)
 #define PIZERO_FB 1
 #include "hardware/pio.h"
 #include "rp2350/psram.h"
+#include "rp2350/hdmi/hdmi_glue.h"
 #if CFG_TUH_RPI_PIO_USB
 #include "pio_usb.h"
+#include "pio_usb_ll.h"
+#include "hardware/regs/sysinfo.h"
+void pico_usb_frame_start(void);    // rp2350/usb_frame.c
 #endif
-#ifndef PICO_AUDIO_PIN
-#define PICO_AUDIO_PIN 18
-#endif
+#define HDMI_AUDIO_HZ 44100
 #define PSRAM_CS_PIN 47
 void pico_heap_sram_only(bool on);
 size_t pico_heap_sram_free(void);
@@ -57,16 +62,8 @@ static pico_port_cfg cfg;
 // ---------------------------------------------------------------------------
 // HDMI (core 1)
 // ---------------------------------------------------------------------------
+#ifndef PIZERO_FB
 static struct dvi_inst dvi;
-#ifdef PIZERO_FB
-static const struct dvi_serialiser_cfg pizero_dvi = {
-    .pio = pio1,                     // (GPIO base 16: the pins are above 31)
-    .sm_tmds = {0, 1, 2},
-    .pins_tmds = {36, 34, 32},       // D0 36/37, D1 34/35, D2 32/33
-    .pins_clk = 38,                  // CLK 38/39
-    .invert_diffpairs = false,
-};
-#else
 static const struct dvi_serialiser_cfg pizero_dvi = {
     .pio = pio1,
     .sm_tmds = {0, 1, 2},
@@ -146,6 +143,44 @@ static void __not_in_flash_func(osd_row)(int y, uint16_t *out)
     }
 }
 
+// A line of text over the top of the picture for a moment (TURBO ON...)
+#define TOAST_H 10
+static char toast_chars[PICO_OSD_COLS];
+static volatile uint32_t toast_until;           // time_us_32()
+
+void pico_osd_toast(const char *text, int ms)
+{
+    if (!osd_font[1][2]) memcpy(osd_font, font5x7, sizeof osd_font);
+    int i = 0;
+    for (; i < PICO_OSD_COLS && text[i]; i++) {
+        char c = text[i];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        if (c < 32 || c > 90) c = '?';
+        toast_chars[i] = c;
+    }
+    for (; i < PICO_OSD_COLS; i++) toast_chars[i] = ' ';
+    toast_until = time_us_32() + (uint32_t)ms * 1000u;
+}
+
+static inline bool __not_in_flash_func(toast_on)(void)
+{
+    return toast_until && (int32_t)(toast_until - time_us_32()) > 0;
+}
+
+// Row y (< TOAST_H) of the toast: an orange bar, black text
+static void __not_in_flash_func(toast_row)(int y, uint16_t *out)
+{
+    for (int x = 0; x < PICO_W; x++) out[x] = OSD_HBG;
+    const int gy = y - 1;
+    if (gy < 0 || gy >= 7) return;
+    for (int c = 0; c < PICO_OSD_COLS; c++) {
+        const uint8_t *g = osd_font[toast_chars[c] - 32];
+        uint16_t *o = out + 4 + c * 6;
+        for (int k = 0; k < 5; k++)
+            if ((g[k] >> gy) & 1) o[k] = OSD_HFG;
+    }
+}
+
 #ifdef PIZERO_FB
 // ---------------------------------------------------------------------------
 // RP2350: the picture is kept whole. Core 1 TMDS-encodes the rows of the
@@ -163,56 +198,60 @@ static volatile uint32_t frame_seq;            // frames the game has finished
 
 #define FB_RENDER_ROWS 2                       // rows drawn at a time
 
-// The rows go to the HDMI from its DMA interrupt (PicoDVI's scanline
-// callback, every second line): a game's drawing on core 1, however long a
-// band takes, never makes a row late.
+// The rows go to the HDMI from an interrupt after every line: a
+// game's drawing on core 1, however long a band takes, never makes a row
+// late. One row each time (each row is shown on two lines, so they keep
+// ahead), more before the start.
 static volatile int out_y;                      // next row to the HDMI
 static volatile uint32_t scan;                  // pictures sent so far
 static volatile bool fb_ready;                  // fb_back is whole: show it at the top
-static uint dvi_words;
-
-static void __not_in_flash_func(encode_into)(uint32_t *tmds, const uint16_t *row)
-{
-    const uint32_t *pix = (const uint32_t *)row;
-    tmds_encode_data_channel_16bpp(pix, tmds + 0 * dvi_words, PICO_W, DVI_16BPP_BLUE_MSB, DVI_16BPP_BLUE_LSB);
-    tmds_encode_data_channel_16bpp(pix, tmds + 1 * dvi_words, PICO_W, DVI_16BPP_GREEN_MSB, DVI_16BPP_GREEN_LSB);
-    tmds_encode_data_channel_16bpp(pix, tmds + 2 * dvi_words, PICO_W, DVI_16BPP_RED_MSB, DVI_16BPP_RED_LSB);
-}
 
 static uint16_t osd_line[PICO_W] __attribute__((aligned(4)));
 
-static void __not_in_flash_func(feed_hdmi)(void)
+static bool __not_in_flash_func(feed_row)(void)
 {
-    uint32_t *tmds;
-    while (queue_try_remove_u32(&dvi.q_tmds_free, &tmds)) {
-        int y = out_y;
-        if (y == 0 && fb_ready) {               // top of the screen: show the new picture
-            uint16_t *t = fb_front;
-            fb_front = fb_back;
-            fb_back = t;
-            fb_ready = false;
-        }
-        if (osd_on) {
-            osd_row(y, osd_line);
-            encode_into(tmds, osd_line);
-        } else {
-            encode_into(tmds, fb_front + y * PICO_W);
-        }
-        queue_try_add_u32(&dvi.q_tmds_valid, &tmds);
-        if (++y == PICO_H) {
-            y = 0;
-            scan++;
-        }
-        out_y = y;
+    int y = out_y;
+    if (y == 0 && fb_ready) {                   // top of the screen: show the new picture
+        uint16_t *t = fb_front;
+        fb_front = fb_back;
+        fb_back = t;
+        fb_ready = false;
     }
+    const uint16_t *src = fb_front + y * PICO_W;
+    if (osd_on) {
+        osd_row(y, osd_line);
+        src = osd_line;
+    } else if (y < TOAST_H && toast_on()) {
+        toast_row(y, osd_line);
+        src = osd_line;
+    }
+    if (!pzhdmi_try_row(2 * y, 2, src, PICO_W)) return false;
+    if (++y == PICO_H) {
+        y = 0;
+        scan++;
+    }
+    out_y = y;
+    return true;
+}
+
+static void __not_in_flash_func(feed_hdmi)(void *user)
+{
+    (void)user;
+    // rows that came too late are dropped by the HDMI: go on from the line
+    // being shown, not from them
+    const int line = pzhdmi_active_line();
+    // (rows already queued for the next picture are ahead, not behind)
+    if (line >= 0 && 2 * out_y <= line && line - 2 * out_y < 2 * PICO_H - 16 && line < 2 * PICO_H - 2)
+        out_y = line / 2 + 1;
+    // (two at most: this interrupt may have been held up a line)
+    if (feed_row()) feed_row();
 }
 
 static void __not_in_flash_func(core1_main)(void)
 {
-    dvi_words = dvi.timing->h_active_pixels / DVI_SYMBOLS_PER_WORD;
-    feed_hdmi();                    // the first rows before the start
-    dvi_register_irqs_this_core(&dvi, DMA_IRQ_0);
-    dvi_start(&dvi);
+    while (feed_row()) {            // the first rows before the start
+    }
+    pzhdmi_core1_start();           // (its DMA interrupt on this core)
     int draw_y = 0;                 // next row to draw
     uint32_t draw_scan = 0;         // (one picture: the scan the drawing started in)
     uint32_t last_scan = 0;
@@ -299,6 +338,8 @@ static void __not_in_flash_func(core1_main)(void)
             if (osd_on) for (int i = 0; i < n; i++) osd_row(y + i, band_buf + i * PICO_W);
             else if (video_on && cfg.render) cfg.render(cfg.user, y, n, band_buf);
             else for (int i = 0; i < n * PICO_W; i++) band_buf[i] = 0;
+            if (!osd_on && y < TOAST_H && toast_on())
+                for (int i = 0; i < n && y + i < TOAST_H; i++) toast_row(y + i, band_buf + i * PICO_W);
             for (int i = 0; i < n; i++) {
                 uint32_t *tmds;
                 if (queue_get_level(&dvi.q_tmds_valid) < HOLD_BELOW) hold_core0();
@@ -318,21 +359,20 @@ static void __not_in_flash_func(core1_main)(void)
 static void video_init(void)
 {
 #ifdef PIZERO_FB
-    pio_set_gpio_base(pio1, 16);
-#endif
-    dvi.timing = &dvi_timing_640x480p_60hz;
-    dvi.ser_cfg = pizero_dvi;
-#ifdef PIZERO_FB
-    dvi.scanline_callback = feed_hdmi;
-    // the TMDS rows in SRAM (the DMA reads them all the time: not the PSRAM)
+    // the TMDS rows and the sound ring in SRAM (the DMA and the interrupt
+    // read them all the time: not the PSRAM)
     pico_heap_sram_only(true);
-    dvi_init(&dvi, next_striped_spin_lock_num(), next_striped_spin_lock_num());
+    pzhdmi_init(HDMI_AUDIO_HZ, feed_hdmi, NULL);
     // then a second picture, if it fits in SRAM with 48 KB left over for the
     // game's later needs (the rest of its heap goes on in the PSRAM)
-    if (pico_heap_sram_free() >= PICO_W * PICO_H * 2 + 48 * 1024)
+    // (not for the computers: their disks and tapes need the RAM more, and
+    // the board has no PSRAM fitted, only a pad for one)
+    if (!cfg.computer && pico_heap_sram_free() >= PICO_W * PICO_H * 2 + 48 * 1024)
         fb_back = calloc(PICO_W * PICO_H, sizeof *fb_back);
     pico_heap_sram_only(false);
 #else
+    dvi.timing = &dvi_timing_640x480p_60hz;
+    dvi.ser_cfg = pizero_dvi;
     dvi.scanline_callback = 0;
     dvi_init(&dvi, next_striped_spin_lock_num(), next_striped_spin_lock_num());
 #endif
@@ -383,6 +423,39 @@ static void __not_in_flash_func(audio_irq)(void)
         }
 }
 
+#ifdef PIZERO_FB
+// RP2350: the sound goes to the TV in the HDMI's data islands, at 44.1 kHz:
+// the game's samples resampled (linear), the same on both channels. The
+// HDMI's ring (46 ms) paces the game, as the PWM's ring does on the RP2040.
+static uint32_t rs_step, rs_pos;                // input samples an output sample, 16.16
+static int16_t rs_prev;
+
+static void audio_init(int rate)
+{
+    rs_step = (uint32_t)(((uint64_t)rate << 16) / HDMI_AUDIO_HZ);
+    rs_pos = 0;
+    audio_ok = true;
+    printf("sound: HDMI, %d Hz resampled to %d Hz\n", rate, HDMI_AUDIO_HZ);
+}
+
+static void hdmi_audio(const int16_t *s, int n)
+{
+    for (int i = 0; i < n; i++) {
+        const int32_t cur = s[i], prev = rs_prev;
+        while (rs_pos < 0x10000u) {
+            const int16_t v = (int16_t)(prev + (((cur - prev) * (int32_t)(rs_pos >> 2)) >> 14));
+            while (!pzhdmi_audio_free()) {      // full: real time has caught up with us
+                tuh_task();
+                sleep_us(200);
+            }
+            pzhdmi_audio_put(v, v);
+            rs_pos += rs_step;
+        }
+        rs_pos -= 0x10000u;
+        rs_prev = (int16_t)cur;
+    }
+}
+#else
 static void audio_init(int rate)
 {
     gpio_set_function(PICO_AUDIO_PIN, GPIO_FUNC_PWM);
@@ -416,6 +489,7 @@ static void audio_init(int rate)
     audio_ok = true;
     printf("sound: PWM on GPIO%d, %u Hz\n", PICO_AUDIO_PIN, (unsigned)(sys / den));
 }
+#endif
 
 // ---------------------------------------------------------------------------
 // USB input (TinyUSB host): boot keyboards and HID gamepads
@@ -570,8 +644,27 @@ static void kb_report(const uint8_t *r, uint32_t len)
     if (!cfg.computer && kb_state[0x3c] && !old[0x3c]) reset_req = true;
 }
 
+// USB diagnostics (pico_port_usb_info)
+static volatile uint32_t usb_mounts, usb_hid_mounts, usb_reports;
+static volatile uint8_t usb_last_vid_pid_ok;
+static volatile uint16_t usb_vid, usb_pid;
+
+void tuh_mount_cb(uint8_t dev)
+{
+    usb_mounts++;
+    uint16_t vid = 0, pid = 0;
+    if (tuh_vid_pid_get(dev, &vid, &pid)) { usb_vid = vid; usb_pid = pid; usb_last_vid_pid_ok = 1; }
+    printf("usb: device %u mounted (%04x:%04x)\n", dev, vid, pid);
+}
+
+void tuh_umount_cb(uint8_t dev)
+{
+    printf("usb: device %u unmounted\n", dev);
+}
+
 void tuh_hid_mount_cb(uint8_t dev, uint8_t inst, uint8_t const *desc, uint16_t len)
 {
+    usb_hid_mounts++;
     hid_dev *d = NULL;
     for (int i = 0; i < CFG_TUH_HID; i++) if (!devs[i].used) { d = &devs[i]; break; }
     if (!d) return;
@@ -596,6 +689,7 @@ void tuh_hid_umount_cb(uint8_t dev, uint8_t inst)
 
 void tuh_hid_report_received_cb(uint8_t dev, uint8_t inst, uint8_t const *r, uint16_t len)
 {
+    usb_reports++;
     for (int i = 0; i < CFG_TUH_HID; i++) {
         hid_dev *d = &devs[i];
         if (!d->used || d->dev != dev || d->inst != inst) continue;
@@ -608,6 +702,37 @@ void tuh_hid_report_received_cb(uint8_t dev, uint8_t inst, uint8_t const *r, uin
         }
     }
     tuh_hid_receive_report(dev, inst);
+}
+
+#ifdef PIZERO_FB
+static size_t psram_total;
+size_t dsp_heap_psram_used(void);
+#endif
+
+void pico_port_mem_info(char *buf, int n)
+{
+#ifdef PIZERO_FB
+    snprintf(buf, (size_t)n, "SRAM FREE %uK, PSRAM %uK (USED %uK)", (unsigned)(pico_heap_sram_free() / 1024),
+             (unsigned)(psram_total / 1024), (unsigned)(dsp_heap_psram_used() / 1024));
+#else
+    snprintf(buf, (size_t)n, "RP2040: 264K RAM, NO PSRAM");
+#endif
+}
+
+void pico_port_usb_info(char *buf, int n)
+{
+#if CFG_TUH_RPI_PIO_USB
+    const root_port_t *root = PIO_USB_ROOT_PORT(0);
+    const uint32_t id = *(io_ro_32 *)(SYSINFO_BASE + SYSINFO_CHIP_ID_OFFSET);
+    snprintf(buf, (size_t)n, "REV %u D+%d D-%d %s%s DEV %u HID %u REP %u ID %04X:%04X",
+             (unsigned)((id & SYSINFO_CHIP_ID_REVISION_BITS) >> SYSINFO_CHIP_ID_REVISION_LSB),
+             gpio_get(root->pin_dp) ? 0 : 1, gpio_get(root->pin_dm) ? 0 : 1,
+             root->connected ? "CON" : "NC", root->is_fullspeed ? " FS" : " LS",
+             (unsigned)usb_mounts, (unsigned)usb_hid_mounts, (unsigned)usb_reports, usb_vid, usb_pid);
+#else
+    snprintf(buf, (size_t)n, "DEV %u HID %u REP %u ID %04X:%04X", (unsigned)usb_mounts, (unsigned)usb_hid_mounts,
+             (unsigned)usb_reports, usb_vid, usb_pid);
+#endif
 }
 
 bool pico_port_key(int usage) { return usage >= 0 && usage < 256 && kb_state[usage]; }
@@ -653,7 +778,7 @@ uint32_t pico_port_keys(void)
     return k;
 }
 
-#if defined(PICO_EMU_TEST) || defined(PICO_VIDEO_ONLY)
+#if defined(PICO_EMU_TEST)
 #define tuh_task() do { } while (0)
 #endif
 
@@ -678,6 +803,10 @@ void pico_port_audio(const int16_t *s, int n)
     return;
 #endif
     if (!audio_ok || !cfg.audio_rate) return;
+#ifdef PIZERO_FB
+    hdmi_audio(s, n);
+    return;
+#endif
     while (n > 0) {
         uint32_t w = r_write, room = AUDIO_RING - (w - r_read);
         if (room == 0) {                     // full: real time has caught up with us
@@ -760,34 +889,71 @@ void pico_port_open(const pico_port_cfg *c)
 #else
     const size_t psram = dsp_psram_setup(PSRAM_CS_PIN);
 #endif
-    if (psram) dsp_heap_add_psram(DSP_PSRAM_BASE, psram);
-    printf("PSRAM %u KB\n", (unsigned)(psram / 1024));
-#if CFG_TUH_RPI_PIO_USB && !defined(PICO_EMU_TEST) && !defined(PICO_VIDEO_ONLY)
-    // PIO0 and DMA channel 0, before PicoDVI claims its own
+    // a quick test: a word every 64 KB, through the uncached window (the chip
+    // itself, not the cache)
+    bool psram_ok = psram != 0;
+    volatile uint32_t *const nc = (volatile uint32_t *)(DSP_PSRAM_BASE - 0x11000000u + 0x15000000u);
+    for (size_t o = 0; psram_ok && o < psram; o += 65536) nc[o / 4] = 0x5a000000u ^ (uint32_t)o;
+    for (size_t o = 0; psram_ok && o < psram; o += 65536) psram_ok = nc[o / 4] == (0x5a000000u ^ (uint32_t)o);
+    if (psram_ok) dsp_heap_add_psram(DSP_PSRAM_BASE, psram);
+    psram_total = psram_ok ? psram : 0;
+    printf("PSRAM %u KB%s\n", (unsigned)(psram / 1024), psram && !psram_ok ? " (FAILED THE TEST)" : "");
+#ifdef PICO_USB_ALT
+    // (hdmitest2: the USB is started after the HDMI, as pico-286 does, with
+    // Pico-PIO-USB's own timer and no RP2350-E9 workaround: to compare)
+    const char *usb_line = "USB (PIO-USB, GPIO28/29): LATE START, OWN TIMER";
+#else
+#if CFG_TUH_RPI_PIO_USB && !defined(PICO_EMU_TEST)
+    // PIO0 and DMA channel 0, before the HDMI claims its own. Its 1 ms frame
+    // runs from rp2350/usb_frame.c (the RP2350-E9 workaround), not from
+    // Pico-PIO-USB's own timer
     pio_usb_configuration_t pcfg = PIO_USB_DEFAULT_CONFIG;
     pcfg.pin_dp = 28;
     pcfg.pio_tx_num = 0;
     pcfg.pio_rx_num = 0;
+    pcfg.skip_alarm_pool = true;
     tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pcfg);
 #endif
-#if !defined(PICO_EMU_TEST) && !defined(PICO_VIDEO_ONLY)
+#if !defined(PICO_EMU_TEST)
     tuh_init(BOARD_TUH_RHPORT);
+#if CFG_TUH_RPI_PIO_USB
+    pico_usb_frame_start();
+#endif
+#if CFG_TUH_RPI_PIO_USB
     printf("USB host on PIO-USB (GPIO28/29)\n");
     const char *usb_line = "USB (PIO-USB, GPIO28/29): OK";
 #else
-    const char *usb_line = "USB: NOT STARTED (VIDEO TEST)";
+    printf("USB host on the native USB-C\n");
+    const char *usb_line = "USB: NATIVE USB-C (POWER THE BOARD BY AN OTG / Y CABLE)";
+#endif
+#else
+    const char *usb_line = "USB: NOT STARTED (TEST)";
+#endif
 #endif
     char line[PICO_OSD_COLS + 1];
     int row = 0;
     pico_osd_clear();
     snprintf(line, sizeof line, "CMESYS %s - RP2350-PIZERO %u MHZ", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));
     pico_osd_text(row++, line, true);
-    snprintf(line, sizeof line, "PSRAM: %u KB", (unsigned)(psram / 1024));
+    snprintf(line, sizeof line, "PSRAM: %u KB%s", (unsigned)(psram / 1024), psram && !psram_ok ? " - FAILED THE TEST" : "");
     pico_osd_text(row++, line, false);
     pico_osd_text(row++, usb_line, false);
     pico_osd_show(true);
 #ifndef PICO_EMU_TEST
     video_init();
+#endif
+#ifdef PICO_USB_ALT
+    {
+        sleep_ms(500);
+        pio_usb_configuration_t pcfg = PIO_USB_DEFAULT_CONFIG;
+        pcfg.pin_dp = 28;
+        const int ch = dma_claim_unused_channel(true);   // (a free one; Pico-PIO-USB claims it again)
+        dma_channel_unclaim((uint)ch);
+        pcfg.tx_ch = (uint8_t)ch;
+        tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pcfg);
+        tuh_init(BOARD_TUH_RHPORT);
+        printf("USB host on PIO-USB (GPIO28/29), started late, DMA %d\n", ch);
+    }
 #endif
     printf("frame buffers: %s; SRAM heap left %u KB\n", fb_back ? "2" : "1", (unsigned)(pico_heap_sram_free() / 1024));
     snprintf(line, sizeof line, "HDMI 640X480 60 HZ: OK  PICTURES: %d  SRAM FREE: %u KB", fb_back ? 2 : 1,
@@ -797,12 +963,15 @@ void pico_port_open(const pico_port_cfg *c)
 #ifndef PICO_EMU_TEST
     if (cfg.audio_rate) audio_init(cfg.audio_rate);
 #endif
-    snprintf(line, sizeof line, "SOUND: %s", cfg.audio_rate ? "PWM ON GPIO18" : "NONE");
+    snprintf(line, sizeof line, "SOUND: %s", cfg.audio_rate ? "HDMI 44.1 KHZ" : "NONE");
     pico_osd_text(row++, line, false);
     pico_osd_text(row++, "STARTING...", false);
     printf("start-up done\n");
     const uint64_t t_end = time_us_64() + 1500000;
-    while (time_us_64() < t_end) sleep_ms(5);
+    while (time_us_64() < t_end) {
+        tuh_task();                          // (a keyboard is found meanwhile)
+        sleep_ms(1);
+    }
     pico_osd_show(false);
 #else
     printf("\ncMESYS %s on the RP2040-PiZero, %u MHz\n", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));

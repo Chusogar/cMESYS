@@ -80,6 +80,9 @@ uint32_t pico_port_keys(void)
 static int held_usage = -1;
 static long held_until;
 
+void pico_osd_toast(const char *text, int ms) { (void)ms; printf("toast: %s\n", text); }
+void pico_port_mem_info(char *buf, int n) { snprintf(buf, (size_t)n, "HOST"); }
+void pico_port_usb_info(char *buf, int n) { snprintf(buf, (size_t)n, "HOST"); }
 bool pico_port_key(int usage) { return usage == held_usage && frames < held_until; }
 
 int pico_port_next_press(void)

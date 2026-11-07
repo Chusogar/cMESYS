@@ -20,6 +20,12 @@ typedef struct {
     uint8_t *track[TRD_MAX_TRACKS][2];
     int tracks, heads;
     bool present;
+    // A disk left on the card (a lazy zx_pbuf): the sectors not in track[]
+    // are read from the file; a track is copied into RAM when written.
+    zx_pbuf src;
+    bool has_src, src_scl;
+    uint32_t scl_data, scl_secs;    // .scl: where its sectors start, how many
+    uint8_t rbuf[TRD_SECTOR];
     // WD1793
     uint8_t status, trk, sec, data, command;
     int side, drive;
@@ -37,7 +43,8 @@ void zx_beta_free(zx_beta *b);      // ejects the disk
 void zx_beta_reset(zx_beta *b);
 bool zx_beta_load(zx_beta *b, const uint8_t *data, size_t size, const char **error);
 // From pages (zx_pbuf.h; a .trd's 4 KB pages become its tracks as they are,
-// an .scl's are freed as they are copied); *file is freed.
+// an .scl's are freed as they are copied); *file is freed. A lazy one (the
+// file on the card) is kept instead: the disk is read from it as it is used.
 bool zx_beta_load_pbuf(zx_beta *b, zx_pbuf *file, const char **error);
 static inline void zx_beta_enable(zx_beta *b) { b->active = true; }
 static inline void zx_beta_disable(zx_beta *b) { b->active = false; }

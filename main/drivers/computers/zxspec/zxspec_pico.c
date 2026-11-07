@@ -104,6 +104,8 @@ static void media_menu(void)
                         char msg[PICO_OSD_COLS + 1];
                         snprintf(msg, sizeof msg, "ERROR: %s", why && why[0] ? why : "CANNOT LOAD");
                         pico_osd_text(PICO_OSD_ROWS - 1, msg, true);
+                        pico_port_mem_info(msg, sizeof msg);
+                        pico_osd_text(PICO_OSD_ROWS - 2, msg, false);
                         continue;                          // stay in the menu
                     }
                 } else if (sel == nfiles) {
@@ -113,6 +115,7 @@ static void media_menu(void)
                 } else if (sel == nfiles + 1) {
                     turbo = !turbo;
                     printf("TURBO %s\n", turbo ? "on" : "off");
+                    pico_osd_toast(turbo ? "TURBO ON (F12)" : "TURBO OFF", 1500);
                 }
                 pico_osd_show(false);
                 return;
@@ -142,6 +145,7 @@ static void game(void)
             if (k == 0x45) {                                         // F12: TURBO
                 turbo = !turbo;
                 printf("TURBO %s\n", turbo ? "on" : "off");
+                pico_osd_toast(turbo ? "TURBO ON (F12)" : "TURBO OFF", 1500);
             }
         }
         zxspec_keys_clear(cpu_m);
