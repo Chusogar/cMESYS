@@ -77,6 +77,8 @@ uint32_t pico_port_keys(void)
     return k;
 }
 
+uint32_t pico_port_pad(void) { return pico_port_keys(); }
+
 static int held_usage = -1;
 static long held_until;
 

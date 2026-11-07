@@ -19,6 +19,12 @@ M       := main
 ZX_GAMES := spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion
 ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
+else ifeq ($(GAME),cpc6128)
+  D     := $(M)/drivers/computers/cpc
+else ifeq ($(GAME),c64)
+  D     := $(M)/drivers/computers/c64
+else ifeq ($(GAME),lynx)
+  D     := $(M)/drivers/computers/lynx
 else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   D     := $(M)/drivers/computers/zxspec
 else
@@ -68,6 +74,9 @@ endif
 
 ifeq ($(strip $(SDL_LIBS)),)
   SDL_LIBS := -lSDL2
+endif
+ifeq ($(TARGET),windows)
+  SDL_LIBS += -lcomdlg32          # (the computers' file dialog: common/comp_sdl.h)
 endif
 
 M68K := $(M)/cpu/m68k/m68kcpu.c $(M)/cpu/m68k/m68kops.c $(M)/cpu/m68k/m68kopac.c \
@@ -126,6 +135,18 @@ else ifeq ($(GAME),ql)
   SRC  := $(D)/ql_sdl.c $(D)/ql_core.c $(D)/ql_view.c $(D)/ql_cart_host.c $(D)/rom_data.c $(M68K) $(M)/cpu/mcs48/mcs48.c \
           $(M)/machine/zx8302.c $(M)/machine/ql_mdv.c $(M)/video/zx8301.c
   DEFS :=
+else ifeq ($(GAME),cpc6128)
+  SRC  := $(D)/cpc_sdl.c $(D)/cpc_core.c $(D)/rom_data.c $(M)/cpu/z80dsp/z80dsp.c $(M)/sound/ay8910.c \
+          $(M)/machine/zx_nec765.c $(M)/machine/zx_tape.c $(M)/machine/zx_pbuf.c $(M)/machine/zx_inflate.c
+  DEFS :=
+else ifeq ($(GAME),c64)
+  SRC  := $(D)/c64_sdl.c $(D)/c64_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/video/mos6569.c \
+          $(M)/sound/sid6581.c $(M)/machine/mos6526.c $(M)/machine/c1541.c $(M)/machine/via6522.c \
+          $(M)/machine/zx_pbuf.c
+  DEFS :=
+else ifeq ($(GAME),lynx)
+  SRC  := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/machine/zx_pbuf.c
+  DEFS :=
 else ifeq ($(GAME),spectrum48)
   SRC  := $(ZX_SRC)
   DEFS := -DZX_MODEL=ZX_SPEC48
@@ -156,9 +177,9 @@ ifeq ($(PORT),picohost)
   OUT   := build/picohost
   SRC   := $(patsubst %_sdl.c,%_pico.c,$(SRC))
   PORTSRC := tools/pico_host.c
-  CFLAGS += -I$(M)/ports/rp2040-pizero -I$(M)/drivers/computers/ql
+  CFLAGS += -I$(M)/ports/rp2040-pizero -I$(M)/drivers/computers/ql -DPICO_BAND=4
   # microSD is board-only; stub the API so ql / zxspec *_pico.c link on the host.
-  ifneq ($(filter $(GAME),ql $(ZX_GAMES)),)
+  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx),)
     PORTSRC += tools/ql_sd_host_stub.c
   endif
   SDL_CFLAGS :=
@@ -193,6 +214,9 @@ all:
 	$(MAKE) GAME=pentagon TARGET=$(TARGET)
 	$(MAKE) GAME=pentagon1024 TARGET=$(TARGET)
 	$(MAKE) GAME=scorpion TARGET=$(TARGET)
+	$(MAKE) GAME=cpc6128 TARGET=$(TARGET)
+	$(MAKE) GAME=c64 TARGET=$(TARGET)
+	$(MAKE) GAME=lynx TARGET=$(TARGET)
 
 clean:
 	rm -rf $(OUT)

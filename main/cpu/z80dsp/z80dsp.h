@@ -2,8 +2,9 @@
 // emulator's nz80.pas): the core the ZX Spectrum drivers of dsp-cpp use, with
 // the hooks their ULA timing needs (base T-states elapsed inside the current
 // instruction, contended internal T-states, a hook before each opcode fetch
-// and one per M1 for RZX playback). The Z80N (Spectrum Next) opcodes and the
-// replaceable timing tables of the original are left out.
+// and one per M1 for RZX playback), and the replaceable timing tables, IRQ
+// acknowledge callback and IRQ cycle alignment the Amstrad CPC needs. The
+// Z80N (Spectrum Next) opcodes are left out.
 #ifndef Z80DSP_H
 #define Z80DSP_H
 #include <stdint.h>
@@ -25,6 +26,11 @@ struct zd_z80 {
     void (*m1)(void *user);                       // every M1 that bumps R (optional)
     void (*internal)(void *user, uint16_t addr);  // contended internal T-states (optional)
     void *user;
+    void (*irq_ack)(void *user);                  // an interrupt is taken (optional)
+    // T-state tables (NULL before zd_init: the standard ones), as dsp-cpp's
+    // set_timing_tables(); irq_align > 1 rounds an interrupt's T-states up to it
+    const uint8_t *t_main, *t_cb, *t_ed, *t_index, *t_index_cb, *t_extra;
+    int irq_align;
 
     uint8_t a, f, b, c, d, e, h, l;
     uint8_t a2, f2, b2, c2, d2, e2, h2, l2;

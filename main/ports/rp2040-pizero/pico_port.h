@@ -63,6 +63,7 @@ void pico_port_run(void (*fn)(void)) __attribute__((noreturn));
 // reset was asked for (F3, or SELECT + START).
 bool pico_port_poll(void);
 uint32_t pico_port_keys(void);              // SP_* bits held
+uint32_t pico_port_pad(void);               // the same from the gamepads only (the computers)
 // Keyboard state by HID usage (0x04 = A ... see the USB HID usage tables),
 // modifiers as 0xE0-0xE7, and the next usage pressed (-1: none).
 bool pico_port_key(int usage);

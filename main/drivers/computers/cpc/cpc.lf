@@ -1,0 +1,7 @@
+# Hot code in IRAM (out of the flash cache)
+[mapping:cpc_hot]
+archive: libmain.a
+entries:
+    z80dsp (noflash)
+    cpc_core (noflash)
+    ay8910 (noflash)

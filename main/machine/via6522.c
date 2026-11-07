@@ -49,6 +49,7 @@ static void output_irq(via6522 *v)
 {
     if (v->ifr & v->ier & 0x7F) v->ifr |= INT_ANY;
     else v->ifr &= (uint8_t)~INT_ANY;
+    if (v->irq) v->irq(v->user, (v->ifr & INT_ANY) != 0);
 }
 
 static void set_int(via6522 *v, uint8_t bits) { v->ifr |= (uint8_t)(bits & 0x7F); output_irq(v); }
@@ -65,7 +66,12 @@ static uint8_t out_b(const via6522 *v)
 
 static void output_pa(via6522 *v) { if (v->pa_out) v->pa_out(v->user, out_a(v)); }
 static void output_pb(via6522 *v) { if (v->pb_out) v->pb_out(v->user, out_b(v)); }
-static void output_ca2(via6522 *v, bool level) { v->out_ca2 = level; }
+static void output_ca2(via6522 *v, bool level)
+{
+    if (v->out_ca2 == level) return;
+    v->out_ca2 = level;
+    if (v->ca2_out) v->ca2_out(v->user, level);
+}
 static void output_cb2_sr(via6522 *v, bool level) { v->out_cb2 = level; }
 static void output_cb2(via6522 *v, bool level) { v->hs_cb2 = level; output_cb2_sr(v, level); }
 
@@ -316,3 +322,25 @@ void via6522_write(via6522 *v, uint8_t reg, uint8_t value)
     default: break;
     }
 }
+
+// External inputs (the 1541's head and ATN)
+void via6522_write_pa(via6522 *v, uint8_t value)
+{
+    v->in_a = value;
+    if (!PA_LATCH(v->acr)) v->latch_a = value;
+}
+
+void via6522_write_ca1(via6522 *v, bool state)
+{
+    if (state == v->in_ca1) return;
+    const bool rise = state && !v->in_ca1, fall = !state && v->in_ca1;
+    v->in_ca1 = state;
+    const bool trigger = (v->pcr & 0x01) ? rise : fall;     // CA1 active edge
+    if (trigger) {
+        if (PA_LATCH(v->acr)) v->latch_a = v->pa_in ? v->pa_in(v->user) : v->in_a;
+        set_int(v, INT_CA1);
+        if (CA2_HANDSHAKE(v->pcr)) output_ca2(v, true);
+    }
+}
+
+uint8_t via6522_out_b(const via6522 *v) { return out_b(v); }

@@ -1,11 +1,12 @@
 #!/bin/sh
 # Regenerates a game's generated sources (ROMs as C arrays, Musashi tables):
 #   tools/regen.sh indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | ql
-#                  | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion
+#                  | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion | cpc6128 | c64 | lynx
 # ROMs: roms/indytemp or roms/roadrunn + roms/atarisy1, roms/snowbros, roms/trackfld, roms/pbobble, roms/gauntlet, roms/outrun, roms/retofinv, roms/robocop, roms/polepos, roms/polepos2 (unzipped; Pole Position
 # also with the Namco 51xx-54xx MCU dumps),
 # roms/ql (the QL set unzipped + the .mdv cartridge to build in),
-# roms/<spectrum-model>/ exclusively (one directory and one rom_data_<model>.c per model).
+# roms/<spectrum-model>/ exclusively (one directory and one rom_data_<model>.c per model),
+# roms/cpc6128, roms/c64, roms/lynx (unzipped MAME sets or the usual dumps).
 set -e
 G=$1
 M=main
@@ -13,6 +14,8 @@ D=$M/drivers/arcades/$G
 case $G in
 ql) D=$M/drivers/computers/$G ;;
 spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion) D=$M/drivers/computers/zxspec ;;
+cpc6128) D=$M/drivers/computers/cpc ;;
+c64|lynx) D=$M/drivers/computers/$G ;;
 esac
 T=${TMPDIR:-/tmp}/arcade_regen
 mkdir -p $T
@@ -60,11 +63,14 @@ spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion)
     fi
     python3 tools/gen_roms_zxspec.py "$ROMDIR" "$D/rom_data_$G.c" "$G"
     exit 0 ;;
+cpc6128|c64|lynx)
+    python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data.c
+    exit 0 ;;
 trackfld)
     cc -O2 -o $T/gen_roms tools/gen_roms_trackfld.c
     $T/gen_roms roms/trackfld $D/rom_data.c
     exit 0 ;;
-*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion"; exit 1 ;;
+*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx"; exit 1 ;;
 esac
 # Musashi opcode tables in flash, for this game's CPU type
 cc -O1 -w -I$D -I$M/cpu/m68k -DCYC_CPU=$CYC -o $T/gen_m68k tools/gen_m68k_tables.c $M/cpu/m68k/m68kcpu.c \

@@ -362,3 +362,5 @@ void ay8910_update(ay8910 *ay, int16_t *dst, int samples)
         dst[i] = (int16_t)v;
     }
 }
+
+void ay8910_set_amplitude(ay8910 *ay, float amplitude) { set_amplitude(ay, amplitude); }

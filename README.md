@@ -1,6 +1,6 @@
-# Arcades y ordenadores Sinclair para ESP32 CYD (ST7789), RP2040-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
+# Arcades y ordenadores (Sinclair, Amstrad, Commodore, Atari Lynx) para ESP32 CYD (ST7789), RP2040/RP2350-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
 
-Dieciocho máquinas (once recreativas, el Sinclair QL y seis ZX Spectrum / clones) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
+Veintiuna máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clones, el Amstrad CPC 6128, el Commodore 64 y la Atari Lynx) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -21,6 +21,9 @@ Dieciocho máquinas (once recreativas, el Sinclair QL y seis ZX Spectrum / clone
 | Pentagon 128 — clon ZX | `pentagon` | Z80 | beeper + AY, Beta 128 | dsp-cpp `zx_clone.cpp` (ZxClone) → `zxspec/zxclone.c` (`ZX_PENTAGON`) |
 | Pentagon 1024 — clon ZX | `pentagon1024` | Z80 | beeper + AY, Beta 128 | dsp-cpp `zx_clone.cpp` → `zxclone.c` (`ZX_PENTAGON1024`); ROMs en `roms/pentagon1024/` |
 | Scorpion ZS-256 — clon ZX | `scorpion` | Z80 | beeper + AY, Beta 128 | dsp-cpp `zx_clone.cpp` → `zxclone.c` (`ZX_SCORPION`) |
+| Amstrad CPC 6128 (1985) — ordenador | `cpc6128` | Z80 (con las esperas del Gate Array) | AY-3-8912 | dsp-cpp `amstrad_cpc.cpp` → `drivers/computers/cpc/cpc_core.c` (también 464 / 664 en el escritorio) |
+| Commodore 64 (PAL, 1982) — ordenador | `c64` | 6510 (+ 6502 de la 1541) | SID 6581 | dsp-cpp `commodore64.cpp` → `drivers/computers/c64/c64_core.c` |
+| Atari Lynx (1989) — consola portátil | `lynx` | 65C02 | Mikey (4 canales) | dsp-cpp `atari_lynx.cpp` + `lynx_mikey` + `lynx_suzy` → `drivers/computers/lynx/lynx_core.c` |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
 
 Cada firmware lleva una sola máquina (el del QL lleva también un cartucho de microdrive; los Spectrum cargan cintas, snapshots, RZX y discos (ver «ZX Spectrum: migración de dsp-cpp») desde microSD, arrastrar-y-soltar, diálogo o barra web, igual que el menú de cartucho del QL). Las ROMs van dentro. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
@@ -319,7 +322,7 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o … / polepos / polepos2 / ql / spectrum48 / … / pentagon1024 / scorpion; "make all" -> build/sdl/<juego>
+make GAME=indytemp        # o … / polepos / polepos2 / ql / spectrum48 / … / scorpion / cpc6128 / c64 / lynx; "make all" -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
 ./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ./build/sdl/gauntlet      # ROMs incluidas
@@ -381,7 +384,7 @@ python3 -m http.server --directory build/web 8080
 # http://localhost:8080/  → index; http://localhost:8080/robocop.html
 ```
 
-Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum: barra «Upload» (todos los formatos), drag&drop o F9; F12 = TURBO. `?frames=n` en la URL corta tras n frames.
+Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum, CPC, C64 y Lynx: barra «Upload» (todos sus formatos), drag&drop o F9; F12 = TURBO. `?frames=n` en la URL corta tras n frames.
 
 ## RP2040-PiZero (HDMI)
 
@@ -435,6 +438,7 @@ El RP2040 (Cortex-M0+) es bastante más lento que el ESP32, así que las máquin
 ### Pruebas sin la placa
 
 - `make GAME=<juego> PORT=picohost` compila el frontend `<juego>_pico.c` para el PC con `tools/pico_host.c` (la misma API sin ventana): `PICO_FRAMES=1200 PICO_SHOT=600,1200 PICO_KEYS=1@300:10,4@400:10 build/picohost/<juego>` guarda `shot_600.ppm`… dibujados con el mismo callback que usa el núcleo 1 (y dice cuánta memoria pide el juego).
+- Los ordenadores leen la microSD de una carpeta del PC con `PICO_SD=<carpeta>`, y `PICO_PRESS=66@150,40@155` pulsa F9 y Enter (usos HID) en esos frames: así se prueban el menú y la carga.
 - `cmake -S main/ports/rp2040-pizero -B build/picoemu-<juego> -DGAME=<juego> -DPICO_EMU_TEST=ON` hace un firmware para el simulador [rp2040js](https://github.com/wokwi/rp2040js) (un solo núcleo: sin HDMI, USB ni sonido) que escribe los frames por la UART.
 
 ## RP2350-PiZero (HDMI)
@@ -446,7 +450,7 @@ Firmware para la [Waveshare RP2350-PiZero](https://www.waveshare.com/wiki/RP2350
 | HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz desde una imagen de 320x240. Aquí la imagen se guarda entera (150 KB, y otra de 150 KB si cabe en la SRAM dejando 48 KB libres; las líneas TMDS siempre en SRAM, nunca en la PSRAM): las filas salen al HDMI desde la interrupción de su DMA (un callback de línea en el `DVI` de pico_lib, `rp2350/hdmi`), y el núcleo 1 dibuja con el mismo callback de la RP2040 la imagen siguiente en la de atrás; se cambian arriba de la pantalla. Un juego que dibuja despacio enseña menos imágenes por segundo, nunca líneas rojas ni cortes. Si no caben dos (OutRun, Puzzle Bobble, el QL), dibuja sobre la que se ve: alguna línea de corte, como en el CYD |
 | Mandos | puerto PIO-USB: D+ 28, D- 29 | teclado USB y/o mando HID (también por un hub). El USB-C nativo es para alimentar y flashear. El frame de 1 ms del PIO-USB va en `rp2350/usb_frame.c`, con un arreglo para la errata RP2350-E9 (con las entradas siempre activas las líneas D+/D- se quedan altas y no se ve el teclado; afecta a las revisiones A2 y A3). `USB=native ./build_pico2.sh` → `dist/<juego>_rp2350_pizero_usbc.uf2`: el teclado en el USB-C nativo, como en la RP2040 (alimentando la placa con un cable OTG/Y) |
 | Sonido | por el HDMI (la tele) | 44,1 kHz en las *data islands* del HDMI (pico_lib de Shuichi Takano / Frank Hoedemakers, MIT); el sonido del juego se remuestrea y va igual a los dos canales |
-| microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL y los Spectrum cargan de ella con el menú en pantalla (F9) |
+| microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL, los Spectrum, el CPC, el C64 y la Lynx cargan de ella con el menú en pantalla (F9) |
 | PSRAM | QMI CS1 = GPIO47 | la placa trae solo el hueco para soldarla (la de prueba no la tiene: "PSRAM: 0 KB" al arrancar). Si hay una, el heap sigue en ella cuando se llena la SRAM. Los ordenadores usan una sola imagen de 150 KB (no dos) para dejar RAM a discos y cintas; los .trd/.scl se leen de la tarjeta pista a pista |
 | Log | UART0: TX GPIO0 | 115200 baudios |
 
@@ -519,6 +523,41 @@ La cinta se arranca sola cuando la ROM entra en LD-BYTES (como en dsp-cpp); F6/F
 No hay directorio compartido `roms/spectrum`: regenerar un modelo no pisa el `rom_data` de otro. Sin ROMs reales el árbol compila con stubs vacíos (`python3 tools/gen_roms_zxspec.py --stub-all main/drivers/computers/zxspec`).
 
 Puzzle Bobble usa el set de MAME `pbobble` (Taito B System, versión japonesa): `pb-ic18.ic18`, `pb-ic2.ic2`, `pb-ic27.ic27`, `pb-ic14.ic14`, `pb-ic9.ic9`, `pb-ic15.ic15` en `roms/pbobble/` (el script comprueba tamaños y CRC). No sirve el Puzzle Bobble de Neo Geo.
+
+## Amstrad CPC 6128, Commodore 64 y Atari Lynx: migración de dsp-cpp
+
+Tres drivers más de [dsp-cpp](https://github.com/Chusogar/dsp-cpp) pasados a C11, con frontends para el escritorio (Linux / Windows), la web, la RP2350-PiZero y el CYD. Lo que comparten los frontends está en `main/drivers/computers/common/`: `comp_sdl.h` (menú F9 sobre la imagen, diálogo de fichero —zenity/kdialog en Linux, el de Windows en Windows—, arrastrar y soltar, barra web), `comp_pico.h` (menú F9 de la microSD en la RP2350), `comp_cyd.h` (tareas, zonas táctiles, menú de la SD, consola serie y un «mecanógrafo» que teclea órdenes) y `comp_sd.h` (ficheros de la tarjeta a páginas de `zx_pbuf`: cintas, discos y cartuchos se quedan en la tarjeta y se leen según se usan).
+
+**Núcleos nuevos o ampliados**: `cpu/m6502/m65xx` (el 6502 de dsp-cpp en C, también 65C02: C64, 1541 y Lynx), `machine/mos6526` (CIA), `video/mos6569` (VIC-II, una línea cada vez), `sound/sid6581`, `machine/c1541` (la disquetera con su 6502 y dos VIA: `.d64`, `.g64`, mapa de errores), `machine/via6522` (con callbacks de IRQ/CA2), `cpu/z80dsp` (tablas de tiempos sustituibles, `irq_ack` e `irq_align` para las esperas del CPC) y `sound/ay8910` (`ay8910_set_amplitude`).
+
+| | Amstrad CPC 6128 | Commodore 64 | Atari Lynx |
+|---|---|---|---|
+| Ficheros | `.dsk` / `.edsk` (AMSDOS, uPD765), cintas `.cdt` `.tzx` `.csw` (el reproductor del Spectrum), `.sna` | `.d64` / `.g64` (1541 real), `.tap`, `.prg` y `.t64` (se meten en la RAM y RUN; un `.t64` se convierte en disco si está la 1541) | `.lnx` (con cabecera), `.lyx` / `.o` (BS93, carga rápida) |
+| Imagen | 400×312 (escritorio/web); 320×240 centrados (placas) | 384×270; 320×240 (placas: el borde se recorta) | 160×102 (×2 en pantalla) |
+| Sonido | 44,1 kHz (22,05 en placas) | igual | igual |
+| ROMs (`roms/<GAME>/`) | `cpc6128.rom` (32 KB: SO + BASIC) y `cpcados.rom` (AMSDOS), set de MAME `cpc6128` | set de MAME `c64` (kernal `901227-03.u4`, BASIC `901226-01.u3`, caracteres `901225-01.u5`) + DOS de la 1541 `325302-01.uab4` y `901229-05 ae.uab5` / `901229-06 aa.uab5` / `901229-03.uab5` (sin estas dos no hay disquetera: los `.d64` cargan su primer PRG directamente) | `lynxboot.img` / `lynx.bin` (512 bytes); sin ella, el pequeño cargador propio de dsp-cpp (solo sirve con cartuchos sin cifrar) |
+
+`tools/regen.sh cpc6128|c64|lynx` genera `rom_data.c` (`tools/gen_roms_computers.py`; en el repositorio solo hay stubs vacíos: `python3 tools/gen_roms_computers.py --stub <GAME> <salida.c>`).
+
+**Teclas en el escritorio / web** (también en la RP2350 con teclado USB, que se mapea igual):
+
+- **CPC**: el teclado del PC es el del CPC (Alt = COPY, Supr = CLR, teclado numérico = f0-f9). F9 menú, F6 cinta play/pausa, F3 reset, F8 cursores + Espacio/Alt como joystick, F10 monitor verde, F12 TURBO. `--464` / `--664` eligen otro modelo (solo escritorio). Para cargar: disco → `CAT` y `RUN"nombre`; cinta → `|TAPE` y `RUN"` (la cinta va con el motor).
+- **C64**: Esc = RUN/STOP, Tab / Ctrl = CTRL, Alt izq. = C=, Inicio = CLR/HOME, AvPág = RESTORE, F1/F3/F5/F7 (F2/F4/F6 con mayúsculas), cursores (izquierda/arriba con SHIFT). Joystick en el teclado numérico (8 4 6 2, 0/5 disparo; en la RP2350 también Ctrl dcho.). F9 menú, F11 cinta, F10 reset, F8 puerto 1/2, F12 TURBO. Para cargar: `LOAD"*",8,1` y `RUN`; cinta: `LOAD` y F11.
+- **Lynx**: cursores = cruceta, Z / Ctrl = A, X / Alt = B, 1 / 2 = OPTION 1 / 2, Enter / P = PAUSE. F9 menú, F3 reset, F12 TURBO.
+
+En la RP2350 un mando USB es el joystick (en el C64, en el puerto elegido con F8; en la Lynx, la cruceta y A/B, SELECT = OPTION 1, START = PAUSE). El menú F9 lista los ficheros de la microSD y las órdenes de cada máquina (cinta, puerto del joystick, monitor verde, reset, TURBO).
+
+**CYD**: zonas táctiles (mantén MEDIA para el menú de la SD; pulsación corta = cinta play/pausa, PAUSE en la Lynx; HELP las muestra):
+
+| | fila 1 | fila 2 | fila 3 |
+|---|---|---|---|
+| CPC | MEDIA · 1 · 2 · HELP | ← ↑ ↓ → (cursores y joystick) | COPY · ESPACIO · ENTER · FUEGO |
+| C64 | MEDIA · F1 · RUN/STOP · HELP | ← ↑ ↓ → (joystick) | ESPACIO · RETURN · 1 · FUEGO |
+| Lynx | MEDIA · OPTION 1 · OPTION 2 · HELP | ← ↑ ↓ → | PAUSE · B · A · A |
+
+Como el CYD no tiene teclado, el menú de la SD también **teclea** por ti: en el CPC `|TAPE` + `RUN"` (y la pulsación que pide), `CAT` y `|CPM`; en el C64 `LOAD"*",8,1` + `RUN` (el RUN va al búfer de teclado del KERNAL, que se lee al acabar la carga) y `LOAD` + PLAY para cintas. Lo que se escribe en la consola serie (115200 baudios) se teclea en la máquina (en la Lynx: w a s d cruceta, k = A, j = B, p = PAUSE). Nunchuk: joystick, Z disparo, C segundo botón (ESPACIO en el C64, B en la Lynx).
+
+**Memoria y velocidad en las placas**: el CPC guarda la RAM en páginas de 16 KB (el ESP32 no tiene un bloque libre de 128 KB) y la imagen como registros de línea, dibujados desde la RAM al sacarlos (no hay frame buffer de 400×312). El C64 guarda la imagen recortada a 4 bits por píxel (38 KB). **En las placas la 1541 se enciende con el primer disco que se carga** (se lleva un tercio del tiempo del C64): sin disco, `LOAD"*",8` da DEVICE NOT PRESENT; en el escritorio y la web siempre está encendida. Con QEMU (que no reproduce los tiempos reales del ESP32) el CPC va a 50 fps con un 40 % del núcleo, y el C64 y la Lynx a 40-47 fps con el núcleo lleno: en el CYD real el C64 y la Lynx pueden ir algo por debajo de la velocidad real. En la RP2350 (Cortex-M33 a 252 MHz, código caliente en RAM) deberían ir a su velocidad. **Ninguno de los tres está probado en una placa real**: comprobados en el escritorio (CPC: BASIC 1.1, `CAT` de un disco; C64: BASIC V2, `LOAD"*",8,1` de un `.d64` con la 1541 y `RUN`; Lynx: la ROM de arranque real descifra y arranca un cartucho `.lnx` hecho con cc65, que dibuja con Suzy, y un `.o` BS93), con el frontend de la RP2350 en el PC (`PORT=picohost`, cargando de la «microSD» con el menú) y el del CYD en QEMU (arranca y emula sin pantalla). No se han compilado aquí las versiones web (falta `emcc`); usan el mismo `*_sdl.c` que el escritorio. Solo para la RP2350 (no RP2040).
 
 ## Atari System 1: Indy y Road Runner
 

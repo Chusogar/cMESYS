@@ -406,7 +406,7 @@ static void block_ld(zd_z80 *z, int delta, bool repeat)
         internal(z, (uint16_t)(DE() - delta), 5);
         z->pc = (uint16_t)(z->pc - 2);
         z->wz = (uint16_t)(z->pc + 1);
-        z->cycles_ += kExtra[delta > 0 ? 0xb0 : 0xb8];
+        z->cycles_ += z->t_extra[delta > 0 ? 0xb0 : 0xb8];
     }
 }
 
@@ -426,7 +426,7 @@ static void block_cp(zd_z80 *z, int delta, bool repeat)
         internal(z, (uint16_t)(HL() - delta), 5);
         z->pc = (uint16_t)(z->pc - 2);
         z->wz = (uint16_t)(z->pc + 1);
-        z->cycles_ += kExtra[delta > 0 ? 0xb1 : 0xb9];
+        z->cycles_ += z->t_extra[delta > 0 ? 0xb1 : 0xb9];
     }
 }
 
@@ -445,7 +445,7 @@ static void block_in(zd_z80 *z, int delta, bool repeat)
     if (repeat && z->b != 0) {
         internal(z, (uint16_t)(HL() - delta), 5);
         z->pc = (uint16_t)(z->pc - 2);
-        z->cycles_ += kExtra[delta > 0 ? 0xb2 : 0xba];
+        z->cycles_ += z->t_extra[delta > 0 ? 0xb2 : 0xba];
     }
 }
 
@@ -464,7 +464,7 @@ static void block_out(zd_z80 *z, int delta, bool repeat)
     if (repeat && z->b != 0) {
         internal(z, BC(), 5);
         z->pc = (uint16_t)(z->pc - 2);
-        z->cycles_ += kExtra[delta > 0 ? 0xb3 : 0xbb];
+        z->cycles_ += z->t_extra[delta > 0 ? 0xb3 : 0xbb];
     }
 }
 
@@ -486,6 +486,7 @@ static int take_nmi(zd_z80 *z)
 static int take_irq(zd_z80 *z)
 {
     if (!z->iff1) return 0;
+    if (z->irq_ack) z->irq_ack(z->user);
     z->halted = false;
     z->iff1 = z->iff2 = false;
     if (z->irq_state == ZD_HOLD || z->irq_state == ZD_PULSE) z->irq_state = ZD_CLEAR;
@@ -513,6 +514,8 @@ static int take_irq(zd_z80 *z)
         break;
     }
     }
+    if (z->irq_align > 1 && tstates % z->irq_align)    // (the CPC: whole 4 T-state slots)
+        tstates += z->irq_align - tstates % z->irq_align;
     return tstates;
 }
 
@@ -549,7 +552,7 @@ static void exec_cb(zd_z80 *z)
     z->fetching_opcode = true;
     uint8_t opcode = fetch(z);
     bump_r_m1(z);
-    z->cycles_ += kCb[opcode];
+    z->cycles_ += z->t_cb[opcode];
 
     uint8_t index = (uint8_t)(opcode & 7);
     uint8_t value = (index == 6) ? rd(z, HL()) : *reg8(z, index);
@@ -585,7 +588,7 @@ static void exec_ed(zd_z80 *z)
     z->fetching_opcode = true;
     uint8_t opcode = fetch(z);
     bump_r_m1(z);
-    z->cycles_ += kEd[opcode];
+    z->cycles_ += z->t_ed[opcode];
 
     switch (opcode) {
     case 0x40: case 0x48: case 0x50: case 0x58:
@@ -697,7 +700,7 @@ static void exec_index_cb(zd_z80 *z, uint16_t *index_reg)
     int8_t offset = (int8_t)fetch(z);
     uint8_t opcode = fetch(z);
     internal(z, (uint16_t)(z->pc - 1), 2);
-    z->cycles_ += kIndexCb[opcode];
+    z->cycles_ += z->t_index_cb[opcode];
 
     uint16_t addr = (uint16_t)(*index_reg + offset);
     z->wz = addr;
@@ -726,7 +729,7 @@ static void exec_index(zd_z80 *z, uint16_t *index_reg)
     z->fetching_opcode = true;
     uint8_t opcode = fetch(z);
     bump_r_m1(z);
-    z->cycles_ += kIndex[opcode];
+    z->cycles_ += z->t_index[opcode];
 
     uint8_t index_high = (uint8_t)(*index_reg >> 8);
     uint8_t index_low = (uint8_t)*index_reg;
@@ -872,7 +875,7 @@ static void exec_main(zd_z80 *z, uint8_t opcode)
             internal(z, (uint16_t)(z->pc - 1), 5);
             z->pc = (uint16_t)(z->pc + offset);
             z->wz = z->pc;
-            z->cycles_ += kExtra[opcode];
+            z->cycles_ += z->t_extra[opcode];
         }
         break;
     }
@@ -920,7 +923,7 @@ static void exec_main(zd_z80 *z, uint8_t opcode)
             internal(z, (uint16_t)(z->pc - 1), 5);
             z->pc = (uint16_t)(z->pc + offset);
             z->wz = z->pc;
-            z->cycles_ += kExtra[opcode];
+            z->cycles_ += z->t_extra[opcode];
         }
         break;
     }
@@ -1011,7 +1014,7 @@ static void exec_main(zd_z80 *z, uint8_t opcode)
                 if (cond(z, opcode >> 3)) {
                     z->pc = pop(z);
                     z->wz = z->pc;
-                    z->cycles_ += kExtra[opcode];
+                    z->cycles_ += z->t_extra[opcode];
                 }
                 break;
             case 0xc1: set_bc(z, pop(z)); break;
@@ -1038,7 +1041,7 @@ static void exec_main(zd_z80 *z, uint8_t opcode)
                     internal(z, (uint16_t)(z->pc - 1), 1);
                     push(z, z->pc);
                     z->pc = addr;
-                    z->cycles_ += kExtra[opcode];
+                    z->cycles_ += z->t_extra[opcode];
                 }
                 break;
             }
@@ -1137,7 +1140,7 @@ int ZD_HOT zd_run(zd_z80 *z, int cycles)
         z->t_in_instr = 0;
         uint8_t opcode = fetch(z);
         bump_r_m1(z);
-        z->cycles_ += kMain[opcode];
+        z->cycles_ += z->t_main[opcode];
         exec_main(z, opcode);
 
         z->executed += z->cycles_;
@@ -1177,6 +1180,12 @@ void zd_init(zd_z80 *z)
     }
     z->fetching_opcode = true;
     z->t_in_instr = 0;
+    if (!z->t_main) z->t_main = kMain;
+    if (!z->t_cb) z->t_cb = kCb;
+    if (!z->t_ed) z->t_ed = kEd;
+    if (!z->t_index) z->t_index = kIndex;
+    if (!z->t_index_cb) z->t_index_cb = kIndexCb;
+    if (!z->t_extra) z->t_extra = kExtra;
     zd_reset(z);
 }
 
