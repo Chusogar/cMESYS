@@ -104,6 +104,8 @@ static void media_menu(void)
                         char msg[PICO_OSD_COLS + 1];
                         snprintf(msg, sizeof msg, "ERROR: %s", why && why[0] ? why : "CANNOT LOAD");
                         pico_osd_text(PICO_OSD_ROWS - 1, msg, true);
+                        pico_port_mem_info(msg, sizeof msg);
+                        pico_osd_text(PICO_OSD_ROWS - 2, msg, false);
                         continue;                          // stay in the menu
                     }
                 } else if (sel == nfiles) {

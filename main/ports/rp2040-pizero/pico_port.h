@@ -72,6 +72,8 @@ int pico_port_next_press(void);
 void pico_port_audio(const int16_t *samples, int n);
 // USB state in one line (hdmitest): devices, HID interfaces, reports...
 void pico_port_usb_info(char *buf, int n);
+// Memory in one line (after a load error): free SRAM, the PSRAM and its use
+void pico_port_mem_info(char *buf, int n);
 void pico_port_frame_done(void);            // counts frames, paces without sound, logs fps
 // On-screen text over the whole picture (the computers' media menus):
 // PICO_OSD_ROWS lines of PICO_OSD_COLS characters (5x7 font, upper case).

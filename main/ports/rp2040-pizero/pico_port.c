@@ -702,6 +702,21 @@ void tuh_hid_report_received_cb(uint8_t dev, uint8_t inst, uint8_t const *r, uin
     tuh_hid_receive_report(dev, inst);
 }
 
+#ifdef PIZERO_FB
+static size_t psram_total;
+size_t dsp_heap_psram_used(void);
+#endif
+
+void pico_port_mem_info(char *buf, int n)
+{
+#ifdef PIZERO_FB
+    snprintf(buf, (size_t)n, "SRAM FREE %uK, PSRAM %uK (USED %uK)", (unsigned)(pico_heap_sram_free() / 1024),
+             (unsigned)(psram_total / 1024), (unsigned)(dsp_heap_psram_used() / 1024));
+#else
+    snprintf(buf, (size_t)n, "RP2040: 264K RAM, NO PSRAM");
+#endif
+}
+
 void pico_port_usb_info(char *buf, int n)
 {
 #if CFG_TUH_RPI_PIO_USB
@@ -872,8 +887,15 @@ void pico_port_open(const pico_port_cfg *c)
 #else
     const size_t psram = dsp_psram_setup(PSRAM_CS_PIN);
 #endif
-    if (psram) dsp_heap_add_psram(DSP_PSRAM_BASE, psram);
-    printf("PSRAM %u KB\n", (unsigned)(psram / 1024));
+    // a quick test: a word every 64 KB, through the uncached window (the chip
+    // itself, not the cache)
+    bool psram_ok = psram != 0;
+    volatile uint32_t *const nc = (volatile uint32_t *)(DSP_PSRAM_BASE - 0x11000000u + 0x15000000u);
+    for (size_t o = 0; psram_ok && o < psram; o += 65536) nc[o / 4] = 0x5a000000u ^ (uint32_t)o;
+    for (size_t o = 0; psram_ok && o < psram; o += 65536) psram_ok = nc[o / 4] == (0x5a000000u ^ (uint32_t)o);
+    if (psram_ok) dsp_heap_add_psram(DSP_PSRAM_BASE, psram);
+    psram_total = psram_ok ? psram : 0;
+    printf("PSRAM %u KB%s\n", (unsigned)(psram / 1024), psram && !psram_ok ? " (FAILED THE TEST)" : "");
 #ifdef PICO_USB_ALT
     // (hdmitest2: the USB is started after the HDMI, as pico-286 does, with
     // Pico-PIO-USB's own timer and no RP2350-E9 workaround: to compare)
@@ -911,7 +933,7 @@ void pico_port_open(const pico_port_cfg *c)
     pico_osd_clear();
     snprintf(line, sizeof line, "CMESYS %s - RP2350-PIZERO %u MHZ", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));
     pico_osd_text(row++, line, true);
-    snprintf(line, sizeof line, "PSRAM: %u KB", (unsigned)(psram / 1024));
+    snprintf(line, sizeof line, "PSRAM: %u KB%s", (unsigned)(psram / 1024), psram && !psram_ok ? " - FAILED THE TEST" : "");
     pico_osd_text(row++, line, false);
     pico_osd_text(row++, usb_line, false);
     pico_osd_show(true);
