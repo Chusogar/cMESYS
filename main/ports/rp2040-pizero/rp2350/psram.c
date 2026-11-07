@@ -190,14 +190,42 @@ static void __no_inline_not_in_flash_func(set_psram_timing)(void)
 
     // printf("Max Select: %d, Min Deselect: %d, clock divider: %d\n", maxSelect, minDeselect, clockDivider);
 
+    // cMESYS: the read delay grows with the divider (as pico-286 on this
+    // board: 1 was right for SparkFun's boards at 150 MHz, not at 252 MHz)
+    uint8_t rxDelay = clockDivider;
+    if (sysHz / clockDivider > 100000000u)
+        rxDelay++;
     qmi_hw->m[1].timing = QMI_M1_TIMING_PAGEBREAK_VALUE_1024 << QMI_M1_TIMING_PAGEBREAK_LSB | // Break between pages.
                           3 << QMI_M1_TIMING_SELECT_HOLD_LSB | // Delay releasing CS for 3 extra system cycles.
-                          1 << QMI_M1_TIMING_COOLDOWN_LSB | 1 << QMI_M1_TIMING_RXDELAY_LSB |
+                          1 << QMI_M1_TIMING_COOLDOWN_LSB | rxDelay << QMI_M1_TIMING_RXDELAY_LSB |
                           maxSelect << QMI_M1_TIMING_MAX_SELECT_LSB | minDeselect << QMI_M1_TIMING_MIN_DESELECT_LSB |
                           clockDivider << QMI_M1_TIMING_CLKDIV_LSB;
 
     restore_interrupts(intr_stash);
 }
+// cMESYS: the size, by writing through the uncached window (the chip itself):
+// the chip's addresses wrap, so a word written at 8, 4, 2, 1 MB lands on 0
+// for the first size beyond the chip. 0: no working PSRAM.
+static size_t __no_inline_not_in_flash_func(find_psram_size)(void)
+{
+    volatile uint32_t *const m = (volatile uint32_t *)0x15000000u;    // XIP_NOCACHE_NOALLOC, CS1
+    const uint32_t magic = 0x5aa5c33cu;
+    m[0] = magic;
+    if (m[0] != magic)
+        return 0;
+    for (uint32_t mb = 8; mb >= 1; mb /= 2)
+        m[(mb << 20) / 4] = mb;
+    const uint32_t v = m[0];
+    size_t size = v == magic ? (16u << 20) : (v == 8 || v == 4 || v == 2 || v == 1) ? (size_t)v << 20 : 0;
+    // and the rest of it holds what is written (a word every 64 KB)
+    for (size_t o = 0; size && o < size; o += 65536)
+        m[o / 4] = 0xa5000000u ^ (uint32_t)o;
+    for (size_t o = 0; size && o < size; o += 65536)
+        if (m[o / 4] != (0xa5000000u ^ (uint32_t)o))
+            size = 0;
+    return size;
+}
+
 //-----------------------------------------------------------------------------
 /// @brief The setup_psram function - note that this is not in flash
 ///
@@ -209,12 +237,10 @@ static size_t __no_inline_not_in_flash_func(setup_psram)(uint32_t psram_cs_pin)
     // Set the PSRAM CS pin in the SDK
     gpio_set_function(psram_cs_pin, GPIO_FUNC_XIP_CS1);
 
-    // start with zero size
-    size_t psram_size = get_psram_size();
-
-    // No PSRAM - no dice
-    if (psram_size == 0)
-        return 0;
+    // cMESYS: the ID is read (it also takes the chip out of QPI mode), but a
+    // chip that is not AP Memory's is not turned down: its size is found by
+    // writing to it once it is set up (below)
+    (void)get_psram_size();
 
     uint32_t intr_stash = save_and_disable_interrupts();
     // Enable quad mode.
@@ -285,7 +311,7 @@ static size_t __no_inline_not_in_flash_func(setup_psram)(uint32_t psram_cs_pin)
 
     restore_interrupts(intr_stash);
 
-    return psram_size;
+    return find_psram_size();
 }
 
 // public interface
