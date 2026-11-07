@@ -198,7 +198,10 @@ if(PIZERO STREQUAL "2350")
     list(APPEND SRCS ${PORT_DIR}/rp2350/psram.c ${PORT_DIR}/rp2350/heap.c ${PORT_DIR}/rp2350/usb_frame.c
          ${HD}/hdmi_glue.cpp ${HD}/dvi/dvi.cpp ${HD}/dvi/dma.cpp ${HD}/dvi/data_packet.cpp ${HD}/dvi/timing.cpp
          ${HD}/dvi/tmds_encode.cpp ${HD}/dvi/tmds_encode.S)
-    list(APPEND RAM_CODE dvi.cpp.o)  # (its DMA interrupt, every line: not from flash)
+    list(APPEND RAM_CODE dvi.cpp.o)
+    # (heap.c is malloc itself: GCC would turn its calloc's malloc + memset
+    # into a call to calloc)
+    set_source_files_properties(${PORT_DIR}/rp2350/heap.c PROPERTIES COMPILE_OPTIONS -fno-builtin)  # (its DMA interrupt, every line: not from flash)
     set(BAND 2)
     set(TMDS_SLACK 4)
 endif()

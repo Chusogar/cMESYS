@@ -42,24 +42,59 @@ static int synth_until(int16_t *out, int cap, uint32_t end)
 
 static uint8_t fb[SB_SCREEN_W * SB_SCREEN_H];     // drawn by core 0 after each frame
 static uint16_t pal[256];
+#if PICO_RP2350
+// RP2350: core 1 draws a whole picture while core 0 already draws the next
+// frame's into fb (sweeps across the picture). Three pictures, each with its
+// palette: the one core 0 draws, the last finished one, the one core 1 shows.
+#include <stdlib.h>
+#include "hardware/sync.h"
+static uint8_t *pic[3];
+static uint16_t pic_pal[3][256];
+static int pic_build, pic_ready = -1, pic_used = -1;
+static spin_lock_t *pic_lock;
+static const uint8_t *draw_fb;
+static const uint16_t *draw_pal;
+#endif
 static sb_video_t snap;
 static int16_t audio[1024];
 
 static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 {
     (void)user;
+#if PICO_RP2350
+    if (y == 0) {                               // a new picture: the last finished one
+        uint32_t irq = spin_lock_blocking(pic_lock);
+        pic_used = pic_ready;
+        spin_unlock(pic_lock, irq);
+        draw_fb = pic_used >= 0 ? pic[pic_used] : NULL;
+        draw_pal = pic_used >= 0 ? pic_pal[pic_used] : NULL;
+    }
+    const uint8_t *frame = draw_fb;
+    const uint16_t *cpal = draw_pal;
+    if (!frame) { pico_fill(out, PICO_W * n, 0); return; }
+#else
+    const uint8_t *frame = fb;
+    const uint16_t *cpal = pal;
+#endif
     for (int i = 0; i < n; i++, out += PICO_W) {
         int sy = y + i - Y0;
         if (sy < 0 || sy >= SB_SCREEN_H) { pico_fill(out, PICO_W, 0); continue; }
-        const uint8_t *src = fb + sy * SB_SCREEN_W;
+        const uint8_t *src = frame + sy * SB_SCREEN_W;
         pico_fill(out, X0, 0);
-        for (int x = 0; x < SB_SCREEN_W; x++) out[X0 + x] = pal[src[x]];
+        for (int x = 0; x < SB_SCREEN_W; x++) out[X0 + x] = cpal[src[x]];
         pico_fill(out + X0 + SB_SCREEN_W, PICO_W - X0 - SB_SCREEN_W, 0);
     }
 }
 
 static void game(void)
 {
+#if PICO_RP2350
+    pic[0] = fb;                                // (after pico_port_open: the frame buffers first)
+    pic[1] = malloc(sizeof fb);
+    pic[2] = malloc(sizeof fb);
+    pic_lock = spin_lock_instance((uint)spin_lock_claim_unused(true));
+    if (!pic[1] || !pic[2]) for (;;) {}         // (8 MB of PSRAM: not reached)
+#endif
     for (;;) {
         if (pico_port_poll()) sb_reset();
         uint32_t k = pico_port_keys();
@@ -79,12 +114,29 @@ static void game(void)
         sb_run_frame();
         int n = synth_until(audio, 1024, sb_sample_clock());
         sb_snapshot(&snap);
-        sb_render(&snap, fb);
+#if PICO_RP2350
+        uint8_t *dst = pic[pic_build];
+        uint16_t *dpal = pic_pal[pic_build];
+#else
+        uint8_t *dst = fb;
+        uint16_t *dpal = pal;
+#endif
+        sb_render(&snap, dst);
         const uint16_t *p = sb_palette();           // xBGR555
         for (int i = 0; i < 256; i++) {
             unsigned r = p[i] & 31, g = (p[i] >> 5) & 31, b = (p[i] >> 10) & 31;
-            pal[i] = pico_rgb565((uint8_t)(r << 3 | r >> 2), (uint8_t)(g << 3 | g >> 2), (uint8_t)(b << 3 | b >> 2));
+            dpal[i] = pico_rgb565((uint8_t)(r << 3 | r >> 2), (uint8_t)(g << 3 | g >> 2), (uint8_t)(b << 3 | b >> 2));
         }
+#if PICO_RP2350
+        {
+            uint32_t irq = spin_lock_blocking(pic_lock);
+            pic_ready = pic_build;
+            int b = 0;
+            while (b == pic_ready || b == pic_used) b++;
+            pic_build = b;
+            spin_unlock(pic_lock, irq);
+        }
+#endif
         pico_port_audio(audio, n);
         pico_port_frame_done();
     }
