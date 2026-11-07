@@ -831,6 +831,11 @@ void pico_port_open(const pico_port_cfg *c)
 #endif
     if (psram) dsp_heap_add_psram(DSP_PSRAM_BASE, psram);
     printf("PSRAM %u KB\n", (unsigned)(psram / 1024));
+#ifdef PICO_USB_ALT
+    // (hdmitest2: the USB is started after the HDMI, as pico-286 does, with
+    // Pico-PIO-USB's own timer and no RP2350-E9 workaround: to compare)
+    const char *usb_line = "USB (PIO-USB, GPIO28/29): LATE START, OWN TIMER";
+#else
 #if CFG_TUH_RPI_PIO_USB && !defined(PICO_EMU_TEST)
     // PIO0 and DMA channel 0, before the HDMI claims its own. Its 1 ms frame
     // runs from rp2350/usb_frame.c (the RP2350-E9 workaround), not from
@@ -852,6 +857,7 @@ void pico_port_open(const pico_port_cfg *c)
 #else
     const char *usb_line = "USB: NOT STARTED (TEST)";
 #endif
+#endif
     char line[PICO_OSD_COLS + 1];
     int row = 0;
     pico_osd_clear();
@@ -863,6 +869,19 @@ void pico_port_open(const pico_port_cfg *c)
     pico_osd_show(true);
 #ifndef PICO_EMU_TEST
     video_init();
+#endif
+#ifdef PICO_USB_ALT
+    {
+        sleep_ms(500);
+        pio_usb_configuration_t pcfg = PIO_USB_DEFAULT_CONFIG;
+        pcfg.pin_dp = 28;
+        const int ch = dma_claim_unused_channel(true);   // (a free one; Pico-PIO-USB claims it again)
+        dma_channel_unclaim((uint)ch);
+        pcfg.tx_ch = (uint8_t)ch;
+        tuh_configure(BOARD_TUH_RHPORT, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pcfg);
+        tuh_init(BOARD_TUH_RHPORT);
+        printf("USB host on PIO-USB (GPIO28/29), started late, DMA %d\n", ch);
+    }
 #endif
     printf("frame buffers: %s; SRAM heap left %u KB\n", fb_back ? "2" : "1", (unsigned)(pico_heap_sram_free() / 1024));
     snprintf(line, sizeof line, "HDMI 640X480 60 HZ: OK  PICTURES: %d  SRAM FREE: %u KB", fb_back ? 2 : 1,
