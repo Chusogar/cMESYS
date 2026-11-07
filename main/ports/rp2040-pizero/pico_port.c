@@ -365,7 +365,9 @@ static void video_init(void)
     pzhdmi_init(HDMI_AUDIO_HZ, feed_hdmi, NULL);
     // then a second picture, if it fits in SRAM with 48 KB left over for the
     // game's later needs (the rest of its heap goes on in the PSRAM)
-    if (pico_heap_sram_free() >= PICO_W * PICO_H * 2 + 48 * 1024)
+    // (not for the computers: their disks and tapes need the RAM more, and
+    // the board has no PSRAM fitted, only a pad for one)
+    if (!cfg.computer && pico_heap_sram_free() >= PICO_W * PICO_H * 2 + 48 * 1024)
         fb_back = calloc(PICO_W * PICO_H, sizeof *fb_back);
     pico_heap_sram_only(false);
 #else
