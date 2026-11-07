@@ -30,6 +30,7 @@ typedef struct {
 struct c64 {
     m65xx cpu;
     bool drive_on;                  // the 1541 runs (on the boards: from the first disk on)
+    bool fast_load;                 // the KERNAL's LOAD from a .d64 done at once (fast_load_trap)
     uint16_t pal565[16];
     mos6569 vic;
     sid6581 sid;
@@ -270,10 +271,102 @@ static void cia2_pa_out(void *user, uint8_t v)
     }
 }
 
+// ---------------------------------------------------------------------------
+// Fast LOAD: the KERNAL's LOAD from device 8 ($F4A5, the LOAD vector's
+// routine) of a file of the .d64 in the drive is done at once, as VICE's
+// traps do: through the 1541 at its real speed a 40 KB game takes two
+// minutes (and looks hung). The drive is still there for anything else
+// (LOAD"$", fast loaders, a file that is not found, .g64 disks).
+// ---------------------------------------------------------------------------
+static uint8_t cpu_peek(c64 *m, uint16_t a) { return read_byte(m, a); }
+
+static bool name_matches(const uint8_t *pat, int np, const uint8_t *name)
+{
+    int n = 16;
+    while (n > 0 && name[n - 1] == 0xA0) n--;
+    for (int i = 0; i < np; i++) {
+        if (pat[i] == '*') return true;
+        if (i >= n) return false;
+        if (pat[i] != '?' && pat[i] != name[i]) return false;
+    }
+    return np == n;
+}
+
+static bool fast_load_trap(c64 *m)
+{
+    const zx_pbuf *img = &m->drive.img;
+    if (cpu_peek(m, 0xF4A5) != m->kernal[0x14A5]) return false;             // the KERNAL is in
+    if (m->ram[0xBA] != 8 || m->cpu.a != 0) return false;                     // device 8, LOAD (not VERIFY)
+    if (img->size < 174848 || zx_pb_eq(img, 0, "GCR-1541", 8)) return false; // a .d64
+    int np = m->ram[0xB7];
+    const uint16_t fn = (uint16_t)(m->ram[0xBB] | (m->ram[0xBC] << 8));
+    uint8_t pat[32];
+    if (np <= 0 || np > 30) return false;
+    for (int i = 0; i < np; i++) pat[i] = cpu_peek(m, (uint16_t)(fn + i));
+    uint8_t *pp = pat;
+    if (np > 2 && pp[1] == ':') { pp += 2; np -= 2; }                       // "0:NAME"
+    else if (np > 1 && pp[0] == ':') { pp++; np--; }
+    if (np <= 0 || pp[0] == '$' || pp[0] == '#' || pp[0] == '@') return false;
+    // the directory: track 18 from sector 1
+    int t = 18, s = 1, ft = 0, fs = 0;
+    for (int guard = 0; guard < 20 && t && !ft; guard++) {
+        const long off = d64_offset(t, s);
+        if (off < 0) return false;
+        uint8_t sec[256];
+        zx_pb_copy(img, (uint32_t)off, sec, 256);
+        for (int e = 0; e < 8 && !ft; e++) {
+            const uint8_t *d = sec + e * 32;
+            if ((d[2] & 0x80) == 0 || (d[2] & 7) == 0 || (d[2] & 7) > 3) continue;   // closed SEQ/PRG/USR
+            if (name_matches(pp, np, d + 5)) { ft = d[3]; fs = d[4]; }
+        }
+        t = sec[0];
+        s = sec[1];
+    }
+    if (!ft) return false;                      // (the drive says FILE NOT FOUND)
+    // the file's sectors
+    uint16_t addr = 0, end = 0;
+    bool first = true;
+    for (int guard = 0; guard < 700 && ft; guard++) {
+        const long off = d64_offset(ft, fs);
+        if (off < 0) return false;
+        uint8_t b[256];
+        zx_pb_copy(img, (uint32_t)off, b, 256);
+        const int last = b[0] ? 255 : b[1];
+        int i = 2;
+        if (first) {
+            if (last < 3) return false;
+            const uint16_t own = (uint16_t)(b[2] | (b[3] << 8));
+            addr = m->ram[0xB9] ? own : (uint16_t)(m->ram[0xC3] | (m->ram[0xC4] << 8));
+            end = addr;
+            i = 4;
+            first = false;
+        }
+        for (; i <= last; i++) m->ram[end++] = b[i];            // (under the ROMs and I/O: RAM)
+        ft = b[0];
+        fs = b[1];
+    }
+    if (first) return false;
+    // as the KERNAL ends a LOAD: end address in $AE/$AF and X/Y, ST = EOF, C = 0
+    m->ram[0xAE] = (uint8_t)end;
+    m->ram[0xAF] = (uint8_t)(end >> 8);
+    m->ram[0x90] = 0x40;
+    m->cpu.x = (uint8_t)end;
+    m->cpu.y = (uint8_t)(end >> 8);
+    m->cpu.p.c = false;
+    // RTS
+    const uint8_t lo = m->ram[0x100 | (uint8_t)(m->cpu.sp + 1)], hi = m->ram[0x100 | (uint8_t)(m->cpu.sp + 2)];
+    m->cpu.sp = (uint8_t)(m->cpu.sp + 2);
+    m->cpu.pc = (uint16_t)((lo | (hi << 8)) + 1);
+    return true;
+}
+
+void c64_set_fast_load(c64 *m, bool on) { m->fast_load = on; }
+
 static void on_cycles(void *user, int cycles)
 {
     c64 *m = (c64 *)user;
     if (cycles <= 0) return;
+    if (m->cpu.pc == 0xF4A5 && m->fast_load && drive_active(m)) fast_load_trap(m);
     if (m->tape_motor && m->tape.loaded) {
         if (!m->tape_play) {
             m->tape_play = true;
@@ -354,6 +447,7 @@ c64 *c64_create(int audio_rate)
     static const uint8_t kNoRoms[0x2000];
     m->kernal = m->basic = m->chargen = kNoRoms;
     memcpy(m->pal565, vic_palette565, sizeof m->pal565);
+    m->fast_load = true;
 #ifndef C64_SMALL
     m->drive_on = true;
 #endif
