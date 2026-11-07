@@ -18,6 +18,8 @@ static void eject(zx_beta *b)
             free(b->track[t][h]);
             b->track[t][h] = NULL;
         }
+    if (b->has_src) zx_pb_free(&b->src);
+    b->has_src = false;
     b->tracks = b->heads = 0;
     b->present = false;
 }
@@ -37,19 +39,42 @@ static bool in_geometry(const zx_beta *b, int track, int head, int sector)
 }
 
 // The sector, allocating its track when `alloc` (NULL: off the disk or no memory).
+// A sector of a disk left on the card, into dst (zeros past its end)
+static void src_sector(zx_beta *b, int track, int head, int sector, uint8_t *dst)
+{
+    const uint32_t l = (uint32_t)((track * b->heads + head) * TRD_SECTORS + sector - 1);   // logical sector
+    uint32_t off;
+    if (!b->src_scl) {
+        off = l * TRD_SECTOR;
+    } else if (l >= TRD_SECTORS && l - TRD_SECTORS < b->scl_secs) {
+        off = b->scl_data + (l - TRD_SECTORS) * TRD_SECTOR;     // (the files, one after another)
+    } else {
+        memset(dst, 0, TRD_SECTOR);
+        return;
+    }
+    zx_pb_copy(&b->src, off, dst, TRD_SECTOR);              // (zeros past the end)
+}
+
 static uint8_t *sector_w(zx_beta *b, int track, int head, int sector)
 {
     if (!in_geometry(b, track, head, sector)) return NULL;
     uint8_t **t = &b->track[track][head];
-    if (!*t && !(*t = calloc(1, TRACK_BYTES))) return NULL;
+    if (!*t) {
+        if (!(*t = calloc(1, TRACK_BYTES))) return NULL;
+        if (b->has_src)                 // written: the track's other sectors come along
+            for (int s = 1; s <= TRD_SECTORS; s++) src_sector(b, track, head, s, *t + (s - 1) * TRD_SECTOR);
+    }
     return *t + (sector - 1) * TRD_SECTOR;
 }
 
-static const uint8_t *sector_r(const zx_beta *b, int track, int head, int sector)
+static const uint8_t *sector_r(zx_beta *b, int track, int head, int sector)
 {
     if (!in_geometry(b, track, head, sector)) return NULL;
     const uint8_t *t = b->track[track][head];
-    return t ? t + (sector - 1) * TRD_SECTOR : k_zero_sector;
+    if (t) return t + (sector - 1) * TRD_SECTOR;
+    if (!b->has_src) return k_zero_sector;
+    src_sector(b, track, head, sector, b->rbuf);
+    return b->rbuf;
 }
 
 static int geometry(zx_beta *b, uint8_t type, size_t size)
@@ -75,6 +100,7 @@ static int geometry(zx_beta *b, uint8_t type, size_t size)
 }
 
 static void drop_pages(zx_pbuf *P, uint32_t off);
+static void drop_pages_from(zx_pbuf *P, uint32_t from, uint32_t off);
 
 // .trd: each 4 KB of the file a track; empty (all zero) tracks are not kept,
 // the file's pages are freed as their tracks are made.
@@ -86,6 +112,7 @@ static bool load_trd(zx_beta *b, zx_pbuf *P, const char **error)
         return false;
     }
     const int n = geometry(b, zx_pb_byte(P, 8u * TRD_SECTOR + 0xe3), size);
+    if (P->lazy) return true;           // (read from the card as it is used: zx_beta_load_pbuf)
     for (int i = 0; i < n; i++) {
         const uint32_t off = (uint32_t)i * TRACK_BYTES;
         if (off >= size) break;
@@ -114,10 +141,14 @@ static bool load_trd(zx_beta *b, zx_pbuf *P, const char **error)
 }
 
 // The pages of P wholly before `off` are no longer needed
-static void drop_pages(zx_pbuf *P, uint32_t off)
+static void drop_pages(zx_pbuf *P, uint32_t off) { drop_pages_from(P, 0, off); }
+
+// ... those wholly in [from, off) (an .scl's catalogue, at its start, is read
+// again for each file: it was freed with the first file's data)
+static void drop_pages_from(zx_pbuf *P, uint32_t from, uint32_t off)
 {
     if (P->flat || P->lazy) return;
-    for (uint32_t i = 0; i < P->npages && (i + 1) * ZX_PAGE <= off; i++) {
+    for (uint32_t i = (from + ZX_PAGE - 1) / ZX_PAGE; i < P->npages && (i + 1) * ZX_PAGE <= off; i++) {
         free(P->pages[i]);
         P->pages[i] = NULL;
     }
@@ -161,14 +192,15 @@ static bool load_scl(zx_beta *b, zx_pbuf *P, const char **error)
                 if (error) *error = "SCL files do not fit on a DS/80 disk";
                 return false;
             }
-            if (data_off < size) {
+            if (data_off < size && !P->lazy) {
                 uint8_t *dest = sector_w(b, cyl, head, sec0 + 1);
                 if (!dest) goto oom;
                 const size_t chunk = size - data_off < TRD_SECTOR ? size - data_off : TRD_SECTOR;
                 zx_pb_copy(P, (uint32_t)data_off, dest, (uint32_t)chunk);
                 data_off += chunk;
-                drop_pages(P, (uint32_t)data_off);      // (the boards: no second copy)
+                drop_pages_from(P, (uint32_t)header, (uint32_t)data_off);   // (no second copy; the catalogue stays)
             }
+            if (P->lazy && data_off < size) data_off += size - data_off < TRD_SECTOR ? size - data_off : TRD_SECTOR;
             ++used;
             if (++sec0 >= TRD_SECTORS) {
                 sec0 = 0;
@@ -193,6 +225,8 @@ static bool load_scl(zx_beta *b, zx_pbuf *P, const char **error)
         info[0xf4] = 0;
         memcpy(info + 0xf5, "SCLDISK ", 8);
     }
+    b->scl_data = (uint32_t)header;
+    b->scl_secs = (uint32_t)used;
     return true;
 oom:
     eject(b);
@@ -421,8 +455,15 @@ bool zx_beta_load_pbuf(zx_beta *b, zx_pbuf *file, const char **error)
         ok = false;
     } else if (zx_pb_eq(file, 0, "SINCLAIR", 8)) {
         ok = load_scl(b, file, error);
+        b->src_scl = true;
     } else {
         ok = load_trd(b, file, error);
+        b->src_scl = false;
+    }
+    if (ok && file->lazy) {             // the disk stays on the card
+        b->src = *file;
+        b->has_src = true;
+        return true;
     }
     zx_pb_free(file);
     return ok;
