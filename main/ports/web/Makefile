@@ -131,7 +131,7 @@ else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2),)
     SRC := $(D)/c64_sdl.c $(D)/c64_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/video/mos6569.c \
            $(M)/sound/sid6581.c $(M)/machine/mos6526.c $(M)/machine/c1541.c $(M)/machine/via6522.c $(M)/machine/zx_pbuf.c
   else
-    SRC := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/machine/zx_pbuf.c
+    SRC := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/machine/zx_pbuf.c
   endif
   DEFS := $(if $(filter $(GAME),msx1 msx2),-DMSX_MODEL=$(subst msx,,$(GAME)))
   # the upload bar / drag-and-drop (common/comp_sdl.h)

@@ -94,20 +94,50 @@ static bool no_page_penalty_iy(uint8_t opcode) {
 }
 
 
-static inline uint8_t rd(m65xx *cpu, uint16_t a)
+// A machine may #include this file after defining M65XX_READ / M65XX_WRITE
+// (its handlers, called inline instead of through cpu->read / cpu->write).
+#ifdef M65XX_READ
+#define M65_READ(cpu, a) M65XX_READ((cpu)->user, a)
+#else
+#define M65_READ(cpu, a) (cpu)->read((cpu)->user, a)
+#endif
+#ifdef M65XX_WRITE
+#define M65_WRITE(cpu, a, v) M65XX_WRITE((cpu)->user, a, v)
+#else
+#define M65_WRITE(cpu, a, v) (cpu)->write((cpu)->user, a, v)
+#endif
+
+// (the per-access helpers inlined for sure: GCC left them as calls in the big switch)
+#define M65_INLINE static inline __attribute__((always_inline))
+
+M65_INLINE uint8_t rd(m65xx *cpu, uint16_t a)
 {
     const uint8_t *pg = cpu->page_r[a >> 8];
-    return pg ? pg[a & 0xff] : cpu->read(cpu->user, a);
+    if (pg) return pg[a & 0xff];
+    cpu->io_count++;
+    return M65_READ(cpu, a);
 }
 
-static inline void wr(m65xx *cpu, uint16_t a, uint8_t v)
+M65_INLINE void wr(m65xx *cpu, uint16_t a, uint8_t v)
 {
     uint8_t *pg = cpu->page_w[a >> 8];
-    if (pg) pg[a & 0xff] = v;
-    else cpu->write(cpu->user, a, v);
+    if (pg) {
+        uint8_t *const at = &pg[a & 0xff];
+        if (cpu->idle_skip && *at != v) {   // (what busy loops change: see spin())
+            if (cpu->log_n < (int)(sizeof cpu->log / sizeof cpu->log[0])) {
+                cpu->log[cpu->log_n].at = at;
+                cpu->log[cpu->log_n].old = *at;
+            }
+            cpu->log_n++;
+        }
+        *at = v;
+    } else {
+        cpu->io_count++;
+        M65_WRITE(cpu, a, v);
+    }
 }
 
-static inline uint8_t fetch(m65xx *cpu) { return rd(cpu, cpu->pc++); }
+M65_INLINE uint8_t fetch(m65xx *cpu) { return rd(cpu, cpu->pc++); }
 
 static uint8_t get_flags(const m65xx *cpu)
 {
@@ -123,9 +153,9 @@ static void set_flags(m65xx *cpu, uint8_t v)
     p->dec = v & 0x08; p->irq_disable = v & 0x04; p->z = v & 0x02; p->c = v & 0x01;
 }
 
-static inline void push(m65xx *cpu, uint8_t v) { wr(cpu, (uint16_t)(0x100 + cpu->sp), v); cpu->sp--; }
-static inline uint8_t pop(m65xx *cpu) { cpu->sp++; return rd(cpu, (uint16_t)(0x100 + cpu->sp)); }
-static inline void set_nz(m65xx *cpu, uint8_t v) { cpu->p.z = v == 0; cpu->p.n = (v & 0x80) != 0; }
+M65_INLINE void push(m65xx *cpu, uint8_t v) { wr(cpu, (uint16_t)(0x100 + cpu->sp), v); cpu->sp--; }
+M65_INLINE uint8_t pop(m65xx *cpu) { cpu->sp++; return rd(cpu, (uint16_t)(0x100 + cpu->sp)); }
+M65_INLINE void set_nz(m65xx *cpu, uint8_t v) { cpu->p.z = v == 0; cpu->p.n = (v & 0x80) != 0; }
 
 void m65xx_set_nmi(m65xx *cpu, uint8_t state)
 {
@@ -247,13 +277,84 @@ static inline void compare(m65xx *cpu, uint8_t reg, uint8_t value)
     cpu->p.n = (diff & 0x80) != 0;
 }
 
-static inline void branch(m65xx *cpu, bool condition, uint8_t offset)
+M65_INLINE void branch(m65xx *cpu, bool condition, uint8_t offset)
 {
     if (!condition) return;
     const uint16_t target = (uint16_t)(cpu->pc + (int8_t)offset);
     cpu->extra_cycles += ((target ^ cpu->pc) & 0xff00) != 0 ? 2 : 1;
+    if (target < cpu->pc && cpu->idle_skip) cpu->spin_hit = true;
     cpu->pc = target;
 }
+
+// Busy loops, fast-forwarded exactly (cpu->idle_skip), at the jumps back:
+// - When one lands on the same address twice with the registers and flags
+//   the same and memory the same (every byte written in between back to what
+//   it was, no access through the handlers: direct pages only, which nothing
+//   else changes while the CPU runs), every pass from there on is that same
+//   pass until an interrupt: the passes left in this run are counted as run
+//   without running them. A pass takes the clock between the two landings.
+//   (Waiting for a flag the interrupt sets, through subroutines or not.)
+// - DEX / DEY ; BNE back to it: the count runs down by the passes that fit.
+static int spin(m65xx *cpu, int budget)
+{
+    const uint16_t pc = cpu->pc;
+    __typeof__(cpu->spin[0]) *s = &cpu->spin[(pc ^ (pc >> 3)) & 3];
+    if (cpu->nmi_request != M65_CLEAR || (cpu->irq_request != M65_CLEAR && !cpu->p.irq_disable)) return 0;
+    const uint8_t *code = cpu->page_r[pc >> 8];
+    if (code && (pc & 0xff) < 0xfd && code[(pc & 0xff) + 1] == 0xd0 && code[(pc & 0xff) + 2] == 0xfd) {
+        const uint8_t op = code[pc & 0xff];
+        uint8_t *const r = op == 0xca ? &cpu->x : op == 0x88 ? &cpu->y : NULL;
+        // (a pass is 5 cycles: 2 + 3, no page crossed: pc & 0xff < 0xfd)
+        if (r && *r > 1 && budget > 6) {
+            uint32_t n = (uint32_t)(budget - 1) / 5;
+            if (n > (uint32_t)(*r - 1)) n = (uint32_t)(*r - 1);
+            *r = (uint8_t)(*r - n);
+            cpu->p.z = false;
+            cpu->p.n = (*r & 0x80) != 0;
+            return (int)(n * 5);
+        }
+        return 0;
+    }
+    const int cap = (int)(sizeof cpu->log / sizeof cpu->log[0]);
+    const uint32_t regs = (uint32_t)cpu->a | (uint32_t)cpu->x << 8 | (uint32_t)cpu->y << 16 | (uint32_t)cpu->sp << 24;
+    uint64_t f;
+    memcpy(&f, &cpu->p, sizeof f);
+    if (s->valid && s->regs == regs && s->p == f && s->io == cpu->io_count && cpu->log_n <= cap) {
+        // the bytes written since: each back to its value then (its first entry's old value)
+        bool same = true;
+        for (int i = s->log; i < cpu->log_n && same; i++) {
+            bool first = true;
+            for (int j = s->log; j < i && first; j++) first = cpu->log[j].at != cpu->log[i].at;
+            if (first) same = *cpu->log[i].at == cpu->log[i].old;
+        }
+        const uint32_t cost = cpu->clock - s->clock;
+        if (same && cost > 0 && budget > 1 && cost < (uint32_t)budget) {
+            const uint32_t n = (uint32_t)(budget - 1) / cost;
+            const int skip = (int)(n * cost);
+            s->clock = cpu->clock + (uint32_t)skip;
+            s->log = cpu->log_n;
+            s->misses = 0;
+            return skip;
+        }
+    }
+    if (s->valid && ++s->misses >= 8) {     // (a counting loop, say: not every pass)
+        s->misses = 0;
+        s->wait = 255;
+    }
+    if (cpu->log_n > cap - 16) {        // (the log nearly full: from scratch)
+        cpu->log_n = 0;
+        for (int i = 0; i < 4; i++) cpu->spin[i].valid = false;
+    }
+    s->valid = true;
+    s->log = cpu->log_n;
+    s->io = cpu->io_count;
+    s->regs = regs;
+    s->p = f;
+    s->clock = cpu->clock;
+    return 0;
+}
+
+_Static_assert(sizeof(m65xx_flags) == 8, "m65xx_flags: 8 bools");
 
 // (the body below is dsp-cpp's, with its registers as these names)
 #define a (cpu->a)
@@ -270,6 +371,8 @@ static inline void branch(m65xx *cpu, bool condition, uint8_t offset)
 int m65xx_run(m65xx *cpu, int cycles)
 {
     int executed = 0;
+    for (int i = 0; i < 4; i++) cpu->spin[i].valid = false;   // (memory may have changed between runs)
+    cpu->log_n = 0;
     // (the model's tables, picked once a run: the model does not change in one)
     const uint8_t *const modes = cmos_ ? kModeCmos : kMode;
     const uint8_t *const cycle_table = cmos_ ? kCyclesCmos : kCycles;
@@ -501,6 +604,7 @@ int m65xx_run(m65xx *cpu, int cycles)
                 push(cpu, a);
                 break;
             case 0x4c:  // jmp
+                if (address_ < pc_ && cpu->idle_skip) cpu->spin_hit = true;
                 pc_ = address_;
                 break;
             case 0x50:  // bvc
@@ -855,6 +959,39 @@ int m65xx_run(m65xx *cpu, int cycles)
             if (cpu->cycles) cpu->cycles(cpu->user, cpu->stolen_cycles);
             cpu->stolen_cycles = 0;
         }
+        if (cpu->spin_hit) {
+            cpu->spin_hit = false;
+            __typeof__(cpu->spin[0]) *s = &cpu->spin[(pc_ ^ (pc_ >> 3)) & 3];
+            if (s->pc != pc_) {      // (a first landing here: only noted)
+                s->pc = pc_;
+                s->valid = false;
+                s->misses = s->wait = 0;
+            } else if (s->wait) {           // (a loop that kept changing: looked at again later)
+                s->wait--;
+            } else {
+                const int skip = spin(cpu, cycles - executed);
+                if (skip) {
+                    executed += skip;
+                    cpu->clock += (uint32_t)skip;
+                    cpu->skipped += (uint32_t)skip;
+                    if (cpu->cycles) cpu->cycles(cpu->user, skip);
+                }
+            }
+        }
     }
     return executed;
 }
+
+#undef a
+#undef x
+#undef y
+#undef sp
+#undef p
+#undef pc_
+#undef address_
+#undef extra_cycles_
+#undef after_ei_
+#undef cmos_
+#undef M65_READ
+#undef M65_WRITE
+#undef M65_INLINE

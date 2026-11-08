@@ -26,7 +26,14 @@ typedef struct m65xx {
     m65xx_flags p;                              // p.v: the SO pin sets it
     bool halted;
     uint32_t clock;                             // cycles run, all told (wraps)
+    bool idle_skip;                             // fast-forward busy loops (see m65xx.c)
+    uint32_t skipped;                           // cycles fast-forwarded, all told
     // private
+    uint32_t io_count;                          // reads and writes through the handlers
+    bool spin_hit;                              // a jump back was just taken
+    struct { uint16_t pc; bool valid; uint8_t misses, wait; uint32_t regs; uint64_t p; uint32_t clock, io; int log; } spin[4];
+    int log_n;                                  // direct writes that changed memory (idle_skip)
+    struct { uint8_t *at; uint8_t old; } log[48];
     uint16_t address;
     int extra_cycles, stolen_cycles;
     uint8_t irq_request, nmi_request, nmi_state;

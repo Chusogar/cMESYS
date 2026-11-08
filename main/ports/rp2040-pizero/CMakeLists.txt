@@ -169,10 +169,10 @@ elseif(GAME STREQUAL "msx1" OR GAME STREQUAL "msx2")
     set(DEFS MSX_MODEL=${MSX_N})
     set(RAM_CODE z80dsp.c.o msx_core.c.o tms9918.c.o v9938.c.o ay8910.c.o msx_cart.c.o)
 elseif(GAME STREQUAL "lynx")
-    set(SRCS ${D}/lynx_pico.c ${D}/lynx_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c ${M}/cpu/m6502/m65xx.c
-             ${M}/machine/zx_pbuf.c)
+    set(SRCS ${D}/lynx_pico.c ${D}/lynx_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c
+             ${M}/machine/zx_pbuf.c)     # (cpu/m6502/m65xx.c is compiled inside lynx_core.c)
     set(DEFS)
-    set(RAM_CODE m65xx.c.o lynx_core.c.o)
+    set(RAM_CODE lynx_core.c.o)
 elseif(GAME STREQUAL "hdmitest" OR GAME STREQUAL "hdmitest2")
     # the board test (hdmitest_pico.c): HDMI, USB and sound, no game
     set(SRCS ${PORT_DIR}/hdmitest_pico.c)

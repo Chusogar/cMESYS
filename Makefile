@@ -147,7 +147,7 @@ else ifeq ($(GAME),c64)
           $(M)/machine/zx_pbuf.c
   DEFS :=
 else ifeq ($(GAME),lynx)
-  SRC  := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/machine/zx_pbuf.c
+  SRC  := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/machine/zx_pbuf.c
   DEFS :=
 else ifneq ($(filter $(GAME),msx1 msx2),)
   SRC  := $(D)/msx_sdl.c $(D)/msx_core.c $(D)/rom_data_$(GAME).c $(M)/cpu/z80dsp/z80dsp.c $(M)/video/tms9918.c \

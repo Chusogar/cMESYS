@@ -71,6 +71,7 @@ typedef struct {
     uint8_t line_color, spr_ctl0, spr_ctl1;
     uint16_t scb, scb_next;
     bool sprite_collide, everon;
+    bool run_plain, run_background;     // this sprite's mode (put_run)
     uint8_t fred;
     int memory_accesses;
     bool no_collide, vstretch, lefthanded, busy;
@@ -161,6 +162,12 @@ static void uart_clock(mikey *k)
     }
 }
 
+// Nothing to send or receive: the baud timer's borrows change nothing else
+static bool uart_idle(const mikey *k)
+{
+    return k->uart_tx_countdown == UART_INACTIVE && k->uart_rx_countdown == UART_INACTIVE && !k->uart_send_break;
+}
+
 static void uart_update_irq(lynx *m)
 {
     mikey *k = &m->mk;
@@ -173,11 +180,8 @@ static void uart_update_irq(lynx *m)
     }
 }
 
-static int prescale(int sel)
-{
-    static const int kScale[7] = { 4, 8, 16, 32, 64, 128, 256 };
-    return sel >= 0 && sel <= 6 ? kScale[sel] : 4;
-}
+// The prescalers are powers of two: 4 << sel (sel 7 taken as 0)
+static int prescale_shift(int sel) { return sel <= 6 ? sel + 2 : 2; }
 
 static void clock_audio(mikey *k, int channel);
 static void count_down_linked(lynx *m, int which);
@@ -235,14 +239,21 @@ static void count_down_linked(lynx *m, int which)
     else expire_timer(m, which);
 }
 
+static inline __attribute__((always_inline)) int parity12(unsigned v)
+{
+    v ^= v >> 8;
+    v ^= v >> 4;
+    v ^= v >> 2;
+    v ^= v >> 1;
+    return (int)(v & 1);
+}
+
 static void clock_audio(mikey *k, int channel)
 {
     mk_audio *a = &k->audio[channel];
     uint16_t shifter = a->shifter & 0x0fff;
-    int taps = 0;
     const uint16_t mask = (uint16_t)(a->feedback | ((uint16_t)(a->other & 0x0f) << 8));
-    for (int bit = 0; bit < 12; bit++)
-        if ((mask & (1 << bit)) && (shifter & (1 << bit))) taps ^= 1;
+    const int taps = parity12(mask & shifter);
     const int out = shifter & 1;
     a->shifter = (uint16_t)((shifter >> 1) | (taps ? 0x800 : 0));
     a->output = out ? a->volume : (int8_t)-a->volume;
@@ -261,7 +272,6 @@ static void clock_audio(mikey *k, int channel)
 // ticks (no loop a tick); mk_sync brings them up to date only when one of
 // them is due or the CPU touches Mikey: per instruction this was half of
 // the Lynx's time on the boards.
-static int ticks_to_expiry(int counter, int accum, int scale) { return (counter + 1) * scale - accum; }
 
 static void mk_tick(lynx *m, int cycles)
 {
@@ -269,10 +279,19 @@ static void mk_tick(lynx *m, int cycles)
     for (int w = 0; w < TIMERS; w++) {
         mk_timer *t = &k->timers[w];
         if (!T_COUNT(t) || T_LINKED(t) || T_DONE(t)) continue;
-        const int scale = prescale(t->cntrl1 & 7);
+        const int shift = prescale_shift(t->cntrl1 & 7);
         t->accum += cycles;
-        int ticks = t->accum / scale;
-        t->accum -= ticks * scale;
+        int ticks = t->accum >> shift;
+        t->accum -= ticks << shift;
+        if (w == 4 && ticks > t->counter && T_RELOAD(t) && uart_idle(k)) {
+            // the UART's baud timer with the UART idle: its borrows only count
+            // to 8 (uart_clock has nothing to do), all of them at once
+            ticks -= t->counter + 1;
+            const int period = t->bakup + 1, borrows = 1 + ticks / period;
+            t->counter = (uint8_t)(t->bakup - ticks % period);
+            k->uart_div = (k->uart_div + borrows) & 7;
+            continue;
+        }
         while (ticks > 0) {
             if (ticks <= t->counter) {
                 t->counter = (uint8_t)(t->counter - ticks);
@@ -284,13 +303,21 @@ static void mk_tick(lynx *m, int cycles)
             if (T_DONE(t)) break;
         }
     }
+    uart_update_irq(m);
+}
+
+// The free-running audio channels, `cycles` on. They interrupt nobody, so
+// the CPU's slices do not stop for them: they are brought up to each sound
+// sample's time (catch_up) and before the CPU touches Mikey.
+static void au_tick(mikey *k, int cycles)
+{
     for (int c = 0; c < AUDIOS; c++) {
         mk_audio *a = &k->audio[c];
         if (!A_COUNT(a) || A_LINKED(a) || A_DONE(a)) continue;
-        const int scale = prescale(a->control & 7);
+        const int shift = prescale_shift(a->control & 7);
         a->accum += cycles;
-        int ticks = a->accum / scale;
-        a->accum -= ticks * scale;
+        int ticks = a->accum >> shift;
+        a->accum -= ticks << shift;
         while (ticks > 0) {
             if (ticks <= a->counter) {
                 a->counter = (uint8_t)(a->counter - ticks);
@@ -302,10 +329,9 @@ static void mk_tick(lynx *m, int cycles)
             if (A_DONE(a)) break;
         }
     }
-    uart_update_irq(m);
 }
 
-// Cycles until the next timer or audio channel underflows (at most 4096)
+// Cycles until the next timer underflows (at most 4096)
 static int mk_next_event(const lynx *m)
 {
     const mikey *k = &m->mk;
@@ -313,13 +339,8 @@ static int mk_next_event(const lynx *m)
     for (int w = 0; w < TIMERS; w++) {
         const mk_timer *t = &k->timers[w];
         if (!T_COUNT(t) || T_LINKED(t) || T_DONE(t)) continue;
-        const int n = ticks_to_expiry(t->counter, t->accum, prescale(t->cntrl1 & 7));
-        if (n < next) next = n;
-    }
-    for (int c = 0; c < AUDIOS; c++) {
-        const mk_audio *a = &k->audio[c];
-        if (!A_COUNT(a) || A_LINKED(a) || A_DONE(a)) continue;
-        const int n = ticks_to_expiry(a->counter, a->accum, prescale(a->control & 7));
+        if (w == 4 && T_RELOAD(t) && uart_idle(k)) continue;    // (nothing happens when it borrows)
+        const int n = ((t->counter + 1) << prescale_shift(t->cntrl1 & 7)) - t->accum;
         if (n < next) next = n;
     }
     return next > 0 ? next : 1;
@@ -612,14 +633,25 @@ static void plot(lynx *m, int16_t x, int16_t y, uint8_t color)
 #undef COLLIDE_NIBBLE
 }
 
-// A pen's run of pixels (as many as the width says) from *xi on; the modes
-// that only write the pen (no collision buffer, no xor) a byte at a time
-static void put_run(lynx *m, int16_t *xi, int xdir, int16_t y, uint8_t color, uint16_t *width_acc)
+// `reps` runs of a pen's pixels (as many as the width says each) from *xi
+// on, at once; the modes that only write the pen (no collision buffer, no
+// xor) a byte at a time
+static void put_run(lynx *m, int16_t *xi, int xdir, int16_t y, uint8_t color, uint16_t *width_acc, int reps)
 {
     suzy *s = &m->sz;
-    *width_acc = (uint16_t)(*width_acc + s->width);
-    const int n = *width_acc >> 8;
-    *width_acc &= 0xff;
+    int n;
+    if (reps == 1 || s->width >= 0xff00) {
+        n = 0;
+        for (int i = 0; i < reps; i++) {    // (the 16-bit accumulator as it was, for the widest)
+            *width_acc = (uint16_t)(*width_acc + s->width);
+            n += *width_acc >> 8;
+            *width_acc &= 0xff;
+        }
+    } else {
+        const int total = *width_acc + reps * s->width;
+        n = total >> 8;
+        *width_acc = (uint16_t)(total & 0xff);
+    }
     if (n == 0) return;
     const int x0 = *xi;
     *xi = (int16_t)(x0 + n * xdir);
@@ -632,24 +664,26 @@ static void put_run(lynx *m, int16_t *xi, int xdir, int16_t y, uint8_t color, ui
     if (lo < 0) lo = 0;
     if (hi > LYNX_W - 1) hi = LYNX_W - 1;
     if (lo > hi) return;
-    const int mode = s->mode & 7;
-    const bool collide = s->sprite_collide && !s->no_collide;
-    const bool background = mode == kBackground || mode == kBackgroundNoColl;
-    const bool plain = mode == kBackgroundNoColl || mode == kNoColl ||
-                       (!collide && (mode == kBackground || mode == kNormalSprite || mode == kShadow));
-    if (!plain) {
+    if (!s->run_plain) {
         for (int x = lo; x <= hi; x++) plot(m, (int16_t)x, y, color);
         return;
     }
     s->everon = true;
-    if (color == 0 && !background) return;
+    if (color == 0 && !s->run_background) return;
     s->memory_accesses += hi - lo + 1;
-    const uint16_t row = (uint16_t)(s->screen + y * 80);
+    const uint16_t base = (uint16_t)(s->screen + y * 80);
     int x = lo;
-    if (x & 1) { write_nibble(m, (uint16_t)(row + x / 2), color, false); x++; }
+    if (x & 1) { write_nibble(m, (uint16_t)(base + x / 2), color, false); x++; }
     const uint8_t both = (uint8_t)((color << 4) | (color & 0x0f));
-    for (; x + 1 <= hi; x += 2) ram_write(m, (uint16_t)(row + x / 2), both);
-    if (x == hi) write_nibble(m, (uint16_t)(row + x / 2), color, true);
+    const int bytes = (hi + 1 - x) / 2;
+    if (bytes > 0) {
+        // (straight into RAM unless the row wraps past $FFFF or reaches $FFF8-9)
+        const unsigned first = (uint16_t)(base + x / 2);
+        if (first + (unsigned)bytes <= 0xfff8) memset(m->ram + first, both, (size_t)bytes);
+        else for (int i = 0; i < bytes; i++) ram_write(m, (uint16_t)(first + i), both);
+        x += bytes * 2;
+    }
+    if (x == hi) write_nibble(m, (uint16_t)(base + x / 2), color, true);
 }
 
 static void blit_packed(lynx *m, int16_t y, int xdir, int bpp, uint8_t mask)
@@ -668,7 +702,7 @@ static void blit_packed(lynx *m, int16_t y, int xdir, int bpp, uint8_t mask)
         while (bits > bpp) {
             const uint8_t color = s->color[(buffer >> (bits - bpp)) & mask];
             bits -= bpp;
-            put_run(m, &xi, xdir, y, color, &width_acc);
+            put_run(m, &xi, xdir, y, color, &width_acc, 1);
         }
     }
 }
@@ -699,14 +733,14 @@ static void blit_rle(lynx *m, int16_t y, int xdir, int bpp, uint8_t mask)
                 NEED(bpp)
                 const uint8_t color = s->color[(buffer >> (bits - bpp)) & mask];
                 bits -= bpp;
-                put_run(m, &xi, xdir, y, color, &width_acc);
+                put_run(m, &xi, xdir, y, color, &width_acc, 1);
             }
         } else {
             if (count == 0) return;
             NEED(bpp)
             const uint8_t color = s->color[(buffer >> (bits - bpp)) & mask];
             bits -= bpp;
-            for (; count >= 0; count--) put_run(m, &xi, xdir, y, color, &width_acc);
+            put_run(m, &xi, xdir, y, color, &width_acc, count + 1);
         }
     }
 #undef NEED
@@ -726,6 +760,13 @@ static void blit_lines(lynx *m)
     if (s->spr_ctl0 & 0x20) xdir = -xdir;          // HFLIP
     if (s->spr_ctl0 & 0x10) ydir = -ydir;          // VFLIP
     s->height_acc = ydir == 1 ? s->height_offset : 0;
+    {
+        const int mode = s->mode & 7;
+        const bool collide = s->sprite_collide && !s->no_collide;
+        s->run_background = mode == kBackground || mode == kBackgroundNoColl;
+        s->run_plain = mode == kBackgroundNoColl || mode == kNoColl ||
+                       (!collide && (mode == kBackground || mode == kNormalSprite || mode == kShadow));
+    }
     for (int16_t y = (int16_t)(s->y_pos - s->yoff);;) {
         const int offset = RAM(s->bitmap);
         s->memory_accesses++;
@@ -1049,6 +1090,28 @@ static void cart_strobe(lynx *m, uint8_t sysctl, uint8_t iodat)
 
 static void catch_up(lynx *m);
 
+// The CPU's direct pages above $FC00 as MAPCTL has them: Suzy's and Mikey's
+// pages when they are RAM, and the boot ROM's first page (where it runs)
+// read straight; $FF00-$FFFF (vectors, MAPCTL) always through the handlers.
+static void map_pages(lynx *m)
+{
+    for (int i = 0; i < 2; i++) {
+        uint8_t *const ram = m->ram + (0xfc + i) * 256;
+        const bool is_ram = (m->mapctl >> i) & 1;
+        m->cpu.page_r[0xfc + i] = is_ram ? ram : NULL;
+        m->cpu.page_w[0xfc + i] = is_ram ? ram : NULL;
+    }
+    m->cpu.page_r[0xfe] = (m->mapctl & 0x04) ? m->ram + 0xfe00 : m->boot_rom;
+    m->cpu.page_w[0xfe] = m->ram + 0xfe00;
+}
+
+#ifdef LYNX_TEST_NOSKIP
+#include <stdlib.h>
+static bool getenv_noskip(void) { return getenv("LYNX_NOSKIP") != NULL; }
+#else
+static bool getenv_noskip(void) { return false; }
+#endif
+
 static uint8_t read_byte(void *user, uint16_t a)
 {
     lynx *m = (lynx *)user;
@@ -1074,7 +1137,11 @@ static uint8_t read_byte(void *user, uint16_t a)
 static void write_byte(void *user, uint16_t a, uint8_t v)
 {
     lynx *m = (lynx *)user;
-    if (a == 0xfff9) { m->mapctl = v; return; }
+    if (a == 0xfff9) {
+        m->mapctl = v;
+        map_pages(m);
+        return;
+    }
     if (a >= 0xfc00 && a <= 0xfcff && !(m->mapctl & 0x01)) {
         catch_up(m);
         sz_write(m, (uint8_t)a, v);
@@ -1084,6 +1151,7 @@ static void write_byte(void *user, uint16_t a, uint8_t v)
         catch_up(m);
         mk_sync(m);
         mk_write(m, (uint8_t)a, v);
+        uart_update_irq(m);             // (an interrupt enabled with the UART ready: at once)
         m->mk_next = mk_next_event(m);
         if (a == 0xfd91 && m->sz.busy) m->cpu.halted = true;    // CPUSLEEP while Suzy draws
         return;
@@ -1095,6 +1163,13 @@ static void write_byte(void *user, uint16_t a, uint8_t v)
     m->ram[a] = v;
 }
 
+// The 65C02, compiled here with the memory handlers above called inline (as
+// the arcade boards do with dsp6502.c): no call through a pointer for each
+// access to Mikey, Suzy or the top of memory.
+#define M65XX_READ(u, a) read_byte(u, a)
+#define M65XX_WRITE(u, a, v) write_byte(u, a, v)
+#include "m65xx.c"
+
 // Mikey's timers, Suzy and the sound for the cycles the CPU ran since the
 // last time: after each slice of CPU (up to the next timer due) and before
 // any access to Mikey or Suzy. No call per instruction.
@@ -1103,10 +1178,21 @@ static void catch_up(lynx *m)
     const int cycles = (int)(m->cpu.clock - m->clock_mark);
     if (cycles <= 0) return;
     m->clock_mark = m->cpu.clock;
-    if (!m->turbo) {                    // (the sound of these cycles: before what is due at their end)
-        m->audio_acc32 += (uint32_t)cycles * (uint32_t)m->audio_rate;
-        while (m->audio_acc32 >= CPU_CLOCK) {
-            m->audio_acc32 -= CPU_CLOCK;
+    if (m->turbo) {
+        au_tick(&m->mk, cycles);
+    } else {                            // the channels up to each sample of these cycles, then the sample
+        const uint32_t rate = (uint32_t)m->audio_rate;
+        int left = cycles;
+        while (left > 0) {
+            const int need = (int)((CPU_CLOCK - m->audio_acc32 + rate - 1) / rate);
+            if (need > left) {
+                m->audio_acc32 += (uint32_t)left * rate;
+                au_tick(&m->mk, left);
+                break;
+            }
+            m->audio_acc32 += (uint32_t)need * rate - CPU_CLOCK;
+            au_tick(&m->mk, need);
+            left -= need;
             if (m->naudio < LYNX_AUDIO_MAX) m->audio[m->naudio++] = mk_mix(&m->mk);
         }
     }
@@ -1145,6 +1231,7 @@ lynx *lynx_create(int audio_rate)
     m->cpu.read = read_byte;
     m->cpu.write = write_byte;
     m->cpu.cycles = NULL;               // (catch_up: after slices, not instructions)
+    m->cpu.idle_skip = !getenv_noskip();
     m->cpu.user = m;
     for (int p = 0; p < 0xfc; p++) {
         m->cpu.page_r[p] = m->ram + p * 256;
@@ -1189,6 +1276,7 @@ void lynx_reset(lynx *m)
     m->mk_pending = 0;
     m->mk_next = 1;
     m->mapctl = 0;
+    map_pages(m);
     m->cart_block = 0;
     m->cart_counter = 0;
     m->last_sysctl = 0;
@@ -1289,6 +1377,7 @@ bool lynx_load_pbuf(lynx *m, zx_pbuf *pb, const char *name)
         m->mk_pending = 0;
         m->mk_next = 1;
         m->mapctl = 0x0c;
+        map_pages(m);
         const size_t copy = length < pb->size - 10 ? length : pb->size - 10;
         for (size_t i = 0; i < copy; i++) m->ram[(uint16_t)(start + i)] = zx_pb_byte(pb, (uint32_t)(10 + i));
         m->ram[0xfffc] = (uint8_t)start;
