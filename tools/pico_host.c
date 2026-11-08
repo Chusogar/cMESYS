@@ -143,3 +143,45 @@ void pico_osd_list(const char *title, const char *const *items, int n, int sel, 
     for (int i = 0; i < n && i < PICO_OSD_ROWS - 4; i++) pico_osd_text(2 + i, items[i], i == sel);
     if (help) pico_osd_text(PICO_OSD_ROWS - 1, help, false);
 }
+
+// PICO_HEAP_KB=n: a heap of n KB, as the boards have (malloc fails past it)
+#include <malloc.h>
+extern void *__libc_malloc(size_t), *__libc_calloc(size_t, size_t), *__libc_realloc(void *, size_t);
+extern void __libc_free(void *);
+static size_t heap_used;
+static long heap_limit = -2;
+static int heap_ok(size_t add)
+{
+    if (heap_limit == -2) {
+        const char *e = getenv("PICO_HEAP_KB");
+        heap_limit = e ? atol(e) * 1024 : -1;
+    }
+    return heap_limit < 0 || heap_used + add <= (size_t)heap_limit;
+}
+void *malloc(size_t n)
+{
+    if (!heap_ok(n)) return NULL;
+    void *p = __libc_malloc(n);
+    if (p) heap_used += malloc_usable_size(p);
+    return p;
+}
+void *calloc(size_t a, size_t b)
+{
+    if (!heap_ok(a * b)) return NULL;
+    void *p = __libc_calloc(a, b);
+    if (p) heap_used += malloc_usable_size(p);
+    return p;
+}
+void *realloc(void *q, size_t n)
+{
+    const size_t old = q ? malloc_usable_size(q) : 0;
+    if (n > old && !heap_ok(n - old)) return NULL;
+    void *p = __libc_realloc(q, n);
+    if (p) heap_used = heap_used - old + malloc_usable_size(p);
+    return p;
+}
+void free(void *p)
+{
+    if (p) heap_used -= malloc_usable_size(p);
+    __libc_free(p);
+}

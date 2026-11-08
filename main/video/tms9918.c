@@ -12,9 +12,12 @@ void tms_reset(tms9918 *v)
 {
     void (*irq)(void *, bool) = v->irq;
     void *user = v->user;
+    uint8_t *vram = v->vram;
     memset(v, 0, sizeof *v);
     v->irq = irq;
     v->user = user;
+    v->vram = vram;
+    if (vram) memset(vram, 0, 0x4000);
 }
 
 static void update_irq(tms9918 *v)

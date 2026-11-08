@@ -275,6 +275,7 @@ int m65xx_run(m65xx *cpu, int cycles)
         if (cpu->halted) {
             const int step = cycles - executed < 8 ? cycles - executed : 8;
             executed += step;
+            cpu->clock += (uint32_t)step;
             if (cpu->cycles) cpu->cycles(cpu->user, step);
             continue;
         }
@@ -839,9 +840,11 @@ int m65xx_run(m65xx *cpu, int cycles)
 
         const int elapsed = cycle_table[instruction] + extra_cycles_;
         executed += elapsed;
+        cpu->clock += (uint32_t)elapsed;
         if (cpu->cycles) cpu->cycles(cpu->user, elapsed);
         if (cpu->stolen_cycles != 0) {
             executed += cpu->stolen_cycles;
+            cpu->clock += (uint32_t)cpu->stolen_cycles;
             if (cpu->cycles) cpu->cycles(cpu->user, cpu->stolen_cycles);
             cpu->stolen_cycles = 0;
         }

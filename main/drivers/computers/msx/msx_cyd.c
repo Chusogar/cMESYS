@@ -27,11 +27,17 @@ static int space_frames;
 static bool load(const char *name, const char **why)
 {
     static const char *const lazy[] = { ".dsk", NULL };
+    msx_drop_media_for(cpu_m, name);    // (the old cartridge out first: no room for two)
     zx_pbuf pb;
     if (!comp_sd_pbuf(name, lazy, &pb, why)) {
-        static const char *const all[] = { ".rom", ".mx1", ".mx2", NULL };    // too big: from the card
-        comp_sd_lazy_slots = 64;
-        const bool ok = comp_sd_pbuf(name, all, &pb, why);
+        // a cartridge bigger than the free memory: read from the card as it
+        // is used, through as much cache as there is room for (16 KB at most)
+        static const char *const all[] = { ".rom", ".mx1", ".mx2", NULL };
+        bool ok = false;
+        for (int slots = 64; slots >= 8 && !ok; slots /= 2) {
+            comp_sd_lazy_slots = slots;
+            ok = comp_sd_pbuf(name, all, &pb, why);
+        }
         comp_sd_lazy_slots = 8;
         if (!ok) return false;
     }

@@ -94,6 +94,10 @@ struct lynx {
     uint8_t last_sysctl, mapctl;
     int audio_rate;
     uint64_t audio_acc;
+    int mk_pending, mk_next;            // Mikey's cycles not counted yet; the next one due
+    uint32_t clock_mark;                // the CPU's clock up to which Mikey and Suzy have run
+    int frame_debt;
+    uint32_t audio_acc32;
     bool turbo;                         // no sound
     int16_t audio[LYNX_AUDIO_MAX];
     int naudio;
@@ -253,6 +257,12 @@ static void clock_audio(mikey *k, int channel)
     }
 }
 
+// The free-running timers and audio channels counted in whole prescale
+// ticks (no loop a tick); mk_sync brings them up to date only when one of
+// them is due or the CPU touches Mikey: per instruction this was half of
+// the Lynx's time on the boards.
+static int ticks_to_expiry(int counter, int accum, int scale) { return (counter + 1) * scale - accum; }
+
 static void mk_tick(lynx *m, int cycles)
 {
     mikey *k = &m->mk;
@@ -261,13 +271,17 @@ static void mk_tick(lynx *m, int cycles)
         if (!T_COUNT(t) || T_LINKED(t) || T_DONE(t)) continue;
         const int scale = prescale(t->cntrl1 & 7);
         t->accum += cycles;
-        while (t->accum >= scale) {
-            t->accum -= scale;
-            if (t->counter > 0) t->counter--;
-            else {
-                expire_timer(m, w);
-                if (T_DONE(t)) break;
+        int ticks = t->accum / scale;
+        t->accum -= ticks * scale;
+        while (ticks > 0) {
+            if (ticks <= t->counter) {
+                t->counter = (uint8_t)(t->counter - ticks);
+                break;
             }
+            ticks -= t->counter + 1;
+            t->counter = 0;
+            expire_timer(m, w);         // (reloads the counter, or stops the timer)
+            if (T_DONE(t)) break;
         }
     }
     for (int c = 0; c < AUDIOS; c++) {
@@ -275,16 +289,47 @@ static void mk_tick(lynx *m, int cycles)
         if (!A_COUNT(a) || A_LINKED(a) || A_DONE(a)) continue;
         const int scale = prescale(a->control & 7);
         a->accum += cycles;
-        while (a->accum >= scale) {
-            a->accum -= scale;
-            if (a->counter > 0) a->counter--;
-            else {
-                clock_audio(k, c);
-                if (A_DONE(a)) break;
+        int ticks = a->accum / scale;
+        a->accum -= ticks * scale;
+        while (ticks > 0) {
+            if (ticks <= a->counter) {
+                a->counter = (uint8_t)(a->counter - ticks);
+                break;
             }
+            ticks -= a->counter + 1;
+            a->counter = 0;
+            clock_audio(k, c);
+            if (A_DONE(a)) break;
         }
     }
     uart_update_irq(m);
+}
+
+// Cycles until the next timer or audio channel underflows (at most 4096)
+static int mk_next_event(const lynx *m)
+{
+    const mikey *k = &m->mk;
+    int next = 4096;
+    for (int w = 0; w < TIMERS; w++) {
+        const mk_timer *t = &k->timers[w];
+        if (!T_COUNT(t) || T_LINKED(t) || T_DONE(t)) continue;
+        const int n = ticks_to_expiry(t->counter, t->accum, prescale(t->cntrl1 & 7));
+        if (n < next) next = n;
+    }
+    for (int c = 0; c < AUDIOS; c++) {
+        const mk_audio *a = &k->audio[c];
+        if (!A_COUNT(a) || A_LINKED(a) || A_DONE(a)) continue;
+        const int n = ticks_to_expiry(a->counter, a->accum, prescale(a->control & 7));
+        if (n < next) next = n;
+    }
+    return next > 0 ? next : 1;
+}
+
+static void mk_sync(lynx *m)
+{
+    if (m->mk_pending) mk_tick(m, m->mk_pending);
+    m->mk_pending = 0;
+    m->mk_next = mk_next_event(m);
 }
 
 static uint8_t mk_read(lynx *m, uint8_t off)
@@ -971,6 +1016,8 @@ static void cart_strobe(lynx *m, uint8_t sysctl, uint8_t iodat)
     m->last_sysctl = sysctl;
 }
 
+static void catch_up(lynx *m);
+
 static uint8_t read_byte(void *user, uint16_t a)
 {
     lynx *m = (lynx *)user;
@@ -981,8 +1028,15 @@ static uint8_t read_byte(void *user, uint16_t a)
         if (a >= 0xfffa && vectors_rom && rom_on) return m->boot_rom[a - 0xfe00];
         if (a <= 0xfff7 && rom_on) return m->boot_rom[a - 0xfe00];
     }
-    if (a >= 0xfc00 && a <= 0xfcff && !(m->mapctl & 0x01)) return sz_read(m, (uint8_t)a);
-    if (a >= 0xfd00 && a <= 0xfdff && !(m->mapctl & 0x02)) return mk_read(m, (uint8_t)a);
+    if (a >= 0xfc00 && a <= 0xfcff && !(m->mapctl & 0x01)) {
+        catch_up(m);
+        return sz_read(m, (uint8_t)a);
+    }
+    if (a >= 0xfd00 && a <= 0xfdff && !(m->mapctl & 0x02)) {
+        catch_up(m);
+        mk_sync(m);
+        return mk_read(m, (uint8_t)a);
+    }
     return m->ram[a];
 }
 
@@ -990,9 +1044,16 @@ static void write_byte(void *user, uint16_t a, uint8_t v)
 {
     lynx *m = (lynx *)user;
     if (a == 0xfff9) { m->mapctl = v; return; }
-    if (a >= 0xfc00 && a <= 0xfcff && !(m->mapctl & 0x01)) { sz_write(m, (uint8_t)a, v); return; }
+    if (a >= 0xfc00 && a <= 0xfcff && !(m->mapctl & 0x01)) {
+        catch_up(m);
+        sz_write(m, (uint8_t)a, v);
+        return;
+    }
     if (a >= 0xfd00 && a <= 0xfdff && !(m->mapctl & 0x02)) {
+        catch_up(m);
+        mk_sync(m);
         mk_write(m, (uint8_t)a, v);
+        m->mk_next = mk_next_event(m);
         if (a == 0xfd91 && m->sz.busy) m->cpu.halted = true;    // CPUSLEEP while Suzy draws
         return;
     }
@@ -1003,18 +1064,25 @@ static void write_byte(void *user, uint16_t a, uint8_t v)
     m->ram[a] = v;
 }
 
-static void on_cycles(void *user, int cycles)
+// Mikey's timers, Suzy and the sound for the cycles the CPU ran since the
+// last time: after each slice of CPU (up to the next timer due) and before
+// any access to Mikey or Suzy. No call per instruction.
+static void catch_up(lynx *m)
 {
-    lynx *m = (lynx *)user;
-    mk_tick(m, cycles);
+    const int cycles = (int)(m->cpu.clock - m->clock_mark);
+    if (cycles <= 0) return;
+    m->clock_mark = m->cpu.clock;
+    if (!m->turbo) {                    // (the sound of these cycles: before what is due at their end)
+        m->audio_acc32 += (uint32_t)cycles * (uint32_t)m->audio_rate;
+        while (m->audio_acc32 >= CPU_CLOCK) {
+            m->audio_acc32 -= CPU_CLOCK;
+            if (m->naudio < LYNX_AUDIO_MAX) m->audio[m->naudio++] = mk_mix(&m->mk);
+        }
+    }
+    m->mk_pending += cycles;
+    if (m->mk_pending >= m->mk_next) mk_sync(m);
     sz_tick(&m->sz, cycles);
     if (m->cpu.halted && !m->sz.busy) m->cpu.halted = false;
-    if (m->turbo) return;
-    m->audio_acc += (uint64_t)cycles * (uint32_t)m->audio_rate;
-    while (m->audio_acc >= CPU_CLOCK) {
-        m->audio_acc -= CPU_CLOCK;
-        if (m->naudio < LYNX_AUDIO_MAX) m->audio[m->naudio++] = mk_mix(&m->mk);
-    }
 }
 
 static void present_frame(lynx *m)
@@ -1043,8 +1111,12 @@ lynx *lynx_create(int audio_rate)
     m->cpu.cmos = true;
     m->cpu.read = read_byte;
     m->cpu.write = write_byte;
-    m->cpu.cycles = on_cycles;
+    m->cpu.cycles = NULL;               // (catch_up: after slices, not instructions)
     m->cpu.user = m;
+    for (int p = 0; p < 0xfc; p++) {
+        m->cpu.page_r[p] = m->ram + p * 256;
+        m->cpu.page_w[p] = m->ram + p * 256;
+    }
     m->granularity = 0x400;
     zx_pb_init(&m->cart);
     lynx_reset(m);
@@ -1081,11 +1153,16 @@ void lynx_reset(lynx *m)
     sz_reset(&m->sz);
     mk_reset(&m->mk);
     mk_update_irq(m);
+    m->mk_pending = 0;
+    m->mk_next = 1;
     m->mapctl = 0;
     m->cart_block = 0;
     m->cart_counter = 0;
     m->last_sysctl = 0;
     m->audio_acc = 0;
+    m->audio_acc32 = 0;
+    m->clock_mark = m->cpu.clock;
+    m->frame_debt = 0;
     m->naudio = 0;
     memset(m->screen, 0, sizeof m->screen);
     m->shown = false;
@@ -1096,7 +1173,18 @@ void lynx_reset(lynx *m)
 int lynx_run_frame(lynx *m, const int16_t **audio)
 {
     m->naudio = 0;
-    for (int line = 0; line < SCANLINES; line++) m65xx_run(&m->cpu, CYCLES_PER_LINE);
+    // the CPU in slices that end where a timer is due (or Suzy is done)
+    const uint32_t end = m->clock_mark + SCANLINES * CYCLES_PER_LINE - m->frame_debt;
+    while ((int32_t)(end - m->cpu.clock) > 0) {
+        int slice = (int)(end - m->cpu.clock);
+        const int due = m->mk_next - m->mk_pending;
+        if (due < slice) slice = due;
+        if (m->sz.busy && m->sz.remaining < slice) slice = m->sz.remaining;
+        if (slice < 1) slice = 1;
+        m65xx_run(&m->cpu, slice);
+        catch_up(m);
+    }
+    m->frame_debt = (int)(m->cpu.clock - end);      // (the last instruction ran past the frame)
     present_frame(m);
     if (audio) *audio = m->audio;
     return m->naudio;
@@ -1165,6 +1253,8 @@ bool lynx_load_pbuf(lynx *m, zx_pbuf *pb, const char *name)
         memset(m->ram, 0, sizeof m->ram);
         sz_reset(&m->sz);
         mk_reset(&m->mk);
+        m->mk_pending = 0;
+        m->mk_next = 1;
         m->mapctl = 0x0c;
         const size_t copy = length < pb->size - 10 ? length : pb->size - 10;
         for (size_t i = 0; i < copy; i++) m->ram[(uint16_t)(start + i)] = zx_pb_byte(pb, (uint32_t)(10 + i));

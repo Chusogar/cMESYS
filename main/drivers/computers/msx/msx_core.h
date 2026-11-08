@@ -89,4 +89,7 @@ bool msx_load_file(msx *m, const char *path);
 const char *msx_last_error(const msx *m);
 bool msx_has_disk_rom(const msx *m);
 void msx_eject_cart(msx *m);
+/* Frees what a file of this name will replace (the cartridge, the tape)
+ * before it is read: the boards have no room for both */
+void msx_drop_media_for(msx *m, const char *name);
 void msx_set_turbo(msx *m, bool on);       /* no sound */

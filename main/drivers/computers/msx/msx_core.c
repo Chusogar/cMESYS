@@ -481,6 +481,11 @@ msx *msx_create(int model, int ram_kb, int vram_kb, int audio_rate)
         m->v99.irq = vdp_irq;
         m->v99.user = m;
     } else {
+        m->tms.vram = (uint8_t *)calloc(1, 0x4000);
+        if (!m->tms.vram) {
+            msx_destroy(m);
+            return NULL;
+        }
         m->tms.irq = vdp_irq;
         m->tms.user = m;
     }
@@ -514,6 +519,7 @@ void msx_destroy(msx *m)
     if (!m) return;
     for (int i = 0; i < MAX_SEGS; i++) free(m->seg[i]);
     v99_free(&m->v99);
+    free(m->tms.vram);
     msxc_free(&m->cart);
     msxd_eject(&m->disk);
     zx_pb_free(&m->cas);
@@ -834,6 +840,16 @@ bool msx_load_pbuf(msx *m, zx_pbuf *pb, const char *name)
     m->cas_pos = 0;
     cas_autorun(m);
     return true;
+}
+
+void msx_drop_media_for(msx *m, const char *name)
+{
+    if (ext_is(name, ".cas") || ext_is(name, ".tsx") || ext_is(name, ".tzx")) {
+        zx_pb_free(&m->cas);
+        m->cas_loaded = false;
+    } else if (!ext_is(name, ".dsk") && msxc_present(&m->cart)) {
+        msx_eject_cart(m);
+    }
 }
 
 void msx_eject_cart(msx *m)

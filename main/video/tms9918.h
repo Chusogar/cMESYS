@@ -12,7 +12,7 @@
 #define TMS_H 192
 
 typedef struct {
-    uint8_t vram[0x4000];
+    uint8_t *vram;                      // 16 KB, the machine's (tms_reset clears it)
     uint8_t regs[8];
     uint16_t address;
     uint8_t read_buffer, status, latch_byte;

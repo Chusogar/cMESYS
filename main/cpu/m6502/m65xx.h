@@ -25,6 +25,7 @@ typedef struct m65xx {
     uint8_t a, x, y, sp;
     m65xx_flags p;                              // p.v: the SO pin sets it
     bool halted;
+    uint32_t clock;                             // cycles run, all told (wraps)
     // private
     uint16_t address;
     int extra_cycles, stolen_cycles;

@@ -54,13 +54,17 @@ static void __attribute__((unused)) __not_in_flash_func(render)(void *user, int 
 static bool load(const char *name, const char **why)
 {
     static const char *const lazy[] = { ".dsk", NULL };
+    msx_drop_media_for(cpu_m, name);    // (the old cartridge out first: no room for two)
     zx_pbuf pb;
     if (!comp_sd_pbuf(name, lazy, &pb, why)) {
         // a cartridge bigger than the free memory: read from the card as it
-        // is used, through 32 KB of cache
+        // is used, through as much cache as there is room for (32 KB at most)
         static const char *const all[] = { ".rom", ".mx1", ".mx2", NULL };
-        comp_sd_lazy_slots = 128;
-        const bool ok = comp_sd_pbuf(name, all, &pb, why);
+        bool ok = false;
+        for (int slots = 128; slots >= 8 && !ok; slots /= 2) {
+            comp_sd_lazy_slots = slots;
+            ok = comp_sd_pbuf(name, all, &pb, why);
+        }
         comp_sd_lazy_slots = 8;
         if (!ok) return false;
     }
