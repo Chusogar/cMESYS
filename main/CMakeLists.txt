@@ -91,6 +91,7 @@ elseif(GAME STREQUAL "c64")
     set(DEFS)
     set(QL_SD_REQ fatfs sdmmc)
     set(LF_FILE ${D}/c64.lf)
+    set(HOT_SRCS cpu/m6502/m65xx.c)
     set(EXTRA_INCLUDES ${QL_DIR})
 elseif(GAME STREQUAL "msx1" OR GAME STREQUAL "msx2")
     string(REPLACE "msx" "" MSX_N ${GAME})
@@ -105,6 +106,7 @@ elseif(GAME STREQUAL "lynx")
     set(DEFS)
     set(QL_SD_REQ fatfs sdmmc)
     set(LF_FILE ${D}/lynx.lf)
+    set(HOT_SRCS ${D}/lynx_core.c cpu/m6502/m65xx.c)
     set(EXTRA_INCLUDES ${QL_DIR})
 elseif(IS_ZXSPEC)
     set(SRCS ${D}/zxspec_cyd.c ${D}/zxspec_core.c ${D}/zx48.c ${D}/zx128.c ${D}/zxclone.c ${D}/rom_data_${GAME}.c
@@ -140,6 +142,12 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE ${DEFS} NDEBUG)
 target_compile_options(${COMPONENT_LIB} PRIVATE -O2 -Wno-unused-variable -Wno-maybe-uninitialized -Wno-uninitialized
     -Wno-unused-function -Wno-implicit-fallthrough -Wno-unused-but-set-variable -Wno-sign-compare -Wno-type-limits
     -Wno-missing-field-initializers -Wno-unused-value -Wno-parentheses -Wno-misleading-indentation -Wno-unused-label)
+# The CPU cores' big switches as jump tables (IDF builds with -fno-jump-tables:
+# a binary tree of compares per opcode otherwise). Only for sources whose
+# .lf mapping is noflash, so the tables are in DRAM like the code is in IRAM.
+if(HOT_SRCS)
+    set_source_files_properties(${HOT_SRCS} PROPERTIES COMPILE_OPTIONS "-fjump-tables;-ftree-switch-conversion")
+endif()
 # QEMU tests: CYD_HEADLESS_TEST=1 idf.py ... (frame hashes on the serial port)
 foreach(opt CYD_HEADLESS_TEST CYD_QEMU_DAC CYD_QEMU_FULL CYD_QEMU_SOLO CYD_DIAG RC_NO_IRAM_DATA)
     if(DEFINED ENV{${opt}})

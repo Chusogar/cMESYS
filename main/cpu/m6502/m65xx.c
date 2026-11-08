@@ -270,13 +270,22 @@ static inline void branch(m65xx *cpu, bool condition, uint8_t offset)
 int m65xx_run(m65xx *cpu, int cycles)
 {
     int executed = 0;
+    // (the model's tables, picked once a run: the model does not change in one)
+    const uint8_t *const modes = cmos_ ? kModeCmos : kMode;
+    const uint8_t *const cycle_table = cmos_ ? kCyclesCmos : kCycles;
     while (executed < cycles) {
         extra_cycles_ = 0;
         if (cpu->halted) {
+            if (!cpu->cycles) {             // (nobody to tell: the rest of the run at once)
+                const int step = cycles - executed;
+                executed += step;
+                cpu->clock += (uint32_t)step;
+                break;
+            }
             const int step = cycles - executed < 8 ? cycles - executed : 8;
             executed += step;
             cpu->clock += (uint32_t)step;
-            if (cpu->cycles) cpu->cycles(cpu->user, step);
+            cpu->cycles(cpu->user, step);
             continue;
         }
         if (!after_ei_) {
@@ -285,8 +294,6 @@ int m65xx_run(m65xx *cpu, int cycles)
         }
         after_ei_ = false;
         const uint8_t instruction = fetch(cpu);
-        const uint8_t *const modes = cmos_ ? kModeCmos : kMode;
-        const uint8_t *const cycle_table = cmos_ ? kCyclesCmos : kCycles;
         uint8_t offset = 0;
         switch (modes[instruction]) {
             case 0x0:  // implicit

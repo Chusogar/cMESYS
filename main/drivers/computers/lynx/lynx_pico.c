@@ -35,9 +35,13 @@ static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 
 static bool load(const char *name, const char **why)
 {
-    static const char *const lazy[] = { ".lnx", ".lyx", NULL };
+    // A cartridge stays on the card behind a cache as big as the memory
+    // takes (all of a 128 KB one, most of a 256 KB one): the game reads it
+    // as it plays, and a small cache made every read a card access
     zx_pbuf pb;
-    if (!comp_sd_pbuf(name, lazy, &pb, why)) return false;
+    lynx_eject(cpu_m);                  // (the old one's memory first)
+    const bool cart = comp_sd_ext(name, ".lnx") || comp_sd_ext(name, ".lyx");
+    if (cart ? !comp_sd_pbuf_cached(name, &pb, why, 32768) : !comp_sd_pbuf(name, NULL, &pb, why)) return false;
     const bool ok = lynx_load_pbuf(cpu_m, &pb, name);
     *why = ok ? "" : lynx_last_error(cpu_m);
     return ok;

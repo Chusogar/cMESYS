@@ -50,6 +50,8 @@ void lynx_set_rgb565(lynx *m, uint16_t (*fn)(uint8_t r, uint8_t g, uint8_t b));
 
 bool lynx_load_pbuf(lynx *m, zx_pbuf *pb, const char *name);  /* takes the pages over */
 bool lynx_load_file(lynx *m, const char *path);
+/* The cartridge out (its memory back before the next one is read) */
+void lynx_eject(lynx *m);
 const char *lynx_last_error(const lynx *m);
 bool lynx_has_boot_rom(const lynx *m);
 /* TURBO: no sound (the frames give no samples) */

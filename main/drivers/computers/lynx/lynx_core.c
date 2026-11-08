@@ -612,13 +612,44 @@ static void plot(lynx *m, int16_t x, int16_t y, uint8_t color)
 #undef COLLIDE_NIBBLE
 }
 
+// A pen's run of pixels (as many as the width says) from *xi on; the modes
+// that only write the pen (no collision buffer, no xor) a byte at a time
 static void put_run(lynx *m, int16_t *xi, int xdir, int16_t y, uint8_t color, uint16_t *width_acc)
 {
     suzy *s = &m->sz;
     *width_acc = (uint16_t)(*width_acc + s->width);
-    for (int i = 0; i < (*width_acc >> 8); i++, *xi = (int16_t)(*xi + xdir))
-        if (*xi >= 0 && *xi < LYNX_W) plot(m, *xi, y, color);
+    const int n = *width_acc >> 8;
     *width_acc &= 0xff;
+    if (n == 0) return;
+    const int x0 = *xi;
+    *xi = (int16_t)(x0 + n * xdir);
+    int lo = xdir > 0 ? x0 : x0 - (n - 1), hi = xdir > 0 ? x0 + n - 1 : x0;
+    if (n > 0x8000) {                   // (the wrap of the 16-bit position, as it was)
+        for (int i = 0, x = x0; i < n; i++, x = (int16_t)(x + xdir))
+            if (x >= 0 && x < LYNX_W) plot(m, (int16_t)x, y, color);
+        return;
+    }
+    if (lo < 0) lo = 0;
+    if (hi > LYNX_W - 1) hi = LYNX_W - 1;
+    if (lo > hi) return;
+    const int mode = s->mode & 7;
+    const bool collide = s->sprite_collide && !s->no_collide;
+    const bool background = mode == kBackground || mode == kBackgroundNoColl;
+    const bool plain = mode == kBackgroundNoColl || mode == kNoColl ||
+                       (!collide && (mode == kBackground || mode == kNormalSprite || mode == kShadow));
+    if (!plain) {
+        for (int x = lo; x <= hi; x++) plot(m, (int16_t)x, y, color);
+        return;
+    }
+    s->everon = true;
+    if (color == 0 && !background) return;
+    s->memory_accesses += hi - lo + 1;
+    const uint16_t row = (uint16_t)(s->screen + y * 80);
+    int x = lo;
+    if (x & 1) { write_nibble(m, (uint16_t)(row + x / 2), color, false); x++; }
+    const uint8_t both = (uint8_t)((color << 4) | (color & 0x0f));
+    for (; x + 1 <= hi; x += 2) ram_write(m, (uint16_t)(row + x / 2), both);
+    if (x == hi) write_nibble(m, (uint16_t)(row + x / 2), color, true);
 }
 
 static void blit_packed(lynx *m, int16_t y, int xdir, int bpp, uint8_t mask)
@@ -1099,7 +1130,9 @@ static void present_frame(lynx *m)
     }
     if (!m->shown) return;
     const uint16_t addr = (uint16_t)((k->data[0x94] | (k->data[0x95] << 8)) & 0xfffc);
-    for (int i = 0; i < LYNX_W / 2 * LYNX_H; i++) m->screen[i] = m->ram[(uint16_t)(addr + i)];
+    const int n = LYNX_W / 2 * LYNX_H, first = 0x10000 - addr < n ? 0x10000 - addr : n;
+    memcpy(m->screen, m->ram + addr, (size_t)first);
+    if (first < n) memcpy(m->screen + first, m->ram, (size_t)(n - first));   // (wrapped past $FFFF)
 }
 
 lynx *lynx_create(int audio_rate)
@@ -1284,6 +1317,12 @@ bool lynx_load_pbuf(lynx *m, zx_pbuf *pb, const char *name)
     m->cart_size = m->cart.size - m->cart_base;
     lynx_reset(m);
     return true;
+}
+
+void lynx_eject(lynx *m)
+{
+    zx_pb_free(&m->cart);
+    m->cart_size = 0;
 }
 
 bool lynx_load_file(lynx *m, const char *path)

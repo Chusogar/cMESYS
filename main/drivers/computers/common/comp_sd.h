@@ -5,6 +5,7 @@
 // needs no single free block the size of the file. Included once (static).
 #pragma once
 #include <ctype.h>
+#include <stdlib.h>
 #include <string.h>
 #include "zx_pbuf.h"
 #include "../ql/ql_sd.h"
@@ -61,4 +62,43 @@ static bool comp_sd_pbuf(const char *name, const char *const *lazy_exts, zx_pbuf
         return false;
     }
     return true;
+}
+
+// A cartridge left on the card behind as big a page cache as the memory
+// takes (the whole file when it fits: every page then read once), keeping
+// `reserve` bytes free (in 8 KB blocks) for the rest of the program
+static bool comp_sd_pbuf_cached(const char *name, zx_pbuf *pb, const char **why, size_t reserve)
+{
+    size_t size = 0;
+    ql_sd_file *f = ql_sd_file_open(name, &size);
+    if (!f) {
+        *why = "SD: cannot open the file";
+        return false;
+    }
+    int slots = (int)((size + ZX_PAGE - 1) / ZX_PAGE);
+    if (slots < 8) slots = 8;
+    for (;;) {
+        if (!f) f = ql_sd_file_open(name, &size);
+        if (!f) {
+            *why = "SD: cannot open the file";
+            return false;
+        }
+        const bool ok = zx_pb_open_lazy_n(pb, (uint32_t)size, comp_sd_read, comp_sd_close, f, slots);
+        f = NULL;                           // (closed by zx_pb_open_lazy_n's failure or zx_pb_free)
+        if (ok) {
+            enum { kProbes = 16 };
+            void *probe[kProbes] = { 0 };
+            int got = 0;
+            const int want = (int)((reserve + 8191) / 8192);
+            while (got < want && got < kProbes && (probe[got] = malloc(8192)) != NULL) got++;
+            for (int i = 0; i < got; i++) free(probe[i]);
+            if (got >= want || got >= kProbes || slots <= 8) return true;   // (8: as it was)
+            zx_pb_free(pb);
+        }
+        if (slots <= 8) {
+            *why = "out of memory for the page cache";
+            return false;
+        }
+        slots = slots * 3 / 4 < 8 ? 8 : slots * 3 / 4;
+    }
 }
