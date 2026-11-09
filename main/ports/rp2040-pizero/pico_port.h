@@ -80,6 +80,7 @@ void pico_port_usb_info(char *buf, int n);
 // Memory in one line (after a load error): free SRAM, the PSRAM and its use
 void pico_port_mem_info(char *buf, int n);
 void pico_port_frame_done(void);            // counts frames, paces without sound, logs fps
+uint64_t pico_port_us(void);                // microseconds since start (timing what a frame costs)
 // On-screen text over the whole picture (the computers' media menus):
 // PICO_OSD_ROWS lines of PICO_OSD_COLS characters (5x7 font, upper case).
 #define PICO_OSD_COLS 52

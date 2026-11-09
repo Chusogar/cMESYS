@@ -848,6 +848,8 @@ void pico_port_audio(const int16_t *s, int n)
 uint16_t *pico_port_fb_row(int y) { return (fb_back ? fb_back : (uint16_t *)fb_front) + y * PICO_W; }
 #endif
 
+uint64_t pico_port_us(void) { return time_us_64(); }
+
 void pico_port_frame_done(void)
 {
     uint64_t now = time_us_64();

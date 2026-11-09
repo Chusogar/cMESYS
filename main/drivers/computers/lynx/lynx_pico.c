@@ -3,8 +3,8 @@
 //
 // USB keyboard: cursors the pad, Z / Left Ctrl A, X / Left Alt B, 1 / 2
 // OPTION 1 / 2, Enter / P PAUSE. F9 media menu (microSD .lnx .lyx .o),
-// F3 reset, F12 TURBO. A USB gamepad: d-pad, A, B, SELECT = OPTION 1,
-// START = PAUSE.
+// F3 reset, F12 TURBO, F2 what the emulation costs (on the screen). A USB
+// gamepad: d-pad, A, B, SELECT = OPTION 1, START = PAUSE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,11 +50,36 @@ static bool load(const char *name, const char **why)
 static const char *item(int i) { return i == 0 ? "RESET" : NULL; }
 static void item_do(int i) { if (i == 0) lynx_reset(cpu_m); }
 
+// F2: what the emulation costs, on the screen once a second ("EMU 45%" is
+// the share of real time the Lynx's frames take to run; 100% or more: slow)
+static bool show_stats;
+static uint64_t emu_us, stats_t0;
+static int stats_frames;
+
+static void stats(uint64_t frame_us)
+{
+    emu_us += frame_us;
+    if (++stats_frames < 60) return;
+    const uint64_t now = pico_port_us(), wall = now - stats_t0;
+    if (stats_t0 && wall) {
+        char line[48];
+        snprintf(line, sizeof line, "EMU %u%%  %u.%u FPS", (unsigned)(emu_us * 100 / wall),
+                 (unsigned)(stats_frames * 1000000ull / wall), (unsigned)(stats_frames * 10000000ull / wall % 10));
+        if (show_stats) pico_osd_toast(line, 1200);
+        printf("lynx: %s\n", line);
+    }
+    stats_t0 = now;
+    stats_frames = 0;
+    emu_us = 0;
+}
+
 static void frame(bool sound)
 {
     const int16_t *audio;
     lynx_set_turbo(cpu_m, !sound);         // (no sound, less drawing: as fast as it goes)
+    const uint64_t t0 = pico_port_us();
     const int n = lynx_run_frame(cpu_m, &audio);
+    stats(pico_port_us() - t0);
     if (sound) pico_port_audio(audio, n);
 }
 
@@ -70,6 +95,10 @@ static void game(void)
         int k;
         while ((k = pico_port_next_press()) >= 0) {
             if (k == 0x3c) lynx_reset(cpu_m);                        // F3
+            if (k == 0x3b) {                                         // F2
+                show_stats = !show_stats;
+                if (!show_stats) pico_osd_toast("", 1);
+            }
             if (k == 0x42) comp_media_menu(&kMenu);                  // F9
             if (k == 0x45) comp_toggle_turbo();                      // F12
         }

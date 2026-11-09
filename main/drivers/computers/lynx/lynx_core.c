@@ -686,6 +686,26 @@ static void put_run(lynx *m, int16_t *xi, int xdir, int16_t y, uint8_t color, ui
     if (x == hi) write_nibble(m, (uint16_t)(base + x / 2), color, true);
 }
 
+// One pen's pixel at width 1.0 (unscaled, as most sprites are) in a mode
+// that only writes the pen: what put_run does for it, without the call.
+// Otherwise put_run itself.
+static inline __attribute__((always_inline)) void put_pixel(lynx *m, int16_t *xi, int xdir, int16_t y, uint8_t color,
+                                                            uint16_t *width_acc)
+{
+    suzy *s = &m->sz;
+    if (s->width != 0x100 || !s->run_plain) {
+        put_run(m, xi, xdir, y, color, width_acc, 1);
+        return;
+    }
+    const int x = *xi;                  // (width_acc + 0x100: one pixel, the fraction unchanged)
+    *xi = (int16_t)(x + xdir);
+    if ((unsigned)x >= LYNX_W) return;
+    s->everon = true;
+    if (color == 0 && !s->run_background) return;
+    s->memory_accesses++;
+    write_nibble(m, (uint16_t)(s->screen + y * 80 + x / 2), color, !(x & 1));
+}
+
 static void blit_packed(lynx *m, int16_t y, int xdir, int bpp, uint8_t mask)
 {
     suzy *s = &m->sz;
@@ -702,7 +722,7 @@ static void blit_packed(lynx *m, int16_t y, int xdir, int bpp, uint8_t mask)
         while (bits > bpp) {
             const uint8_t color = s->color[(buffer >> (bits - bpp)) & mask];
             bits -= bpp;
-            put_run(m, &xi, xdir, y, color, &width_acc, 1);
+            put_pixel(m, &xi, xdir, y, color, &width_acc);
         }
     }
 }
@@ -733,7 +753,7 @@ static void blit_rle(lynx *m, int16_t y, int xdir, int bpp, uint8_t mask)
                 NEED(bpp)
                 const uint8_t color = s->color[(buffer >> (bits - bpp)) & mask];
                 bits -= bpp;
-                put_run(m, &xi, xdir, y, color, &width_acc, 1);
+                put_pixel(m, &xi, xdir, y, color, &width_acc);
             }
         } else {
             if (count == 0) return;

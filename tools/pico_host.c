@@ -85,6 +85,13 @@ static long held_until;
 void pico_osd_toast(const char *text, int ms) { (void)ms; printf("toast: %s\n", text); }
 void pico_port_mem_info(char *buf, int n) { snprintf(buf, (size_t)n, "HOST"); }
 void pico_port_usb_info(char *buf, int n) { snprintf(buf, (size_t)n, "HOST"); }
+#include <time.h>
+uint64_t pico_port_us(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000u + (uint64_t)ts.tv_nsec / 1000u;
+}
 bool pico_port_key(int usage) { return usage == held_usage && frames < held_until; }
 
 int pico_port_next_press(void)
