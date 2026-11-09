@@ -153,6 +153,7 @@ int main(int argc, char **argv)
         c64_restore(m, restore);
 
         const int16_t *audio;
+        c64_set_turbo(m, sdl_port_turbo());
         int n = c64_run_frame(m, &audio);
         sdl_port_audio(audio, n);
         for (int y = 0; y < C64_PIC_H; y++) c64_render_row(m, y, frame + y * C64_PIC_W);

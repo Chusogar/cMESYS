@@ -111,6 +111,7 @@ int main(int argc, char **argv)
         lynx_buttons(m, b);
 
         const int16_t *audio;
+        lynx_set_turbo(m, sdl_port_turbo());
         int n = lynx_run_frame(m, &audio);
         sdl_port_audio(audio, n);
         for (int y = 0; y < LYNX_H; y++) {

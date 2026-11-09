@@ -6,7 +6,7 @@
 # Needs ESP-IDF 5.3 in the environment (. $IDF_PATH/export.sh).
 set -e
 mkdir -p dist
-for g in indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx; do
+for g in indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2; do
     for mhz in 40 80; do
         b=build/$g-$mhz
         LCD_SPI_MHZ=$mhz idf.py -B $b -DGAME=$g build

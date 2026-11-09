@@ -75,6 +75,11 @@ void c64_restore(c64 *m, bool down);            /* RESTORE: the NMI */
 /* Text (upper case PETSCII, \r = RETURN) into the KERNAL's keyboard buffer
  * (10 characters): read once BASIC waits for a line, even after a LOAD */
 void c64_kbuf(c64 *m, const char *text);
+/* LOAD from the .d64 in the drive at once (default on); off: the 1541's speed */
+void c64_set_fast_load(c64 *m, bool on);
+/* TURBO: no sound (the frames give no samples) and the picture drawn one
+ * frame in 8, for the frontends that run frames as fast as they can */
+void c64_set_turbo(c64 *m, bool on);
 
 /* Row y (0 .. C64_PIC_H-1) of the shown picture, 0xRRGGBB or RGB565 */
 void c64_render_row(const c64 *m, int y, uint32_t *out);

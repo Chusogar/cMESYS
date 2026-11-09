@@ -197,6 +197,7 @@ struct cpc {
     bool frame_presented;
     int cycle_debt;
     int64_t tape_acc, audio_acc;
+    bool turbo;                     // no sound
     int16_t audio[CPC_AUDIO_MAX];
     int naudio;
     uint32_t palette[32];           // 0xRRGGBB
@@ -619,6 +620,7 @@ static void on_cycles(void *user, int cycles)
         m->tape_ear = zt_advance(&m->tape, t) != 0;
     }
     advance_video(m, cycles);
+    if (m->turbo) return;
     m->audio_acc += (int64_t)cycles * m->audio_rate;
     while (m->audio_acc >= CPU_CLOCK) {
         m->audio_acc -= CPU_CLOCK;
@@ -758,6 +760,7 @@ int cpc_run_frame(cpc *m, const int16_t **audio)
 }
 
 void cpc_keys_clear(cpc *m) { memset(m->keys, 0xff, sizeof m->keys); }
+void cpc_set_turbo(cpc *m, bool on) { m->turbo = on; }
 
 void cpc_key(cpc *m, int code, bool down)
 {

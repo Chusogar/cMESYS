@@ -1,6 +1,6 @@
-# Arcades y ordenadores (Sinclair, Amstrad, Commodore, Atari Lynx) para ESP32 CYD (ST7789), RP2040/RP2350-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
+# Arcades y ordenadores (Sinclair, Amstrad, Commodore, MSX, Atari Lynx) para ESP32 CYD (ST7789), RP2040/RP2350-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
 
-Veintiuna máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clones, el Amstrad CPC 6128, el Commodore 64 y la Atari Lynx) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
+Veintitrés máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clones, el Amstrad CPC 6128, el Commodore 64, el MSX, el MSX2 y la Atari Lynx) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -23,6 +23,8 @@ Veintiuna máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clones
 | Scorpion ZS-256 — clon ZX | `scorpion` | Z80 | beeper + AY, Beta 128 | dsp-cpp `zx_clone.cpp` → `zxclone.c` (`ZX_SCORPION`) |
 | Amstrad CPC 6128 (1985) — ordenador | `cpc6128` | Z80 (con las esperas del Gate Array) | AY-3-8912 | dsp-cpp `amstrad_cpc.cpp` → `drivers/computers/cpc/cpc_core.c` (también 464 / 664 en el escritorio) |
 | Commodore 64 (PAL, 1982) — ordenador | `c64` | 6510 (+ 6502 de la 1541) | SID 6581 | dsp-cpp `commodore64.cpp` → `drivers/computers/c64/c64_core.c` |
+| MSX (1983) — ordenador | `msx1` | Z80 | AY-3-8910 (+ SCC) | dsp-cpp `msx1.cpp` → `drivers/computers/msx/msx_core.c` (TMS9918) |
+| MSX2 (1985) — ordenador | `msx2` | Z80 | AY-3-8910 (+ SCC) | dsp-cpp `msx2.cpp` → `drivers/computers/msx/msx_core.c` (V9938) |
 | Atari Lynx (1989) — consola portátil | `lynx` | 65C02 | Mikey (4 canales) | dsp-cpp `atari_lynx.cpp` + `lynx_mikey` + `lynx_suzy` → `drivers/computers/lynx/lynx_core.c` |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
 
@@ -322,7 +324,7 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o … / polepos / polepos2 / ql / spectrum48 / … / scorpion / cpc6128 / c64 / lynx; "make all" -> build/sdl/<juego>
+make GAME=indytemp        # o … / polepos / polepos2 / ql / spectrum48 / … / scorpion / cpc6128 / c64 / lynx / msx1 / msx2; "make all" -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
 ./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ./build/sdl/gauntlet      # ROMs incluidas
@@ -384,7 +386,7 @@ python3 -m http.server --directory build/web 8080
 # http://localhost:8080/  → index; http://localhost:8080/robocop.html
 ```
 
-Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum, CPC, C64 y Lynx: barra «Upload» (todos sus formatos), drag&drop o F9; F12 = TURBO. `?frames=n` en la URL corta tras n frames.
+Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum, CPC, C64, MSX y Lynx: barra «Upload» (todos sus formatos), drag&drop o F9; F12 = TURBO. `?frames=n` en la URL corta tras n frames.
 
 ## RP2040-PiZero (HDMI)
 
@@ -438,6 +440,7 @@ El RP2040 (Cortex-M0+) es bastante más lento que el ESP32, así que las máquin
 ### Pruebas sin la placa
 
 - `make GAME=<juego> PORT=picohost` compila el frontend `<juego>_pico.c` para el PC con `tools/pico_host.c` (la misma API sin ventana): `PICO_FRAMES=1200 PICO_SHOT=600,1200 PICO_KEYS=1@300:10,4@400:10 build/picohost/<juego>` guarda `shot_600.ppm`… dibujados con el mismo callback que usa el núcleo 1 (y dice cuánta memoria pide el juego).
+- `PICO_HEAP_KB=n` limita el montón a n KB, como en las placas, para probar los «out of memory».
 - Los ordenadores leen la microSD de una carpeta del PC con `PICO_SD=<carpeta>`, y `PICO_PRESS=66@150,40@155` pulsa F9 y Enter (usos HID) en esos frames: así se prueban el menú y la carga.
 - `cmake -S main/ports/rp2040-pizero -B build/picoemu-<juego> -DGAME=<juego> -DPICO_EMU_TEST=ON` hace un firmware para el simulador [rp2040js](https://github.com/wokwi/rp2040js) (un solo núcleo: sin HDMI, USB ni sonido) que escribe los frames por la UART.
 
@@ -450,7 +453,7 @@ Firmware para la [Waveshare RP2350-PiZero](https://www.waveshare.com/wiki/RP2350
 | HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz desde una imagen de 320x240. Aquí la imagen se guarda entera (150 KB, y otra de 150 KB si cabe en la SRAM dejando 48 KB libres; las líneas TMDS siempre en SRAM, nunca en la PSRAM): las filas salen al HDMI desde la interrupción de su DMA (un callback de línea en el `DVI` de pico_lib, `rp2350/hdmi`), y el núcleo 1 dibuja con el mismo callback de la RP2040 la imagen siguiente en la de atrás; se cambian arriba de la pantalla. Un juego que dibuja despacio enseña menos imágenes por segundo, nunca líneas rojas ni cortes. Si no caben dos (OutRun, Puzzle Bobble, el QL), dibuja sobre la que se ve: alguna línea de corte, como en el CYD |
 | Mandos | puerto PIO-USB: D+ 28, D- 29 | teclado USB y/o mando HID (también por un hub). El USB-C nativo es para alimentar y flashear. El frame de 1 ms del PIO-USB va en `rp2350/usb_frame.c`, con un arreglo para la errata RP2350-E9 (con las entradas siempre activas las líneas D+/D- se quedan altas y no se ve el teclado; afecta a las revisiones A2 y A3). `USB=native ./build_pico2.sh` → `dist/<juego>_rp2350_pizero_usbc.uf2`: el teclado en el USB-C nativo, como en la RP2040 (alimentando la placa con un cable OTG/Y) |
 | Sonido | por el HDMI (la tele) | 44,1 kHz en las *data islands* del HDMI (pico_lib de Shuichi Takano / Frank Hoedemakers, MIT); el sonido del juego se remuestrea y va igual a los dos canales |
-| microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL, los Spectrum, el CPC, el C64 y la Lynx cargan de ella con el menú en pantalla (F9) |
+| microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL, los Spectrum, el CPC, el C64, los MSX y la Lynx cargan de ella con el menú en pantalla (F9) |
 | PSRAM | QMI CS1 = GPIO47 | la placa trae solo el hueco para soldarla (la de prueba no la tiene: "PSRAM: 0 KB" al arrancar). Si hay una, el heap sigue en ella cuando se llena la SRAM. Los ordenadores usan una sola imagen de 150 KB (no dos) para dejar RAM a discos y cintas; los .trd/.scl se leen de la tarjeta pista a pista |
 | Log | UART0: TX GPIO0 | 115200 baudios |
 
@@ -557,7 +560,38 @@ En la RP2350 un mando USB es el joystick (en el C64, en el puerto elegido con F8
 
 Como el CYD no tiene teclado, el menú de la SD también **teclea** por ti: en el CPC `|TAPE` + `RUN"` (y la pulsación que pide), `CAT` y `|CPM`; en el C64 `LOAD"*",8,1` + `RUN` (el RUN va al búfer de teclado del KERNAL, que se lee al acabar la carga) y `LOAD` + PLAY para cintas. Lo que se escribe en la consola serie (115200 baudios) se teclea en la máquina (en la Lynx: w a s d cruceta, k = A, j = B, p = PAUSE). Nunchuk: joystick, Z disparo, C segundo botón (ESPACIO en el C64, B en la Lynx).
 
+**Velocidad de la Lynx**: Mikey ya no se avanza instrucción a instrucción. Sus temporizadores y canales de audio se cuentan en ticks enteros, solo cuando uno vence o cuando la CPU toca Mikey o Suzy. La CPU corre en tramos hasta el siguiente vencimiento, y la RAM se lee y escribe directamente, sin pasar por las rutinas de acceso. En el PC, unas 2,8 veces menos trabajo por imagen (de 7,1 a 1,8 millones de instrucciones); en QEMU el CYD pasa de 43-46 fps con el núcleo lleno a 60 fps con un 60 %.
+
+**Carga rápida del C64**: el `LOAD` del KERNAL desde el dispositivo 8 de un fichero del `.d64` que hay en la disquetera se hace de golpe (como las *traps* de VICE): con la 1541 a su velocidad real un juego de 40 KB tarda dos minutos y parece colgado. La 1541 sigue ahí para todo lo demás (`LOAD"$"`, cargadores rápidos de los juegos, un fichero que no está, discos `.g64`); `c64_set_fast_load(m, false)` la deja a la velocidad real. Además, en su bucle de espera (motor apagado, sin ATN) la 1541 se «duerme» a los 50 ms y no se emula hasta que el C64 mueve una línea del bus, así que con un disco metido el C64 va casi tan rápido como sin disquetera.
+
+**TURBO (F12)**: sin límite de velocidad y sin sonido; además los núcleos dejan de generar sonido (SID, AY, Mikey) y el C64 dibuja solo una imagen de cada 8, para que en las placas el tiempo vaya a la emulación (cargas de cinta y cargadores rápidos).
+
 **Memoria y velocidad en las placas**: el CPC guarda la RAM en páginas de 16 KB (el ESP32 no tiene un bloque libre de 128 KB) y la imagen como registros de línea, dibujados desde la RAM al sacarlos (no hay frame buffer de 400×312). El C64 guarda la imagen recortada a 4 bits por píxel (38 KB). **En las placas la 1541 se enciende con el primer disco que se carga** (se lleva un tercio del tiempo del C64): sin disco, `LOAD"*",8` da DEVICE NOT PRESENT; en el escritorio y la web siempre está encendida. Con QEMU (que no reproduce los tiempos reales del ESP32) el CPC va a 50 fps con un 40 % del núcleo, y el C64 y la Lynx a 40-47 fps con el núcleo lleno: en el CYD real el C64 y la Lynx pueden ir algo por debajo de la velocidad real. En la RP2350 (Cortex-M33 a 252 MHz, código caliente en RAM) deberían ir a su velocidad. **Ninguno de los tres está probado en una placa real**: comprobados en el escritorio (CPC: BASIC 1.1, `CAT` de un disco; C64: BASIC V2, `LOAD"*",8,1` de un `.d64` con la 1541 y `RUN`; Lynx: la ROM de arranque real descifra y arranca un cartucho `.lnx` hecho con cc65, que dibuja con Suzy, y un `.o` BS93), con el frontend de la RP2350 en el PC (`PORT=picohost`, cargando de la «microSD» con el menú) y el del CYD en QEMU (arranca y emula sin pantalla). No se han compilado aquí las versiones web (falta `emcc`); usan el mismo `*_sdl.c` que el escritorio. Solo para la RP2350 (no RP2040).
+
+## MSX y MSX2: migración de dsp-cpp
+
+Los dos MSX de dsp-cpp (`msx1.cpp`, `msx2.cpp` con `msx_mapper`, `msx_dsk`, `rp5c01`, `tms9918` y `v9938`) en un solo núcleo C11, `drivers/computers/msx/msx_core.c`, compilado como `msx1` o `msx2` (cada uno con sus ROMs dentro). Frontends para escritorio (Linux / Windows), web, RP2350-PiZero y CYD, con los comunes de `drivers/computers/common/`.
+
+**Piezas nuevas**: `video/tms9918` (MSX1: modos de texto, gráficos I/II y multicolor, sprites con 5.º sprite y colisiones), `video/v9938` (MSX2: SCREEN 0-8, paleta, páginas, scroll vertical, sprites modo 2, interrupción de línea y el motor de comandos HMMC/YMMM/HMMM/HMMV/LMMC/LMCM/LMMM/LMMV/LINE/SRCH/PSET/POINT), `machine/msx_cart` (cartuchos: ROM simple de 8-64 KB y los megaROM ASCII 8/16, Konami, Konami SCC con su sonido, R-Type, Cross Blaim, Harry Fox, Game Master 2, Holy Quran, Super Lode Runner, Super Pierrot, Zemina, Koei, Halnote, ESE-RAM, MegaRAM DDX y Manbow 2, detectados por el nombre y por las escrituras del código, como openMSX) y `machine/msx_disk` (discos `.dsk` de 360 / 720 KB y el WD2793 de la ROM de disco; lo escrito se guarda en memoria).
+
+| | MSX | MSX2 |
+|---|---|---|
+| Memoria | 64 KB (slot 3) | mapper de 256 KB (escritorio/web), 64 KB (RP2350 y CYD), slot 3 expandido |
+| VDP | TMS9918, 16 KB | V9938, 128 KB (64 KB en el CYD: la BIOS lo detecta) |
+| Disco | con la ROM de disco y **un disco metido** (slot 2; sin disco no se monta, porque los juegos de cinta quieren esa memoria) | siempre (slot 3-2) |
+| ROMs (`roms/msx1/`, `roms/msx2/`) | `MSX.ROM` (32 KB), `DISK.ROM` (opcional) | `MSX2.ROM` (32 KB), `MSX2EXT.ROM` (16 KB), `DISK.ROM` (opcional) |
+
+Las ROMs salen de [RetroPieBIOS](https://github.com/archtaurus/RetroPieBIOS/tree/master/BIOS). `tools/regen.sh msx1|msx2` genera `rom_data_msx1.c` / `rom_data_msx2.c` (en el repositorio solo hay stubs).
+
+**Cinta**: a diferencia de dsp-cpp, la cinta se sirve a través de la BIOS: sus llamadas TAPION / TAPIN / TAPIOF se contestan desde el fichero, como hace fMSX. Así funcionan los `.cas` y los bloques MSX (0x4B) de los `.tsx` / `.tzx`, al instante. Al cargar una cinta se teclea en el búfer de teclado de la BIOS, cuando BASIC espera una tecla, lo que corresponde según el primer bloque: `CLOAD` + `RUN`, `RUN"CAS:"` o `BLOAD"CAS:",R`. No se puede grabar en cinta. Un MSX2 con un cartucho japonés (`(J)`, `(Japan)`… en el nombre) dice a 60 Hz que es japonés, como hace dsp-cpp para Metal Gear.
+
+**Teclas** (escritorio, web y RP2350 con teclado USB): el teclado del PC es el del MSX por posición (distribución internacional; la BIOS europea del MSX2 tiene alguna tecla muerta). F1-F5 son los del MSX; F6 = SELECT, Fin = STOP, Alt izq. = GRAPH, Alt dcho. = CODE, Inicio / Insert / Supr = HOME / INS / DEL. F9 menú, F10 reset, F11 sacar el cartucho, F8 cursores + Espacio / M como joystick 1, F12 TURBO. Teclado numérico 8 4 6 2 + 0 / 5 = joystick 1. En la RP2350 un mando USB es el joystick 1.
+
+**CYD**: zonas MEDIA (mantener: menú de la SD; toque corto: ESPACIO) · F1 · STOP · HELP / ← ↑ ↓ → (cursores y joystick) / ESPACIO · RETURN · ESC · FUEGO; Nunchuk = joystick (Z disparo A, C disparo B); consola serie = teclado.
+
+**Placas**: al cargar un fichero se libera antes el cartucho o la cinta que sustituye (no caben dos). La VRAM del TMS9918 solo se reserva en el MSX1. En la RP2350 (sin PSRAM, 280 KB de montón) el MSX2 escribe sus líneas directamente en la imagen de la HDMI (`pico_port_fb_row`, nuevo), sin imagen propia. Un cartucho que no cabe en la memoria se lee de la microSD según se usa, con tanta caché como quepa, de 32 KB (16 KB en el CYD) para abajo (`zx_pb_open_lazy_n`, nuevo). Con 64 KB de RAM y 128 KB de VRAM, al MSX2 de la RP2350 le quedan unos 50 KB: casi todos los megaROM van por la tarjeta. En la pantalla de 320×240 los modos de 512 puntos (SCREEN 6, 7 y WIDTH 80) se muestran a media anchura (de cada pareja de puntos, el que no es fondo): WIDTH 80 no se lee bien. En QEMU el CYD va a 49 fps con el 40-47 % de un núcleo.
+
+**Probado** (escritorio y frontend de la RP2350 en el PC): arranque de MSX BASIC 1.0 y 2.1 con Disk BASIC; SCREEN 2, 5, 7 y 8 y WIDTH 80 desde BASIC; cartuchos homebrew (Corridor Runner 32 KB, Rally 48 KB desde $0000, Go Penguin ASCII16 de 288 KB, demos de SCREEN 5 y sprites para MSX2); cintas `.cas` ASCII y binaria; un `.dsk` de 720 KB con AUTOEXEC.BAS y un fichero en la pista 78, en MSX y MSX2. Un disco japonés (Block Breaker) termina en «Out of DATA» con estas BIOS internacionales. **No probado en placas reales**; la web no se ha compilado aquí (falta `emcc`).
 
 ## Atari System 1: Indy y Road Runner
 

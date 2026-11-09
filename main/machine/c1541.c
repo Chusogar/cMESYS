@@ -330,6 +330,8 @@ void c1541_reset(c1541 *d)
     d->half_track = 18 * 2;
     d->stepper_prev = 0;
     d->cycle_debt = 0;
+    d->idle_cycles = 0;
+    d->asleep = false;
     d->bit_pos = d->bit_timer = 0;
     d->cycles_per_bit = 13;
     d->shift_reg = 0;
@@ -353,8 +355,11 @@ void c1541_eject(c1541 *d)
 
 static uint32_t le32(const zx_pbuf *pb, uint32_t o) { return zx_pb_rd32(pb, o); }
 
+static inline void wake(c1541 *d);
+
 bool c1541_insert(c1541 *d, zx_pbuf *pb, const char **error)
 {
+    wake(d);                            // (the DOS sees the new disk)
     const char *err = NULL;
     bool g64 = false;
     if (pb->size >= 12 && zx_pb_eq(pb, 0, "GCR-1541", 8)) {
@@ -405,22 +410,44 @@ bool c1541_insert(c1541 *d, zx_pbuf *pb, const char **error)
     return true;
 }
 
+// The DOS's idle loop ($EBFF-$EC9B, VICE's idle trap) with the motor off
+// and the LED dark: after 50 ms of it the drive sleeps (c1541_run does
+// nothing) until the C64 moves a bus line. Nothing in the drive happens
+// meanwhile that anyone could see; it saves most of its time to the boards.
+static inline void wake(c1541 *d)
+{
+    d->asleep = false;
+    d->idle_cycles = 0;
+}
+
 void c1541_set_host_atn(c1541 *d, bool high)
 {
     const bool old = d->host_atn;
     d->host_atn = high;
     if (old != high) {
+        wake(d);
         via6522_write_ca1(&d->via1, !high);     // CA1: the DOS's ATN interrupt
         update_iec_outputs(d);
     }
 }
 
-void c1541_set_host_clk(c1541 *d, bool high) { d->host_clk = high; update_iec_outputs(d); }
-void c1541_set_host_data(c1541 *d, bool high) { d->host_data = high; update_iec_outputs(d); }
+void c1541_set_host_clk(c1541 *d, bool high)
+{
+    if (d->host_clk != high) wake(d);
+    d->host_clk = high;
+    update_iec_outputs(d);
+}
+
+void c1541_set_host_data(c1541 *d, bool high)
+{
+    if (d->host_data != high) wake(d);
+    d->host_data = high;
+    update_iec_outputs(d);
+}
 
 void c1541_run(c1541 *d, int cycles)
 {
-    if (!d->rom || cycles <= 0) return;
+    if (!d->rom || cycles <= 0 || d->asleep) return;
     update_iec_outputs(d);
     // one instruction at a time, the VIAs and the head with the cycles it took
     d->cycle_debt += cycles;
@@ -431,6 +458,14 @@ void c1541_run(c1541 *d, int cycles)
         via6522_tick(&d->via1, used);
         via6522_tick(&d->via2, used);
         d->cycle_debt -= used;
+    }
+    // (its timer interrupt runs outside the loop every 10 ms: it only has
+    // to be in it when it falls asleep)
+    if (!d->motor_on && !d->led_on && d->host_atn) {
+        d->idle_cycles += cycles;
+        if (d->idle_cycles > 50000 && d->cpu.pc >= 0xEBFF && d->cpu.pc <= 0xEC9D) d->asleep = true;
+    } else {
+        d->idle_cycles = 0;
     }
 }
 

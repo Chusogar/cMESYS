@@ -30,6 +30,8 @@ typedef struct {
 typedef bool (*zx_pb_read_fn)(void *ctx, uint32_t off, uint8_t *dst, uint32_t n);
 typedef void (*zx_pb_close_fn)(void *ctx);
 bool zx_pb_open_lazy(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close_fn close, void *ctx);
+// the same with `slots` pages of cache (a cartridge's code: more than a tape's)
+bool zx_pb_open_lazy_n(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close_fn close, void *ctx, int slots);
 const uint8_t *zx_pb_fetch(const zx_pbuf *pb, uint32_t page);
 
 void zx_pb_init(zx_pbuf *pb);

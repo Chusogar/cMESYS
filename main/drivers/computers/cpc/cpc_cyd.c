@@ -128,7 +128,11 @@ static void input(const comp_cyd_in *in)
     cpc_joy(cpu_m, joy);
 }
 
-static int frame(const int16_t **audio) { return cpc_run_frame(cpu_m, audio); }
+static int frame(const int16_t **audio)
+{
+    cpc_set_turbo(cpu_m, cyd_turbo);
+    return cpc_run_frame(cpu_m, audio);
+}
 static void render(int y, uint16_t *row) { cpc_render_row565(cpu_m, CPC_PIC_Y + y, CPC_PIC_X, 320, row); }
 static void colours(void) { cpc_set_rgb565(cpu_m, rgb565); }
 

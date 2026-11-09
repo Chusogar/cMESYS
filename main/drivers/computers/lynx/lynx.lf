@@ -2,5 +2,4 @@
 [mapping:lynx_hot]
 archive: libmain.a
 entries:
-    m65xx (noflash)
     lynx_core (noflash)

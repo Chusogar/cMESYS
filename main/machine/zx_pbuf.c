@@ -5,25 +5,53 @@
 
 void zx_pb_init(zx_pbuf *pb) { memset(pb, 0, sizeof *pb); }
 
-#define LAZY_SLOTS 8            // 2 KB of cache
+#define LAZY_SLOTS 8            // 2 KB of cache by default
 
 struct zx_pb_lazy {
     zx_pb_read_fn read;
     zx_pb_close_fn close;
     void *ctx;
-    uint8_t buf[LAZY_SLOTS][ZX_PAGE];
-    int32_t page[LAZY_SLOTS];       // the page in each slot (-1: none)
+    int nslots;
     int next;                       // slot to reuse (round robin)
+    int32_t *page;                  // the page in each slot (-1: none)
+    uint8_t **chunk;                // the slots, CHUNK_SLOTS to a block
 };
 
-bool zx_pb_open_lazy(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close_fn close, void *ctx)
+#define CHUNK_SLOTS 32              // 8 KB blocks (a big cache needs no big free block)
+#define SLOT(z, s) ((z)->chunk[(s) / CHUNK_SLOTS] + (size_t)((s) % CHUNK_SLOTS) * ZX_PAGE)
+
+static void free_lazy(struct zx_pb_lazy *z)
+{
+    if (!z) return;
+    if (z->chunk)
+        for (int i = 0; i < (z->nslots + CHUNK_SLOTS - 1) / CHUNK_SLOTS; i++) free(z->chunk[i]);
+    free(z->chunk);
+    free(z->page);
+    free(z);
+}
+
+bool zx_pb_open_lazy_n(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close_fn close, void *ctx, int slots)
 {
     zx_pb_init(pb);
+    if (slots < 1) slots = LAZY_SLOTS;
     struct zx_pb_lazy *z = calloc(1, sizeof *z);
     const uint32_t n = (size + ZX_PAGE - 1) >> ZX_PAGE_BITS;
+    if (n && (uint32_t)slots > n) slots = (int)n;      // (no more slots than pages)
     pb->pages = calloc(n ? n : 1, sizeof *pb->pages);
-    if (!z || !pb->pages) {
-        free(z);
+    bool ok = z && pb->pages;
+    if (ok) {
+        const int chunks = (slots + CHUNK_SLOTS - 1) / CHUNK_SLOTS;
+        z->nslots = slots;
+        z->page = malloc((size_t)slots * sizeof *z->page);
+        z->chunk = calloc((size_t)chunks, sizeof *z->chunk);
+        ok = z->page && z->chunk;
+        for (int i = 0; ok && i < chunks; i++) {
+            const int k = slots - i * CHUNK_SLOTS < CHUNK_SLOTS ? slots - i * CHUNK_SLOTS : CHUNK_SLOTS;
+            ok = (z->chunk[i] = malloc((size_t)k * ZX_PAGE)) != NULL;
+        }
+    }
+    if (!ok) {
+        free_lazy(z);
         free(pb->pages);
         pb->pages = NULL;
         if (close) close(ctx);
@@ -32,11 +60,16 @@ bool zx_pb_open_lazy(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close
     z->read = read;
     z->close = close;
     z->ctx = ctx;
-    for (int i = 0; i < LAZY_SLOTS; i++) z->page[i] = -1;
+    for (int i = 0; i < slots; i++) z->page[i] = -1;
     pb->lazy = z;
     pb->size = size;
     pb->npages = pb->cap = n;
     return true;
+}
+
+bool zx_pb_open_lazy(zx_pbuf *pb, uint32_t size, zx_pb_read_fn read, zx_pb_close_fn close, void *ctx)
+{
+    return zx_pb_open_lazy_n(pb, size, read, close, ctx, LAZY_SLOTS);
 }
 
 // Reads `page` into a cache slot; the slot's previous page is dropped from
@@ -46,19 +79,20 @@ const uint8_t *zx_pb_fetch(const zx_pbuf *cpb, uint32_t page)
     zx_pbuf *pb = (zx_pbuf *)cpb;           // (the cache changes, the content does not)
     struct zx_pb_lazy *z = pb->lazy;
     const int s = z->next;
-    z->next = (z->next + 1) % LAZY_SLOTS;
+    z->next = (z->next + 1) % z->nslots;
     if (z->page[s] >= 0) pb->pages[z->page[s]] = NULL;
     const uint32_t off = page << ZX_PAGE_BITS;
     uint32_t n = pb->size - off < ZX_PAGE ? pb->size - off : ZX_PAGE;
-    if (page >= pb->npages || !z->read(z->ctx, off, z->buf[s], n)) {
-        memset(z->buf[s], 0, ZX_PAGE);       // (a read error reads as zeros)
+    uint8_t *buf = SLOT(z, s);
+    if (page >= pb->npages || !z->read(z->ctx, off, buf, n)) {
+        memset(buf, 0, ZX_PAGE);             // (a read error reads as zeros)
         z->page[s] = -1;
-        return z->buf[s];
+        return buf;
     }
-    if (n < ZX_PAGE) memset(z->buf[s] + n, 0, ZX_PAGE - n);
+    if (n < ZX_PAGE) memset(buf + n, 0, ZX_PAGE - n);
     z->page[s] = (int32_t)page;
-    pb->pages[page] = z->buf[s];
-    return z->buf[s];
+    pb->pages[page] = buf;
+    return buf;
 }
 
 void zx_pb_free(zx_pbuf *pb)
@@ -66,7 +100,7 @@ void zx_pb_free(zx_pbuf *pb)
     free(pb->flat);
     if (pb->lazy) {
         if (pb->lazy->close) pb->lazy->close(pb->lazy->ctx);
-        free(pb->lazy);
+        free_lazy(pb->lazy);
         free(pb->pages);
         free(pb->fill);
         free(pb->tail);
