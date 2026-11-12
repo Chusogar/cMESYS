@@ -12,3 +12,5 @@ dist/*.bin
 deps/
 dist/*.uf2
 dist/*.zip
+dist/*.apk
+dist/*.idsig
