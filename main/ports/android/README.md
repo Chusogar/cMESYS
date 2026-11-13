@@ -85,8 +85,8 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | `jni/libc/` | cabeceras mínimas de bionic para compilar sin el NDK |
 | `app/src/.../MachineActivity.java` | pantalla, teclado, menú, medios, teclado físico y mandos |
 | `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |
-| `app/src/.../Emulator.java` | hilo de emulación al ritmo del sonido, cola de teclas, turbo, pausa |
-| `app/src/.../ScreenView.java` | imagen escalada (monitor, cuadrada, completa, entera) y luces |
+| `app/src/.../Emulator.java` | hilo de emulación al ritmo del sonido (prioridad de audio, ~6 frames de búfer, empieza a sonar con 3 en cola), cola de teclas, turbo, pausa |
+| `app/src/.../ScreenView.java` | imagen escalada por la GPU en el hilo de la interfaz (monitor, cuadrada, completa, entera) y luces; el hilo de emulación solo copia los píxeles, para que nunca se retrase el sonido |
 | `app/src/.../KeyboardView.java` | teclado en pantalla (imágenes y teclas de dsp-cpp) |
 | `app/src/.../SoftMenu.java` | menú a lo Hataroid (barra de iconos y listas) |
 | `machines/<máquina>/` | recursos de cada APK: nombre, ajustes, lanzador, teclado, ayuda |

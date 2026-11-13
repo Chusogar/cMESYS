@@ -1,8 +1,10 @@
 package com.chusogar.cmesys.app;
 
+import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.os.Process;
 import android.os.SystemClock;
 
 import java.util.ArrayDeque;
@@ -181,7 +183,7 @@ final class Emulator implements Runnable {
     private boolean waitWhileStopped() {
         synchronized (this) {
             while (running && (paused || suspended || !started) && commands.isEmpty()) {
-                if (track != null) track.pause();
+                stopAudio();
                 try {
                     wait();
                 } catch (InterruptedException e) {
@@ -203,17 +205,33 @@ final class Emulator implements Runnable {
         }
     }
 
+    // Sound: about 6 frames of buffer (at least twice the device's minimum);
+    // the writes block when it is full, which paces the frames. Playing
+    // starts once 3 frames are queued, so that it does not run dry at once
+    // (at the start and after each pause).
+    private static final int BUFFER_FRAMES = 6, PRIME_FRAMES = 3;
+    private int primed;
+
     private void openAudio(int rate, double frameRate) {
         if (track != null && trackRate == rate) return;
         if (track != null) track.release();
         track = null;
         trackRate = rate;
+        primed = 0;
         int min = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        // ~4 frames of buffer: the writes block when it is full, which paces the frames
         int perFrame = (int) (rate / Math.max(10.0, frameRate));
-        int size = Math.max(min, perFrame * 4 * 2) & ~3;     // (whole samples)
-        AudioTrack t = new AudioTrack(AudioManager.STREAM_MUSIC, rate, AudioFormat.CHANNEL_OUT_MONO,
-                AudioFormat.ENCODING_PCM_16BIT, size, AudioTrack.MODE_STREAM);
+        int size = Math.max(Math.max(min, 0) * 2, perFrame * BUFFER_FRAMES * 2) & ~3;     // (whole samples)
+        AudioTrack t;
+        try {
+            t = new AudioTrack(
+                    new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build(),
+                    new AudioFormat.Builder().setSampleRate(rate).setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build(),
+                    size, AudioTrack.MODE_STREAM, AudioManager.AUDIO_SESSION_ID_GENERATE);
+        } catch (IllegalArgumentException e) {
+            return;
+        }
         if (t.getState() != AudioTrack.STATE_INITIALIZED) {
             t.release();
             return;
@@ -221,8 +239,17 @@ final class Emulator implements Runnable {
         track = t;
     }
 
+    private void stopAudio() {
+        if (track != null && track.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+            track.pause();
+            track.flush();
+        }
+        primed = 0;
+    }
+
     @Override
     public void run() {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
         long next = System.nanoTime();
         long fpsStart = SystemClock.elapsedRealtime();
         int fpsFrames = 0, turboSkip = 0;
@@ -248,14 +275,15 @@ final class Emulator implements Runnable {
 
                 boolean audible = sound && !turbo && track != null && n > 0;
                 if (audible) {
-                    if (track.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) track.play();
                     track.write(audio, 0, n);           // blocks when the buffer is full
+                    if (primed < PRIME_FRAMES) {
+                        if (++primed == PRIME_FRAMES) track.play();
+                    } else if (track.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
+                        track.play();
+                    }
                     next = System.nanoTime();
                 } else {
-                    if (track != null && track.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
-                        track.pause();
-                        track.flush();
-                    }
+                    stopAudio();
                     if (!turbo) {
                         next += frameNs;
                         long wait = next - System.nanoTime();
