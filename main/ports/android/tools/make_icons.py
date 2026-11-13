@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draws the QL app's icons (main/ports/android/app/res): 32x32 pixel art in
+"""Draws the Android port's icons (main/ports/android/app/res): 32x32 pixel art in
 the style of Hataroid's GEM-desktop icons (white bodies, black outlines, a
 grey shade), scaled without smoothing to each screen density, and the
 launcher icon. Original drawings for cMESYS (not Hataroid's files).
@@ -29,6 +29,16 @@ FONT = {
     "F": ["#####", "#....", "#....", "####.", "#....", "#....", "#...."],
     "Q": [".###.", "#...#", "#...#", "#...#", "#.#.#", "#..#.", ".##.#"],
     "L": ["#....", "#....", "#....", "#....", "#....", "#....", "#####"],
+    "Z": ["#####", "....#", "...#.", "..#..", ".#...", "#....", "#####"],
+    "X": ["#...#", "#...#", ".#.#.", "..#..", ".#.#.", "#...#", "#...#"],
+    "C": [".###.", "#...#", "#....", "#....", "#....", "#...#", ".###."],
+    "P": ["####.", "#...#", "#...#", "####.", "#....", "#....", "#...."],
+    "M": ["#...#", "##.##", "#.#.#", "#.#.#", "#...#", "#...#", "#...#"],
+    "S": [".####", "#....", "#....", ".###.", "....#", "....#", "####."],
+    "Y": ["#...#", "#...#", ".#.#.", "..#..", "..#..", "..#..", "..#.."],
+    "N": ["#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#", "#...#"],
+    "6": ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
+    "4": ["...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."],
 }
 
 
@@ -234,6 +244,88 @@ def icon_launcher(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_base():
+    s = 64
+    im = Image.new("RGBA", (s, s), T)
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle([0, 0, s - 1, s - 1], 12, fill=(28, 34, 52, 255))
+    return im, d
+
+
+def keys_rows(d, x1, x2, y, rows, color, step=4):
+    for r in range(rows):
+        for k in range(x1, x2, step):
+            d.rectangle([k, y + r * 3, k + 2, y + r * 3 + 1], fill=color)
+
+
+def launcher_zxspec(size):
+    """A 48K Spectrum: black, the rainbow stripe, rubber keys."""
+    im, d = launcher_base()
+    d.rectangle([6, 22, 58, 44], fill=(24, 24, 26, 255), outline=(120, 120, 120, 255))
+    keys_rows(d, 10, 44, 27, 4, (150, 150, 156, 255))
+    for i, c in enumerate([(220, 30, 30), (240, 200, 20), (40, 180, 60), (40, 160, 220)]):
+        d.polygon([(44 + i * 3, 44), (50 + i * 3, 34), (52 + i * 3, 34), (46 + i * 3, 44)], fill=c + (255,))
+    text(d, 20, 6, "ZX", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+def launcher_cpc(size):
+    """A CPC: charcoal case, the coloured keys."""
+    im, d = launcher_base()
+    d.rectangle([4, 24, 60, 44], fill=(60, 61, 64, 255), outline=(130, 130, 134, 255))
+    keys_rows(d, 8, 44, 29, 4, (24, 25, 27, 255))
+    d.rectangle([8, 29, 10, 30], fill=(214, 40, 46, 255))
+    d.rectangle([40, 32, 44, 37], fill=(86, 116, 178, 255))
+    d.rectangle([8, 35, 12, 36], fill=(70, 182, 104, 255))
+    keys_rows(d, 48, 58, 29, 4, (24, 25, 27, 255))
+    text(d, 15, 6, "CPC", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+def launcher_c64(size):
+    """The breadbin: beige, brown keys, the four function keys."""
+    im, d = launcher_base()
+    d.polygon([(4, 44), (8, 24), (56, 24), (60, 44)], fill=(196, 184, 156, 255), outline=(240, 230, 210, 255))
+    d.rectangle([10, 27, 47, 41], fill=(38, 30, 26, 255))
+    keys_rows(d, 11, 46, 28, 4, (98, 82, 70, 255))
+    for i in range(4):
+        d.rectangle([50, 27 + i * 3, 54, 28 + i * 3], fill=(230, 222, 200, 255))
+    text(d, 15, 6, "C64", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+def launcher_msx(size):
+    """An MSX: black, grey function keys and cursors."""
+    im, d = launcher_base()
+    d.rectangle([4, 22, 60, 44], fill=(40, 41, 44, 255), outline=(120, 120, 124, 255))
+    for i in range(5):
+        d.rectangle([8 + i * 7, 25, 13 + i * 7, 26], fill=(176, 178, 180, 255))
+    keys_rows(d, 8, 46, 29, 4, (14, 14, 16, 255))
+    for (x, y) in [(52, 34), (48, 38), (52, 38), (56, 38)]:
+        d.rectangle([x, y, x + 2, y + 2], fill=(176, 178, 180, 255))
+    text(d, 15, 6, "MSX", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+def launcher_lynx(size):
+    """The Lynx: a wide grey handheld, its screen, the cross and A / B."""
+    im, d = launcher_base()
+    d.rounded_rectangle([3, 24, 60, 46], 8, fill=(78, 80, 86, 255), outline=(140, 142, 148, 255))
+    d.rectangle([20, 27, 43, 42], fill=(20, 30, 60, 255), outline=K)
+    d.rectangle([24, 31, 30, 36], fill=(220, 120, 40, 255))
+    d.rectangle([33, 34, 39, 39], fill=(60, 180, 220, 255))
+    d.rectangle([9, 33, 15, 35], fill=(26, 27, 30, 255))
+    d.rectangle([11, 31, 13, 37], fill=(26, 27, 30, 255))
+    d.ellipse([47, 30, 51, 34], fill=(26, 27, 30, 255))
+    d.ellipse([52, 35, 56, 39], fill=(26, 27, 30, 255))
+    text(d, 9, 6, "LYNX", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
+             "msx": launcher_msx, "lynx": launcher_lynx}
+
+
 ICONS = {
     "ic_mdv": icon_mdv, "ic_mdv1": lambda: icon_drive("1"), "ic_mdv2": lambda: icon_drive("2"),
     "ic_eject": icon_eject, "ic_firmware": icon_firmware, "ic_reset": icon_reset, "ic_pause": icon_pause,
@@ -250,10 +342,12 @@ def main():
             out = os.path.join(RES, "drawable-" + dens)
             os.makedirs(out, exist_ok=True)
             im.resize((int(32 * f), int(32 * f)), Image.NEAREST).save(os.path.join(out, name + ".png"))
-    for dens, f in DENSITIES.items():
-        out = os.path.join(RES, "mipmap-" + dens)
-        os.makedirs(out, exist_ok=True)
-        icon_launcher(int(48 * f)).save(os.path.join(out, "ic_launcher.png"))
+    # each machine's launcher icon: machines/<machine>/res/mipmap-*
+    for machine, fn in LAUNCHERS.items():
+        for dens, f in DENSITIES.items():
+            out = os.path.join(HERE, "..", "machines", machine, "res", "mipmap-" + dens)
+            os.makedirs(out, exist_ok=True)
+            fn(int(48 * f)).save(os.path.join(out, "ic_launcher.png"))
     # a contact sheet for the docs
     names = list(ICONS)
     sheet = Image.new("RGBA", (len(names) * 72, 72), (60, 60, 60, 255))
@@ -261,6 +355,11 @@ def main():
         im = ICONS[n]().resize((64, 64), Image.NEAREST)
         sheet.paste(im, (i * 72 + 4, 4), im)
     sheet.save(os.path.join(HERE, "..", "icons.png"))
+    launch = Image.new("RGBA", (len(LAUNCHERS) * 104, 104), (60, 60, 60, 255))
+    for i, fn in enumerate(LAUNCHERS.values()):
+        im = fn(96)
+        launch.paste(im, (i * 104 + 4, 4), im)
+    launch.save(os.path.join(HERE, "..", "launchers.png"))
 
 
 main()

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="pad_entries">
+        <item>Cruceta, A, B; L1/R1 = OPTION 1/2; SELECT = PAUSE</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>pad</item>
+    </string-array>
+</resources>

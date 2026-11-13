@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="model_entries">
+        <item>MSX1</item>
+        <item>MSX2</item>
+    </string-array>
+    <string-array name="model_values">
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+    <string-array name="pad_entries">
+        <item>Joystick 1</item>
+        <item>Joystick 2</item>
+        <item>Cursores + ESPACIO / M</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>joy1</item>
+        <item>joy2</item>
+        <item>cursors</item>
+    </string-array>
+</resources>

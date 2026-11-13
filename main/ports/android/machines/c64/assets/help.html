@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS C64</h1>
+<p>Commodore 64 (PAL) con el núcleo C64 de cMESYS (migrado de dsp-cpp): 6510, VIC-II, SID, dos CIA y la unidad 1541 en el bus IEC.</p>
+
+<h2>Menú</h2>
+<p>Se abre con <kbd>Atrás</kbd>, con el icono de la esquina, con el botón <kbd>MENÚ</kbd> del teclado en
+pantalla o con <kbd>START</kbd> de un mando. Mientras está abierto la máquina se detiene.</p>
+<table>
+<tr><td><b>Medios</b></td><td>Abrir un disco (<code>.d64 .g64</code>), un programa (<code>.prg .t64</code>) o una cinta <code>.tap</code>; PLAY / STOP de la cinta; teclear <code>LOAD"*",8,1</code>, <code>LOAD"$",8</code> y <code>LIST</code>, <code>LOAD</code> o <code>RUN</code>.</td></tr>
+<tr><td><b>Reset</b></td><td>Reset.</td></tr>
+<tr><td><b>Pausa</b></td><td>Detiene la máquina hasta volver a pulsarlo.</td></tr>
+<tr><td><b>Ajustes</b></td><td>Carga rápida de disco; pantalla, teclado, mando y sonido.</td></tr>
+<tr><td><b>Teclado</b></td><td>Muestra u oculta el teclado en pantalla.</td></tr>
+<tr><td><b>Velocidad</b></td><td>Turbo: la máquina va tan rápido como puede (sin sonido).</td></tr>
+<tr><td><b>Pantalla</b></td><td>Proporción del monitor, píxeles cuadrados, pantalla completa o múltiplo entero.</td></tr>
+<tr><td><b>Teclas C64</b></td><td>RUN/STOP, RUN/STOP+RESTORE, F1–F7, CLR/HOME, C=+SHIFT…</td></tr>
+<tr><td><b>Recientes</b></td><td>Los últimos archivos abiertos.</td></tr>
+<tr><td><b>Expulsar</b></td><td>Saca lo que se pueda sacar (o para la cinta).</td></tr>
+</table>
+
+<h2>Teclado en pantalla</h2>
+<p>Es el teclado del C64 que dibuja dsp-cpp, con los gráficos PETSCII de la ROM de caracteres en el frontal de las teclas, RESTORE y SHIFT LOCK: el mismo de dsp-cpp, y la tecla pulsada se hunde. Admite varios dedos a la vez.
+<kbd>SHIFT</kbd>, <kbd>C=</kbd> y <kbd>CTRL</kbd> (SHIFT LOCK se queda bajada) se quedan pulsadas para la tecla siguiente; dos toques seguidos las bloquean (hundidas y rojizas) hasta volver a tocarlas. <kbd>MENÚ</kbd> abre el menú y <kbd>▼</kbd> oculta el teclado.</p>
+
+<h2>Teclado físico y mandos</h2>
+<p>Las teclas del PC son las del C64; Esc = RUN/STOP, Alt = C=, <kbd>Retroceso</kbd> = INST/DEL, AvPág = RESTORE, F1–F8 como en el C64, los cursores con su SHIFT. La cruceta y los botones de un mando hacen de un joystick en el puerto 2 (el de casi todos los juegos) o en el 1, según los ajustes.</p>
+
+<h2>Al arrancar</h2>
+<p>Para un disco: ábrelo y elige <b>Escribir LOAD"*",8,1</b> y luego <b>Escribir RUN</b>. Un <code>.prg</code> o <code>.t64</code> sin unidad se mete en la memoria y arranca.</p>
+<p>Un archivo también se puede abrir con la app desde un gestor de archivos (<i>Abrir con</i>).</p>
+
+<h2>Créditos</h2>
+<p>cMESYS (Chusogar): núcleo C64 migrado de dsp-cpp (del emulador DSP). Teclados en pantalla de dsp-cpp.
+Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
+</body></html>

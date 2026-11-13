@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="rom_entries">
+        <item>JS (Sinclair, 1985)</item>
+        <item>JM (Sinclair, 1984)</item>
+        <item>Minerva 1.98</item>
+        <item>Personalizada</item>
+    </string-array>
+    <string-array name="rom_values">
+        <item>js</item>
+        <item>jm</item>
+        <item>minerva</item>
+        <item>custom</item>
+    </string-array>
+    <string-array name="pad_entries">
+        <item>Joystick 1 (cursores + ESPACIO)</item>
+        <item>Joystick 2 (F1–F4 + F5)</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>ctl1</item>
+        <item>ctl2</item>
+    </string-array>
+</resources>

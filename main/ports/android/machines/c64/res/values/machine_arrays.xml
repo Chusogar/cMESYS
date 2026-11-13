@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="pad_entries">
+        <item>Joystick en el puerto 2</item>
+        <item>Joystick en el puerto 1</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>joy2</item>
+        <item>joy1</item>
+    </string-array>
+</resources>

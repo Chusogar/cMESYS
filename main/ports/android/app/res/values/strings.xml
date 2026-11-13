@@ -1,86 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">cMESYS QL</string>
-    <string name="settings_title">Ajustes del QL</string>
+    <!-- (app_name and settings_title: machines/<machine>/res/values/strings.xml) -->
     <string name="help_title">Ayuda</string>
 
-    <!-- menu (bar) -->
-    <string name="m_microdrive">Microdrive</string>
-    <string name="m_reset">Reset</string>
-    <string name="m_pause">Pausa</string>
-    <string name="m_resume">Continuar</string>
-    <string name="m_settings">Ajustes</string>
-    <string name="m_quit">Salir</string>
-    <string name="m_help">Ayuda</string>
-    <string name="m_keyboard">Teclado</string>
-    <string name="m_speed_normal">Velocidad normal</string>
-    <string name="m_speed_turbo">Turbo</string>
-    <string name="m_screen">Pantalla</string>
-    <string name="m_keys">Teclas QL</string>
-    <string name="m_recent">Recientes</string>
-    <string name="m_eject">Expulsar</string>
-
-    <!-- microdrives -->
-    <string name="mdv_boot">Cargar en MDV1 y arrancar…</string>
-    <string name="mdv_insert1">Insertar en MDV1…</string>
-    <string name="mdv_insert2">Insertar en MDV2…</string>
-    <string name="mdv_builtin">Cartucho incluido: %1$s</string>
-    <string name="empty">vacío</string>
-    <string name="eject_drive">Expulsar MDV%1$d</string>
-    <string name="ejected">MDV%1$d vacío</string>
-    <string name="inserted">%1$s en MDV%2$d</string>
-    <string name="booting">Arrancando %1$s</string>
-    <string name="not_mdv">%1$s no es un cartucho QLAY .mdv (174930 bytes)</string>
-    <string name="cannot_read">No se puede leer el archivo</string>
-    <string name="no_picker">No hay selector de archivos</string>
-    <string name="no_recent">(ningún cartucho todavía)</string>
-
-    <!-- reset -->
-    <string name="reset_cold">Reset en frío</string>
-    <string name="reset_boot">Reset y arrancar MDV1 (F1)</string>
-
-    <!-- screen -->
-    <string name="smooth_on">Suavizado: activar</string>
-    <string name="smooth_off">Suavizado: desactivar</string>
-
-    <!-- keys -->
-    <string name="key_break">CTRL+ESPACIO (Break)</string>
-    <string name="key_switch">CTRL+C (cambiar de trabajo)</string>
-    <string name="key_freeze">CTRL+F5 (congelar pantalla)</string>
-    <string name="key_reset_qdos">reset en Minerva</string>
-
-    <!-- messages -->
-    <string name="paused">QL en pausa</string>
-    <string name="resumed">QL en marcha</string>
-    <string name="turbo_on">Turbo activado</string>
-    <string name="turbo_off">Velocidad normal</string>
-    <string name="rom_missing">ROM elegida no disponible: se usa la JS</string>
-    <string name="no_roms">Faltan las ROM del QL en la app</string>
-    <string name="rom_changed">ROM cambiada: QL reiniciado</string>
-    <string name="rom_bad_size">La ROM del sistema debe tener 48 KB (49152 bytes)</string>
-
-    <!-- settings -->
-    <string name="pc_system">Sistema</string>
-    <string name="pref_rom">ROM del sistema</string>
-    <string name="pref_rom_custom_pick">ROM personalizada…</string>
-    <string name="pref_rom_custom_none">Ninguna elegida (archivo de 48 KB)</string>
-    <string name="pref_autoload">Arrancar el último cartucho</string>
-    <string name="pref_autoload_sum">Al abrir la app, MDV1 = último cartucho cargado y F1</string>
+    <!-- settings, common to every machine -->
     <string name="pc_display">Pantalla</string>
     <string name="pref_scale">Escalado</string>
     <string name="pref_smooth">Suavizado</string>
     <string name="pref_smooth_sum">Filtrar la imagen al ampliarla</string>
-    <string name="pref_leds">Luces de los microdrives</string>
+    <string name="pref_leds">Luces de las unidades</string>
     <string name="pref_fps">Mostrar fotogramas por segundo</string>
     <string name="pref_corner">Botones de teclado y menú en la esquina</string>
     <string name="pc_input">Teclado y mandos</string>
     <string name="pref_kb_start">Mostrar el teclado al empezar</string>
     <string name="pref_kb_overlay">Teclado superpuesto a la imagen</string>
-    <string name="pref_kb_overlay_sum">En horizontal, el teclado translúcido sobre la imagen del QL; si no, la imagen va encima del teclado</string>
+    <string name="pref_kb_overlay_sum">En horizontal, el teclado translúcido sobre la imagen; si no, la imagen va encima del teclado</string>
     <string name="pref_kb_alpha">Opacidad del teclado</string>
     <string name="pref_haptic">Vibración al pulsar</string>
     <string name="pref_pad">Mando / cruceta</string>
     <string name="pc_sound">Sonido</string>
     <string name="pref_sound">Sonido</string>
-    <string name="pref_sound_sum">Altavoz del QL (8749 IPC)</string>
+    <string name="pc_system">Sistema</string>
+    <string name="pref_model">Modelo</string>
+    <string name="pref_autoload">Abrir el último archivo al empezar</string>
+    <string name="pref_autoload_sum">Al abrir la app se carga lo último que se abrió</string>
 </resources>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS Lynx</h1>
+<p>Atari Lynx con el núcleo Lynx de cMESYS (migrado de dsp-cpp): 65C02, Suzy (sprites y matemáticas), Mikey (temporizadores, sonido, LCD) y la ROM de arranque.</p>
+
+<h2>Menú</h2>
+<p>Se abre con <kbd>Atrás</kbd>, con el icono de la esquina, con el botón <kbd>MENÚ</kbd> del teclado en
+pantalla o con <kbd>START</kbd> de un mando. Mientras está abierto la máquina se detiene.</p>
+<table>
+<tr><td><b>Cartucho</b></td><td>Abrir un cartucho (<code>.lnx</code>, o <code>.lyx</code> / <code>.o</code>) o sacarlo.</td></tr>
+<tr><td><b>Reset</b></td><td>Reset.</td></tr>
+<tr><td><b>Pausa</b></td><td>Detiene la máquina hasta volver a pulsarlo.</td></tr>
+<tr><td><b>Ajustes</b></td><td>Mando; pantalla, teclado, mando y sonido.</td></tr>
+<tr><td><b>Teclado</b></td><td>Muestra u oculta el teclado en pantalla.</td></tr>
+<tr><td><b>Velocidad</b></td><td>Turbo: la máquina va tan rápido como puede (sin sonido).</td></tr>
+<tr><td><b>Pantalla</b></td><td>Proporción del monitor, píxeles cuadrados, pantalla completa o múltiplo entero.</td></tr>
+<tr><td><b>Botones Lynx</b></td><td>PAUSE, OPTION 1, OPTION 2, PAUSE+OPTION 1 (reiniciar el juego), PAUSE+OPTION 2 (girar la pantalla).</td></tr>
+<tr><td><b>Recientes</b></td><td>Los últimos archivos abiertos.</td></tr>
+<tr><td><b>Expulsar</b></td><td>Saca lo que se pueda sacar (o para la cinta).</td></tr>
+</table>
+
+<h2>Teclado en pantalla</h2>
+<p>Es los mandos de la consola (cruceta con diagonales, A, B, OPTION 1, PAUSE y OPTION 2) dibujados como los teclados de dsp-cpp: el mismo de dsp-cpp, y la tecla pulsada se hunde. Admite varios dedos a la vez.
+<kbd>MENÚ</kbd> abre el menú y <kbd>▼</kbd> oculta el teclado.</p>
+
+<h2>Teclado físico y mandos</h2>
+<p>Cursores = cruceta, X = A, Z = B, 1 / 2 = OPTION 1 / 2, Intro o P = PAUSE. La cruceta y los botones de un mando hacen de la cruceta, A y B de la consola (X / Y también A / B), L1 / R1 = OPTION 1 / 2 y SELECT = PAUSE, según los ajustes.</p>
+
+<h2>Al arrancar</h2>
+<p>Abre un cartucho en <b>Cartucho</b>: la consola se reinicia y lo arranca.</p>
+<p>Un archivo también se puede abrir con la app desde un gestor de archivos (<i>Abrir con</i>).</p>
+
+<h2>Créditos</h2>
+<p>cMESYS (Chusogar): núcleo Lynx migrado de dsp-cpp (del emulador DSP). Teclados en pantalla de dsp-cpp.
+Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
+</body></html>

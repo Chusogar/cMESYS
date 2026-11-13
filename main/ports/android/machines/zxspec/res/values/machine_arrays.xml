@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="model_entries">
+        <item>ZX Spectrum 48K</item>
+        <item>ZX Spectrum 128K</item>
+        <item>ZX Spectrum +3</item>
+        <item>Pentagon 128</item>
+        <item>Pentagon 1024</item>
+        <item>Scorpion ZS-256</item>
+    </string-array>
+    <string-array name="model_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </string-array>
+    <string-array name="pad_entries">
+        <item>Kempston</item>
+        <item>Sinclair 1 (6-0)</item>
+        <item>Sinclair 2 (1-5)</item>
+        <item>Cursor / Protek (5-8, 0)</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>kempston</item>
+        <item>sinclair1</item>
+        <item>sinclair2</item>
+        <item>cursor</item>
+    </string-array>
+</resources>
