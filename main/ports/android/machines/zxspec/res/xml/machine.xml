@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The settings of this machine (MachineActivity / SettingsActivity: then res/xml/preferences.xml). -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="@string/pc_system">
+        <ListPreference android:key="model" android:title="@string/pref_model" android:summary="%s"
+            android:entries="@array/model_entries" android:entryValues="@array/model_values" android:defaultValue="1" />
+        <CheckBoxPreference android:key="autoload_last" android:title="@string/pref_autoload"
+            android:summary="@string/pref_autoload_sum" android:defaultValue="false" />
+        <ListPreference android:key="pad" android:title="@string/pref_pad" android:summary="%s"
+            android:entries="@array/pad_entries" android:entryValues="@array/pad_values" android:defaultValue="kempston" />
+    </PreferenceCategory>
+</PreferenceScreen>

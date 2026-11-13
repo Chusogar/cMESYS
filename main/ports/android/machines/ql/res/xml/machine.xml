@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The settings of this machine (MachineActivity / SettingsActivity: then res/xml/preferences.xml). -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="@string/pc_system">
+        <ListPreference android:key="rom" android:title="ROM del sistema" android:summary="%s"
+            android:entries="@array/rom_entries" android:entryValues="@array/rom_values" android:defaultValue="js" />
+        <Preference android:key="rom_custom_pick" android:title="ROM personalizada…" />
+        <CheckBoxPreference android:key="autoload_last" android:title="Arrancar el último cartucho"
+            android:summary="Al abrir la app, MDV1 = último cartucho cargado y F1" android:defaultValue="false" />
+        <ListPreference android:key="pad" android:title="@string/pref_pad" android:summary="%s"
+            android:entries="@array/pad_entries" android:entryValues="@array/pad_values" android:defaultValue="ctl1" />
+    </PreferenceCategory>
+</PreferenceScreen>

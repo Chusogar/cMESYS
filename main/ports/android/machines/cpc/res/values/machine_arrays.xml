@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="pad_entries">
+        <item>Joystick (2 botones)</item>
+        <item>Cursores + ESPACIO / COPIA</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>joy</item>
+        <item>cursors</item>
+    </string-array>
+</resources>

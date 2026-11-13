@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS Spectrum</h1>
+<p>ZX Spectrum 48K, 128K y +3, Pentagon 128, Pentagon 1024 y Scorpion ZS-256 con el núcleo Spectrum de cMESYS (migrado de dsp-cpp): contención, bus flotante, ULA+, AY, Beta Disk y el +3 con su disquetera.</p>
+
+<h2>Menú</h2>
+<p>Se abre con <kbd>Atrás</kbd>, con el icono de la esquina, con el botón <kbd>MENÚ</kbd> del teclado en
+pantalla o con <kbd>START</kbd> de un mando. Mientras está abierto la máquina se detiene.</p>
+<table>
+<tr><td><b>Medios</b></td><td>Abrir una cinta (<code>.tap .tzx .pzx .csw</code>), un snapshot (<code>.sna .z80</code>), una grabación <code>.rzx</code>, un disco (<code>.trd .scl</code> en los clones, <code>.dsk</code> en el +3) o un cartucho de Interface 2; reproducir o pausar la cinta; teclear <code>LOAD ""</code>; el botón mágico de los clones.</td></tr>
+<tr><td><b>Reset</b></td><td>Reset.</td></tr>
+<tr><td><b>Pausa</b></td><td>Detiene la máquina hasta volver a pulsarlo.</td></tr>
+<tr><td><b>Ajustes</b></td><td>Modelo (48K, 128K, +3, Pentagon, Pentagon 1024, Scorpion); pantalla, teclado, mando y sonido.</td></tr>
+<tr><td><b>Teclado</b></td><td>Muestra u oculta el teclado en pantalla.</td></tr>
+<tr><td><b>Velocidad</b></td><td>Turbo: la máquina va tan rápido como puede (sin sonido).</td></tr>
+<tr><td><b>Pantalla</b></td><td>Proporción del monitor, píxeles cuadrados, pantalla completa o múltiplo entero.</td></tr>
+<tr><td><b>Teclas Spectrum</b></td><td>BREAK, DELETE, EDIT, CAPS LOCK, GRAPHICS y el modo extendido.</td></tr>
+<tr><td><b>Recientes</b></td><td>Los últimos archivos abiertos.</td></tr>
+<tr><td><b>Expulsar</b></td><td>Saca lo que se pueda sacar (o para la cinta).</td></tr>
+</table>
+
+<h2>Teclado en pantalla</h2>
+<p>Es el teclado de goma del 48K que dibuja dsp-cpp, con sus palabras clave: el mismo de dsp-cpp, y la tecla pulsada se hunde. Admite varios dedos a la vez.
+<kbd>CAPS SHIFT</kbd> y <kbd>SYMBOL SHIFT</kbd> se quedan pulsadas para la tecla siguiente; dos toques seguidos las bloquean (hundidas y rojizas) hasta volver a tocarlas. <kbd>MENÚ</kbd> abre el menú y <kbd>▼</kbd> oculta el teclado.</p>
+
+<h2>Teclado físico y mandos</h2>
+<p>Mayúsculas = CAPS SHIFT, Ctrl / Mayúsculas derecha = SYMBOL SHIFT, <kbd>Retroceso</kbd> = DELETE, <kbd>Esc</kbd> = BREAK, los cursores = CAPS+5…8. La cruceta y los botones de un mando hacen de un joystick Kempston, Sinclair 1 o 2 o de cursores (Protek), según los ajustes.</p>
+
+<h2>Al arrancar</h2>
+<p>Para cargar una cinta: ábrela en <b>Medios</b>, teclea <code>LOAD ""</code> (en el 48K, la opción del menú lo hace; en el 128K basta ENTER en <i>Tape Loader</i>) y pulsa <b>Cinta: reproducir</b>. Los snapshots arrancan solos.</p>
+<p>Un archivo también se puede abrir con la app desde un gestor de archivos (<i>Abrir con</i>).</p>
+
+<h2>Créditos</h2>
+<p>cMESYS (Chusogar): núcleo Spectrum migrado de dsp-cpp (del emulador DSP). Teclados en pantalla de dsp-cpp.
+Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
+</body></html>

@@ -1,0 +1,18 @@
+# tools/gen_lynx_vkb.py, do not edit
+picture keyboard.png 1536 520
+travel 4
+button menu 580 110 840 190
+button hide 870 110 1010 190
+key 7 0 278 130 382 228  # UP
+key 6 0 278 332 382 430  # DOWN
+key 5 0 180 228 278 332  # LEFT
+key 4 0 382 228 480 332  # RIGHT
+key 9 0 180 130 278 228  # UP+LEFT
+key 10 0 382 130 480 228  # UP+RIGHT
+key 11 0 180 332 278 430  # DOWN+LEFT
+key 12 0 382 332 480 430  # DOWN+RIGHT
+key 1 0 1112 234 1280 402  # B
+key 0 0 1282 126 1450 294  # A
+key 3 0 564 351 696 409  # OPTION 1
+key 8 0 734 351 866 409  # PAUSE
+key 2 0 904 351 1036 409  # OPTION 2

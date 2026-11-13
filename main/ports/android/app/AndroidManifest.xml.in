@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The manifest of every machine's APK: build_apk.sh puts the machine's
+     package name (com.chusogar.cmesys.<machine>) in place of @PACKAGE@. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="@PACKAGE@"
+    android:versionCode="2"
+    android:versionName="2.0">
+
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="true"
+        android:extractNativeLibs="true"
+        android:isGame="true">
+
+        <activity
+            android:name="com.chusogar.cmesys.app.MachineActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <!-- "Open with": a file of a file manager loaded as the media menu's first slot -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="*/*" />
+                <data android:scheme="file" android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.chusogar.cmesys.app.SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_title"
+            android:theme="@android:style/Theme.Material" />
+
+        <activity
+            android:name="com.chusogar.cmesys.app.HelpActivity"
+            android:exported="false"
+            android:label="@string/help_title"
+            android:theme="@android:style/Theme.Material" />
+    </application>
+</manifest>

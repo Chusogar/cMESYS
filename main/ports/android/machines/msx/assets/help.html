@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS MSX</h1>
+<p>MSX1 y MSX2 con el núcleo MSX de cMESYS (migrado de dsp-cpp): Z80, TMS9918 o V9938, AY-3-8910, los mappers de los cartuchos (con el SCC de Konami) y la disquetera con su ROM de disco.</p>
+
+<h2>Menú</h2>
+<p>Se abre con <kbd>Atrás</kbd>, con el icono de la esquina, con el botón <kbd>MENÚ</kbd> del teclado en
+pantalla o con <kbd>START</kbd> de un mando. Mientras está abierto la máquina se detiene.</p>
+<table>
+<tr><td><b>Medios</b></td><td>Abrir un cartucho (<code>.rom .mx1 .mx2</code>), un disco <code>.dsk</code> o una cinta (<code>.cas .tsx .tzx</code>); sacar el cartucho; teclear <code>FILES</code>.</td></tr>
+<tr><td><b>Reset</b></td><td>Reset.</td></tr>
+<tr><td><b>Pausa</b></td><td>Detiene la máquina hasta volver a pulsarlo.</td></tr>
+<tr><td><b>Ajustes</b></td><td>Modelo (MSX1 o MSX2); pantalla, teclado, mando y sonido.</td></tr>
+<tr><td><b>Teclado</b></td><td>Muestra u oculta el teclado en pantalla.</td></tr>
+<tr><td><b>Velocidad</b></td><td>Turbo: la máquina va tan rápido como puede (sin sonido).</td></tr>
+<tr><td><b>Pantalla</b></td><td>Proporción del monitor, píxeles cuadrados, pantalla completa o múltiplo entero.</td></tr>
+<tr><td><b>Teclas MSX</b></td><td>STOP, CTRL+STOP, F1–F5, SELECT, ESC.</td></tr>
+<tr><td><b>Recientes</b></td><td>Los últimos archivos abiertos.</td></tr>
+<tr><td><b>Expulsar</b></td><td>Saca lo que se pueda sacar (o para la cinta).</td></tr>
+</table>
+
+<h2>Teclado en pantalla</h2>
+<p>Es un teclado MSX internacional dibujado como los de dsp-cpp (dsp-cpp no tiene uno de MSX): el mismo de dsp-cpp, y la tecla pulsada se hunde. Admite varios dedos a la vez.
+<kbd>SHIFT</kbd>, <kbd>CTRL</kbd>, <kbd>GRAPH</kbd> y <kbd>CODE</kbd> se quedan pulsadas para la tecla siguiente; dos toques seguidos las bloquean (hundidas y rojizas) hasta volver a tocarlas. <kbd>MENÚ</kbd> abre el menú y <kbd>▼</kbd> oculta el teclado.</p>
+
+<h2>Teclado físico y mandos</h2>
+<p>Las teclas del PC son las del MSX; Alt izq. = GRAPH, Alt dcha. = CODE, F6 = SELECT, Fin = STOP, Inicio / Insert / Supr = HOME / INS / DEL. La cruceta y los botones de un mando hacen de el joystick 1 o 2, o los cursores con ESPACIO y M, según los ajustes.</p>
+
+<h2>Al arrancar</h2>
+<p>Los cartuchos y los discos arrancan solos. Al abrir una cinta se teclea <code>CLOAD</code>, <code>RUN"CAS:"</code> o <code>BLOAD"CAS:",R</code>, según la cinta.</p>
+<p>Un archivo también se puede abrir con la app desde un gestor de archivos (<i>Abrir con</i>).</p>
+
+<h2>Créditos</h2>
+<p>cMESYS (Chusogar): núcleo MSX migrado de dsp-cpp (del emulador DSP). Teclados en pantalla de dsp-cpp.
+Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
+</body></html>
