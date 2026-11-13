@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS QL</h1>
+<p>Sinclair QL (68008, ZX8301, ZX8302, IPC 8749 y dos microdrives) con el núcleo
+del driver QL de cMESYS: el mismo código que funciona en la CYD (ESP32) y en la
+RP2350.</p>
+
+<h2>Menú</h2>
+<p>Se abre con <kbd>Atrás</kbd>, con el icono de la esquina, con la tecla
+<kbd>MENÚ</kbd> del teclado en pantalla o con <kbd>START</kbd> de un mando. Mientras
+está abierto el QL se detiene.</p>
+<table>
+<tr><td><b>Microdrive</b></td><td>Cargar un cartucho <code>.mdv</code> (formato QLAY, 174930 bytes)
+en MDV1 y arrancarlo (reset + F1), o insertarlo en MDV1 / MDV2 sin reiniciar.</td></tr>
+<tr><td><b>Reset</b></td><td>Reset en frío, o reset y arranque del cartucho de MDV1.</td></tr>
+<tr><td><b>Pausa</b></td><td>Detiene el QL hasta volver a pulsarlo.</td></tr>
+<tr><td><b>Ajustes</b></td><td>ROM del sistema (JS, JM, Minerva o una de 48 KB elegida por ti),
+pantalla, teclado, mando y sonido.</td></tr>
+<tr><td><b>Teclado</b></td><td>Muestra u oculta el teclado del QL.</td></tr>
+<tr><td><b>Velocidad</b></td><td>Turbo: el QL va tan rápido como puede (sin sonido).</td></tr>
+<tr><td><b>Pantalla</b></td><td>Proporción de TV, píxeles cuadrados, pantalla completa o múltiplo entero.</td></tr>
+<tr><td><b>Teclas QL</b></td><td>F1–F5, ESC, CTRL+ESPACIO (Break), CTRL+C, CTRL+F5…</td></tr>
+<tr><td><b>Recientes</b></td><td>Los últimos cartuchos abiertos.</td></tr>
+<tr><td><b>Expulsar</b></td><td>Saca el cartucho de MDV1 o MDV2.</td></tr>
+</table>
+
+<h2>Teclado en pantalla</h2>
+<p>Es la foto del teclado del QL, el mismo que usa dsp-cpp: la tecla pulsada se hunde.
+Admite varios dedos a la vez. <kbd>SHIFT</kbd>, <kbd>CTRL</kbd> y <kbd>ALT</kbd> se quedan
+pulsadas para la tecla siguiente; dos toques seguidos las bloquean (hundidas y rojizas) hasta
+volver a tocarlas. <kbd>MENÚ</kbd> (arriba a la derecha) abre el menú y <kbd>▼</kbd> oculta el teclado.</p>
+
+<h2>Teclado físico y mandos</h2>
+<p>Las teclas del PC son las del QL; <kbd>Retroceso</kbd> = CTRL+←, <kbd>Supr</kbd> = CTRL+→,
+<kbd>`</kbd> = £. La cruceta y los botones del mando hacen de joystick 1 (cursores y
+ESPACIO) o joystick 2 (F1–F4 y F5), según los ajustes.</p>
+
+<h2>Al arrancar</h2>
+<p>El QL pregunta <i>F1 monitor / F2 TV</i>. Con un cartucho en MDV1, F1 carga su
+programa <code>BOOT</code>; la opción <b>Cargar en MDV1 y arrancar</b> lo hace sola.
+Lo que el QL escribe en un cartucho se conserva mientras esté insertado.</p>
+
+<h2>Créditos</h2>
+<p>cMESYS (Chusogar): núcleo QL portado de dsp-cpp y MAME (sinclair/ql.cpp),
+68000 de Musashi (Karl Stenerud), MCS-48 y ZX8301/ZX8302 a partir de MAME.
+Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
+</body></html>

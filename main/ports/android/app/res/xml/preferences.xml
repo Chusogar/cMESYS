@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="@string/pc_system">
+        <ListPreference android:key="rom" android:title="@string/pref_rom" android:summary="%s"
+            android:entries="@array/rom_entries" android:entryValues="@array/rom_values" android:defaultValue="js" />
+        <Preference android:key="rom_custom_pick" android:title="@string/pref_rom_custom_pick" />
+        <CheckBoxPreference android:key="autoload_last" android:title="@string/pref_autoload"
+            android:summary="@string/pref_autoload_sum" android:defaultValue="false" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/pc_display">
+        <ListPreference android:key="scale" android:title="@string/pref_scale" android:summary="%s"
+            android:entries="@array/scale_entries" android:entryValues="@array/scale_values" android:defaultValue="fit43" />
+        <CheckBoxPreference android:key="smooth" android:title="@string/pref_smooth"
+            android:summary="@string/pref_smooth_sum" android:defaultValue="true" />
+        <CheckBoxPreference android:key="show_leds" android:title="@string/pref_leds" android:defaultValue="true" />
+        <CheckBoxPreference android:key="show_fps" android:title="@string/pref_fps" android:defaultValue="false" />
+        <CheckBoxPreference android:key="corner_buttons" android:title="@string/pref_corner" android:defaultValue="true" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/pc_input">
+        <CheckBoxPreference android:key="keyboard_start" android:title="@string/pref_kb_start" android:defaultValue="true" />
+        <CheckBoxPreference android:key="keyboard_overlay" android:title="@string/pref_kb_overlay"
+            android:summary="@string/pref_kb_overlay_sum" android:defaultValue="false" />
+        <ListPreference android:key="keyboard_alpha" android:title="@string/pref_kb_alpha" android:summary="%s"
+            android:entries="@array/alpha_entries" android:entryValues="@array/alpha_values" android:defaultValue="85" />
+        <CheckBoxPreference android:key="haptic" android:title="@string/pref_haptic" android:defaultValue="true" />
+        <ListPreference android:key="pad" android:title="@string/pref_pad" android:summary="%s"
+            android:entries="@array/pad_entries" android:entryValues="@array/pad_values" android:defaultValue="ctl1" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/pc_sound">
+        <CheckBoxPreference android:key="sound" android:title="@string/pref_sound"
+            android:summary="@string/pref_sound_sum" android:defaultValue="true" />
+    </PreferenceCategory>
+</PreferenceScreen>
