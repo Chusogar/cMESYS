@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="arcade_scale_entries">
+        <item>Proporción del monitor</item>
+        <item>Múltiplo entero</item>
+        <item>Ocupar todo</item>
+    </string-array>
+    <string-array name="arcade_scale_values">
+        <item>fit</item>
+        <item>integer</item>
+        <item>stretch</item>
+    </string-array>
+    <string-array name="controls_size_entries">
+        <item>Pequeños</item>
+        <item>Normales</item>
+        <item>Grandes</item>
+    </string-array>
+    <string-array name="controls_size_values">
+        <item>85</item>
+        <item>100</item>
+        <item>120</item>
+    </string-array>
+</resources>

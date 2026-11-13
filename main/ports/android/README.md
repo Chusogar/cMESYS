@@ -1,4 +1,9 @@
-# Los ordenadores de cMESYS para Android
+# cMESYS para Android: los ordenadores y los arcades
+
+Dos partes: los ordenadores, un APK por máquina (`build_apk.sh`), y los
+arcades, una app con la lista de juegos (`build_arcade.sh`, más abajo).
+
+## Los ordenadores
 
 Los drivers de ordenadores de cMESYS (`main/drivers/computers`) como apps de
 Android, una por máquina, todas con la misma interfaz (la del QL, que sigue a
@@ -94,3 +99,59 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | `tools/gen_msx_vkb.py`, `gen_lynx_vkb.py` | los teclados de MSX y Lynx |
 | `tools/android_roms.py` | las ROM de cada máquina para el APK |
 | `tools/make_icons.py`, `make_help.py` | iconos, lanzadores y ayuda |
+
+## Los arcades: cMESYS Arcade
+
+Los 11 arcades de cMESYS (`main/drivers/arcades`) en una app, como MAME para
+Android: al abrirla, la lista de juegos (Gauntlet, Indiana Jones and the
+Temple of Doom, Out Run, Puzzle Bobble, Pole Position, Pole Position II,
+Return of the Invaders, Road Runner, RoboCop, Snow Bros., Track & Field).
+
+```
+main/ports/android/build_arcade.sh              # → dist/arcade_android.apk (todos)
+main/ports/android/build_arcade.sh snowbros     # solo algunos
+```
+
+- **El mismo juego que en el escritorio**: cada juego es su frontend de
+  escritorio sin tocar (`<juego>_sdl.c`, compilado con
+  `-Dmain=cmesys_game_main`) sobre `jni/arcade_port.c`, que implementa
+  `main/ports/sdl2/sdl_port.h` para Android. Las entradas, el sonido, la
+  paleta y el ritmo son los suyos, así que se juega y suena igual que en el
+  escritorio.
+- **Una librería por juego** (`libgame_<id>.so`, con su ROM: el
+  `rom_data.c` generado, como para el escritorio): cada juego corre en su
+  propio proceso (`:game`), que carga solo la suya (los juegos de 68000
+  configuran Musashi cada uno a su manera) y termina al volver a la lista.
+  Su EEPROM / NVRAM se guarda en la carpeta privada de la app.
+- **Ritmo y sonido** (`Native.java`): como el escritorio, por reloj a la
+  frecuencia de cuadro del juego, con el sonido en cola (unos 60 ms, como
+  mucho 120; lo que sobra se descarta), y la duración del cuadro corregida
+  hasta un 0,5 % según lo llena que vaya la cola, para que el reloj del
+  audio y el de los cuadros no se separen. Si el dispositivo no acepta la
+  frecuencia del juego (Puzzle Bobble: 55555 Hz), la capa nativa remuestrea
+  a 48 kHz.
+- **Controles** (`ControlsView.java`), al estilo de MAME para Android: un
+  joystick de recreativa (base metálica, vástago y bola roja que sigue al
+  dedo; 8 direcciones, o 2 en Return of the Invaders; ninguno en Track &
+  Field), los botones redondos del juego con su nombre, *1P START* y un
+  monedero con su ranura iluminada: cada toque mete una moneda, que se ve
+  caer, ponerse de canto y entrar por la ranura (con su «+1»). La moneda
+  llega al juego cuando entra, pulsada 8 cuadros del juego (contados en
+  cuadros, como el «coin impulse» de MAME: en milisegundos, en un aparato
+  lento, algunos juegos dan *COIN ERROR*). En vertical, un panel bajo la
+  imagen con la franja del color del juego; en horizontal, a los lados,
+  translúcidos. Multitáctil; el dedo puede pasar de un botón a otro.
+- **Menú** (el mismo `SoftMenu` que los ordenadores): Juegos, Reset, Pausa,
+  Ajustes, Salir, Ayuda, Controles, Velocidad, Pantalla, Jugador 2.
+  Teclado físico con las teclas del escritorio y mandos.
+
+| | |
+|---|---|
+| `jni/arcade_port.c` | `sdl_port.h` para Android: imagen, sonido (remuestreado si hace falta), controles, reset; JNI de `Native` |
+| `jni/libc_extra.c` | `stdin`/`stdout`/`stderr` como marcas nulas (bionic los tiene como variables solo desde la API 23) |
+| `arcade/src/.../Game.java` | los juegos: nombre, fabricante, año, botones, joystick |
+| `arcade/src/.../GameListActivity.java` | la lista |
+| `arcade/src/.../GameActivity.java` | un juego: imagen, controles, menú, teclado físico y mandos |
+| `arcade/src/.../Native.java` | la librería del juego, ritmo, sonido, monedas |
+| `arcade/src/.../ControlsView.java` | joystick, botones, START y monedero con la animación |
+| `arcade/src/.../ArcadeScreen.java` | el monitor (4:3, o 3:4 en los verticales), dibujado por la GPU |

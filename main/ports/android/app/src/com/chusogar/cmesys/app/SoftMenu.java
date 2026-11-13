@@ -23,21 +23,21 @@ import java.util.List;
  *  at the bottom of the screen with two rows of icons (cartridges, reset,
  *  pause, settings...), and for some of them a list of choices in a window
  *  with a title bar. */
-final class SoftMenu {
+public final class SoftMenu {
     /** An icon of the bar or a line of a list. */
-    static final class Item {
+    public static final class Item {
         final int icon;
         final String text;
         final Runnable action;
 
-        Item(int icon, String text, Runnable action) {
+        public Item(int icon, String text, Runnable action) {
             this.icon = icon;
             this.text = text;
             this.action = action;
         }
     }
 
-    interface Listener {
+    public interface Listener {
         void onMenuClosed();
     }
 
@@ -47,21 +47,21 @@ final class SoftMenu {
     private Listener listener;
     private boolean keepOpen;   // a list opened from the bar: the emulation stays paused
 
-    SoftMenu(Activity activity) {
+    public SoftMenu(Activity activity) {
         this.activity = activity;
         density = activity.getResources().getDisplayMetrics().density;
     }
 
-    void setListener(Listener l) { listener = l; }
+    public void setListener(Listener l) { listener = l; }
 
-    boolean isShowing() {
+    public boolean isShowing() {
         return (bar != null && bar.isShowing()) || (list != null && list.isShowing());
     }
 
     private int dp(float v) { return (int) (v * density + 0.5f); }
 
     /** The bar: items in two rows (the first row first). */
-    void show(View anchor, List<Item> items) {
+    public void show(View anchor, List<Item> items) {
         dismiss();
         LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -124,7 +124,7 @@ final class SoftMenu {
     }
 
     /** A list of choices in a window with a title bar (Hataroid's sub-menus). */
-    void showList(View anchor, String title, final List<Item> items) {
+    public void showList(View anchor, String title, final List<Item> items) {
         if (list != null) list.dismiss();
         LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -191,7 +191,7 @@ final class SoftMenu {
         list.showAtLocation(anchor, Gravity.CENTER, 0, 0);
     }
 
-    void dismiss() {
+    public void dismiss() {
         keepOpen = true;
         if (bar != null && bar.isShowing()) bar.dismiss();
         if (list != null && list.isShowing()) list.dismiss();

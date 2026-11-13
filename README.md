@@ -388,12 +388,13 @@ python3 -m http.server --directory build/web 8080
 
 Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum, CPC, C64, MSX y Lynx: barra «Upload» (todos sus formatos), drag&drop o F9; F12 = TURBO. `?frames=n` en la URL corta tras n frames.
 
-## Android (QL, Spectrum, CPC, C64, MSX, Lynx)
+## Android (ordenadores y arcades)
 
-Los drivers de ordenadores como apps de Android, una por máquina, todas con la interfaz de Hataroid del QL (menú de iconos inferior, ajustes, medios desde los archivos del teléfono, *Abrir con*) y con el teclado en pantalla de dsp-cpp (la foto del QL, el 48K, el CPC 464, el C64 con sus PETSCII; MSX y la Lynx dibujados al mismo estilo). Se compilan sin Android Studio ni NDK; ver `main/ports/android/README.md`.
+Los drivers de ordenadores como apps de Android, una por máquina, todas con la interfaz de Hataroid del QL (menú de iconos inferior, ajustes, medios desde los archivos del teléfono, *Abrir con*) y con el teclado en pantalla de dsp-cpp (la foto del QL, el 48K, el CPC 464, el C64 con sus PETSCII; MSX y la Lynx dibujados al mismo estilo). Y los 11 arcades en una app, **cMESYS Arcade**, con la lista de juegos como MAME para Android, cada juego con su frontend de escritorio tal cual (sobre `sdl_port.h` para Android) y controles en pantalla: joystick de bola roja, los botones del juego, START y un monedero con la animación de la moneda. Se compilan sin Android Studio ni NDK; ver `main/ports/android/README.md`.
 
 ```
 main/ports/android/build_apk.sh       # → dist/{ql,zxspec,cpc,c64,msx,lynx}_android.apk (arm64-v8a y x86_64)
+main/ports/android/build_arcade.sh    # → dist/arcade_android.apk (los 11 arcades)
 ```
 
 ## RP2040-PiZero (HDMI)

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="@string/pc_display">
+        <ListPreference android:key="scale" android:title="@string/pref_scale" android:summary="%s"
+            android:entries="@array/arcade_scale_entries" android:entryValues="@array/arcade_scale_values"
+            android:defaultValue="fit" />
+        <CheckBoxPreference android:key="smooth" android:title="@string/pref_smooth"
+            android:summary="@string/pref_smooth_sum" android:defaultValue="true" />
+        <CheckBoxPreference android:key="show_fps" android:title="@string/pref_fps" android:defaultValue="false" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="Controles">
+        <ListPreference android:key="controls_size" android:title="Tamaño de los controles" android:summary="%s"
+            android:entries="@array/controls_size_entries" android:entryValues="@array/controls_size_values"
+            android:defaultValue="100" />
+        <ListPreference android:key="controls_alpha" android:title="Opacidad de los controles" android:summary="%s"
+            android:entries="@array/alpha_entries" android:entryValues="@array/alpha_values" android:defaultValue="85" />
+        <CheckBoxPreference android:key="haptic" android:title="@string/pref_haptic" android:defaultValue="true" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/pc_sound">
+        <CheckBoxPreference android:key="sound" android:title="@string/pref_sound" android:defaultValue="true" />
+    </PreferenceCategory>
+</PreferenceScreen>
