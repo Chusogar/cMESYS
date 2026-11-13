@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- cMESYS Arcade: the list of games, and each game in its own process
+     (":game", which loads only that game's library). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.chusogar.cmesys.arcade"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="true"
+        android:extractNativeLibs="true"
+        android:isGame="true">
+
+        <activity
+            android:name="com.chusogar.cmesys.arcade.GameListActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.chusogar.cmesys.arcade.GameActivity"
+            android:exported="false"
+            android:process=":game"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+
+        <activity
+            android:name="com.chusogar.cmesys.arcade.ArcadeSettings"
+            android:exported="false"
+            android:label="@string/settings_title"
+            android:theme="@android:style/Theme.Material" />
+
+        <activity
+            android:name="com.chusogar.cmesys.app.HelpActivity"
+            android:exported="false"
+            android:label="@string/help_title"
+            android:theme="@android:style/Theme.Material" />
+    </application>
+</manifest>

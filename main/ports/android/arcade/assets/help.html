@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS Arcade</h1>
+<p>Los arcades de cMESYS en el móvil: Gauntlet, Indiana Jones and the Temple of Doom, Out Run,
+Puzzle Bobble, Pole Position, Pole Position II, Return of the Invaders, Road Runner, RoboCop,
+Snow Bros. y Track &amp; Field. Cada juego es el mismo de la versión de escritorio de cMESYS (su
+mismo frontend), así que se juega y suena igual.</p>
+
+<h2>Controles en pantalla</h2>
+<table>
+<tr><td><b>Joystick</b></td><td>La bola roja sigue al dedo: 8 direcciones (en Return of the Invaders solo
+izquierda y derecha). Se puede empezar a mover tocando en cualquier sitio de su lado.</td></tr>
+<tr><td><b>Botones</b></td><td>Los del juego, con su nombre (FUEGO, MAGIA, ACELERAR, FRENO, MARCHA, NIEVE,
+SALTO, CORRER…). Se puede pasar el dedo de uno a otro.</td></tr>
+<tr><td><b>MONEDA</b></td><td>Cada toque mete una moneda: se ve caer y entrar por la ranura y el juego
+la cuenta.</td></tr>
+<tr><td><b>1P START</b></td><td>Empieza la partida (con crédito).</td></tr>
+<tr><td><b>☰</b></td><td>Abre el menú.</td></tr>
+</table>
+<p>En vertical los controles van en un panel debajo de la imagen; en horizontal, a los lados, sobre
+ella (su opacidad y tamaño están en Ajustes).</p>
+
+<h2>Menú</h2>
+<p>Se abre con <kbd>Atrás</kbd>, con <kbd>☰</kbd> o con <kbd>Esc</kbd>; el juego se detiene mientras
+está abierto.</p>
+<table>
+<tr><td><b>Juegos</b></td><td>Vuelve a la lista.</td></tr>
+<tr><td><b>Reset</b></td><td>Reinicia la máquina.</td></tr>
+<tr><td><b>Pausa</b></td><td>Detiene el juego hasta volver a pulsarlo.</td></tr>
+<tr><td><b>Ajustes</b></td><td>Pantalla, tamaño y opacidad de los controles, vibración, sonido.</td></tr>
+<tr><td><b>Controles</b></td><td>Muestra u oculta los controles (para jugar con mando).</td></tr>
+<tr><td><b>Velocidad</b></td><td>Turbo: tan rápido como se pueda, sin sonido.</td></tr>
+<tr><td><b>Pantalla</b></td><td>Proporción del monitor, múltiplo entero u ocupar todo; suavizado.</td></tr>
+<tr><td><b>Jugador 2</b></td><td>Moneda y START del segundo jugador.</td></tr>
+</table>
+
+<h2>Teclado físico y mandos</h2>
+<p>Las teclas del escritorio: cursores, <kbd>Z</kbd>/<kbd>Ctrl</kbd> botón 1, <kbd>X</kbd>/<kbd>Alt</kbd>
+botón 2, <kbd>C</kbd>/<kbd>Espacio</kbd> botón 3, <kbd>5</kbd>/<kbd>6</kbd> monedas, <kbd>1</kbd>/<kbd>2</kbd>
+START, <kbd>F3</kbd> reset, <kbd>P</kbd> pausa. En un mando: cruceta o palanca, A / B / X botones 1, 2 y 3,
+SELECT o L1 moneda, START o R1 START.</p>
+
+<h2>Partidas guardadas</h2>
+<p>Los juegos que guardan sus récords o ajustes en EEPROM (Indiana Jones, Road Runner, Puzzle Bobble…)
+los conservan en la memoria de la app al salir al menú de juegos.</p>
+
+<h2>Créditos</h2>
+<p>cMESYS (Chusogar): los núcleos de cada juego, portados de MAME y de dsp-cpp; 68000 de Musashi
+(Karl Stenerud), YM3812 de emu8950 (Mitsutaka Okazaki). Controles al estilo de MAME para Android;
+menú inspirado en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
+</body></html>

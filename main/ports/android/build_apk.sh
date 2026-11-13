@@ -80,7 +80,7 @@ build() {
     mkdir -p "$OUT/apk" "$OUT/classes" "$OUT/gen" "$OUT/lib" "$OUT/assets"
 
     # --- 1. the core: libcore.so -------------------------------------------------
-    local SRCS="$HERE/jni/core_jni.c $HERE/jni/$(jni_file "$mach") $(sources "$mach")"
+    local SRCS="$HERE/jni/core_jni.c $HERE/jni/libc_extra.c $HERE/jni/$(jni_file "$mach") $(sources "$mach")"
     for abi in arm64-v8a x86_64; do
         local triple
         case $abi in

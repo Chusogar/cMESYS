@@ -322,8 +322,26 @@ def launcher_lynx(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_arcade(size):
+    """An arcade cabinet: marquee, screen, the control panel with a red-ball joystick and buttons."""
+    im, d = launcher_base()
+    d.polygon([(16, 6), (48, 6), (50, 58), (14, 58)], fill=(40, 44, 70, 255), outline=(150, 160, 200, 255))
+    d.rectangle([17, 8, 47, 14], fill=(240, 190, 40, 255))
+    d.rectangle([19, 17, 45, 35], fill=(10, 12, 20, 255), outline=K)
+    d.rectangle([24, 22, 28, 26], fill=(60, 200, 90, 255))
+    d.rectangle([34, 27, 39, 31], fill=(230, 80, 60, 255))
+    d.polygon([(14, 40), (50, 40), (54, 46), (10, 46)], fill=(70, 74, 100, 255), outline=(150, 160, 200, 255))
+    d.line([(22, 43), (21, 38)], fill=(150, 150, 160, 255), width=2)
+    d.ellipse([18, 34, 24, 40], fill=(230, 40, 34, 255))
+    d.ellipse([33, 41, 37, 44], fill=(46, 125, 232, 255))
+    d.ellipse([40, 41, 44, 44], fill=(242, 194, 48, 255))
+    d.rectangle([28, 50, 36, 54], fill=(20, 20, 24, 255))
+    d.rectangle([31, 51, 33, 53], fill=(255, 150, 40, 255))
+    return im.resize((size, size), Image.NEAREST)
+
+
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
-             "msx": launcher_msx, "lynx": launcher_lynx}
+             "msx": launcher_msx, "lynx": launcher_lynx, "arcade": launcher_arcade}
 
 
 ICONS = {
@@ -345,7 +363,8 @@ def main():
     # each machine's launcher icon: machines/<machine>/res/mipmap-*
     for machine, fn in LAUNCHERS.items():
         for dens, f in DENSITIES.items():
-            out = os.path.join(HERE, "..", "machines", machine, "res", "mipmap-" + dens)
+            out = os.path.join(HERE, "..", "arcade" if machine == "arcade" else os.path.join("machines", machine),
+                               "res", "mipmap-" + dens)
             os.makedirs(out, exist_ok=True)
             fn(int(48 * f)).save(os.path.join(out, "ic_launcher.png"))
     # a contact sheet for the docs
