@@ -19,6 +19,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -90,6 +91,15 @@ public final class QLActivity extends Activity implements QLKeyboardView.Listene
         root.addView(cornerButtons, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.RIGHT));
         setContentView(root);
+        // System bars that stay on screen (navigation bar): the keyboard and the
+        // picture go above them
+        root.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override public WindowInsets onApplyWindowInsets(View v, WindowInsets in) {
+                v.setPadding(in.getSystemWindowInsetLeft(), 0, in.getSystemWindowInsetRight(),
+                        in.getSystemWindowInsetBottom());
+                return in.consumeSystemWindowInsets();
+            }
+        });
 
         menu = new SoftMenu(this);
         menu.setListener(this);
@@ -239,7 +249,7 @@ public final class QLActivity extends Activity implements QLKeyboardView.Listene
     /** Portrait, or the overlay setting off: the picture goes above the keyboard. */
     private void updateInset() {
         boolean portrait = getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT;
-        boolean overlay = !portrait && prefs.getBoolean("keyboard_overlay", true);
+        boolean overlay = !portrait && prefs.getBoolean("keyboard_overlay", false);
         view.setBottomInset(keyboardShown && !overlay ? keyboard.getHeight() : 0);
     }
 

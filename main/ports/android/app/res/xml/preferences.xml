@@ -19,7 +19,7 @@
     <PreferenceCategory android:title="@string/pc_input">
         <CheckBoxPreference android:key="keyboard_start" android:title="@string/pref_kb_start" android:defaultValue="true" />
         <CheckBoxPreference android:key="keyboard_overlay" android:title="@string/pref_kb_overlay"
-            android:summary="@string/pref_kb_overlay_sum" android:defaultValue="true" />
+            android:summary="@string/pref_kb_overlay_sum" android:defaultValue="false" />
         <ListPreference android:key="keyboard_alpha" android:title="@string/pref_kb_alpha" android:summary="%s"
             android:entries="@array/alpha_entries" android:entryValues="@array/alpha_values" android:defaultValue="85" />
         <CheckBoxPreference android:key="haptic" android:title="@string/pref_haptic" android:defaultValue="true" />

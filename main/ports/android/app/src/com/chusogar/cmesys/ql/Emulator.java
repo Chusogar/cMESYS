@@ -25,6 +25,11 @@ final class Emulator implements Runnable {
     // from the menu), as counts so that two sources can hold the same key.
     private final int[] held = new int[64];
     private final int[] taps = new int[64];           // frames left of a tapped key
+    // Presses and releases in the order they came, taken in one at a time:
+    // each one lasts 2 frames at least before the next change, so that fast
+    // typing (or a slow device) does not give the QL keys at once.
+    private final ArrayDeque<int[]> keyEvents = new ArrayDeque<>();
+    private int keyHold;                               // frames before the next change
 
     private Thread thread;
     private volatile boolean running;
@@ -94,15 +99,17 @@ final class Emulator implements Runnable {
 
     // --- keys --------------------------------------------------------------
     synchronized void keyDown(int code) {
-        if (code >= 0 && code < 64) held[code]++;
+        if (code >= 0 && code < 64) keyEvents.add(new int[] {code, 1});
     }
 
     synchronized void keyUp(int code) {
-        if (code >= 0 && code < 64 && held[code] > 0) held[code]--;
+        if (code >= 0 && code < 64) keyEvents.add(new int[] {code, 0});
     }
 
     synchronized void releaseAll() {
         java.util.Arrays.fill(held, 0);
+        keyEvents.clear();
+        keyHold = 0;
     }
 
     /** Presses keys together for a few frames (menu shortcuts: F1, CTRL+SPACE...). */
@@ -111,6 +118,17 @@ final class Emulator implements Runnable {
     }
 
     private synchronized void applyKeys() {
+        if (keyHold > 0) keyHold--;
+        while (keyHold == 0 && !keyEvents.isEmpty()) {
+            int[] e = keyEvents.poll();
+            if (e[1] == 1) {
+                held[e[0]]++;
+                keyHold = 2;
+            } else if (held[e[0]] > 0) {
+                held[e[0]]--;
+                keyHold = 2;           // (seen up too: the same key twice is two presses)
+            }
+        }
         QLNative.keysClear();
         for (int c = 0; c < 64; c++) {
             if (held[c] > 0 || taps[c] > 0) QLNative.key(c, true);

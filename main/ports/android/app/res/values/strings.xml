@@ -75,8 +75,8 @@
     <string name="pref_corner">Botones de teclado y menú en la esquina</string>
     <string name="pc_input">Teclado y mandos</string>
     <string name="pref_kb_start">Mostrar el teclado al empezar</string>
-    <string name="pref_kb_overlay">Teclado superpuesto en horizontal</string>
-    <string name="pref_kb_overlay_sum">Si no, la imagen se coloca encima del teclado</string>
+    <string name="pref_kb_overlay">Teclado superpuesto a la imagen</string>
+    <string name="pref_kb_overlay_sum">En horizontal, el teclado translúcido sobre la imagen del QL; si no, la imagen va encima del teclado</string>
     <string name="pref_kb_alpha">Opacidad del teclado</string>
     <string name="pref_haptic">Vibración al pulsar</string>
     <string name="pref_pad">Mando / cruceta</string>
