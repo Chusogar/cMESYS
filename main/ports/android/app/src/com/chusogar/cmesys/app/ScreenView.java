@@ -6,35 +6,45 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
+import android.view.View;
 
 /** The machine's screen: its picture scaled into the view (keeping the
  *  machine's monitor shape, square pixels, filling it, or whole multiples),
- *  drawn from the emulation thread, with the drive lights and the frame rate
- *  on top. */
-final class ScreenView extends SurfaceView implements SurfaceHolder.Callback, Emulator.Screen {
+ *  with the drive lights and the frame rate on top.
+ *
+ *  The emulation thread only hands over each frame's pixels (a copy); the
+ *  view draws the latest one on the UI thread, scaled by the GPU (a
+ *  hardware-accelerated view). Scaling in software on the emulation thread,
+ *  as a SurfaceView's canvas does, took longer than a frame on a phone's
+ *  screen and starved the sound. */
+final class ScreenView extends View implements Emulator.Screen {
     static final String SCALE_FIT = "fit43", SCALE_SQUARE = "square", SCALE_STRETCH = "stretch", SCALE_INTEGER = "integer";
 
     private final Machine machine;
-    private Bitmap bitmap;
     private final Object lock = new Object();
+    // the latest frame from the emulation thread (under lock)
+    private int[] back = new int[0];
+    private int backW, backH, backStatus;
+    private float backFps;
+    private boolean fresh;
+    // what is drawn (UI thread)
+    private Bitmap bitmap;
+    private int[] front = new int[0];
+    private int status;
+    private float fps;
+
     private final Paint paint = new Paint();
     private final Paint ledOn = new Paint(), ledOff = new Paint(), text = new Paint();
     private final Rect src = new Rect();
     private final Rect dst = new Rect();
-    private volatile boolean hasSurface;
     private volatile String scale = SCALE_FIT;
     private volatile boolean showFps, showLeds = true;
     private volatile int bottomInset;
     private final float density;
-    private int status;
-    private float fps;
 
     ScreenView(Context context, Machine machine) {
         super(context);
         this.machine = machine;
-        getHolder().addCallback(this);
         density = context.getResources().getDisplayMetrics().density;
         ledOn.setColor(Color.rgb(255, 40, 30));
         ledOff.setColor(Color.argb(110, 90, 20, 20));
@@ -42,13 +52,14 @@ final class ScreenView extends SurfaceView implements SurfaceHolder.Callback, Em
         text.setTextSize(12 * density);
         text.setAntiAlias(true);
         setFocusable(false);
+        setBackgroundColor(Color.BLACK);
     }
 
-    void setScale(String s) { scale = s; redraw(); }
+    void setScale(String s) { scale = s; invalidate(); }
 
     void setSmooth(boolean smooth) {
         paint.setFilterBitmap(smooth);
-        redraw();
+        invalidate();
     }
 
     void setOverlay(boolean fps, boolean leds) {
@@ -59,12 +70,10 @@ final class ScreenView extends SurfaceView implements SurfaceHolder.Callback, Em
     /** Pixels at the bottom covered by the on-screen keyboard (the picture goes above). */
     void setBottomInset(int px) {
         bottomInset = px;
-        redraw();
+        invalidate();
     }
 
-    @Override public void surfaceCreated(SurfaceHolder h) { hasSurface = true; redraw(); }
-    @Override public void surfaceChanged(SurfaceHolder h, int f, int w, int hgt) { redraw(); }
-    @Override public void surfaceDestroyed(SurfaceHolder h) { hasSurface = false; }
+    void redraw() { postInvalidate(); }
 
     private void place(int w, int h, int pw, int ph) {
         h = Math.max(1, h - bottomInset);
@@ -93,49 +102,52 @@ final class ScreenView extends SurfaceView implements SurfaceHolder.Callback, Em
         dst.set((w - dw) / 2, (h - dh) / 2, (w - dw) / 2 + dw, (h - dh) / 2 + dh);
     }
 
+    /** A frame's picture, on the emulation thread: copied, drawn later. */
     @Override
     public void showFrame(int[] pixels, int w, int h, float fps, int status) {
+        int n = w * h;
         synchronized (lock) {
-            if (bitmap == null || bitmap.getWidth() != w || bitmap.getHeight() != h) {
-                bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-            }
-            bitmap.setPixels(pixels, 0, w, 0, 0, w, h);
-            this.status = status;
-            this.fps = fps;
+            if (back.length != n) back = new int[n];
+            System.arraycopy(pixels, 0, back, 0, n);
+            backW = w;
+            backH = h;
+            backStatus = status;
+            backFps = fps;
+            fresh = true;
         }
-        redraw();
+        postInvalidateOnAnimation();
     }
 
-    /** Draws the last picture again (after a change of size or of settings). */
-    void redraw() {
-        if (!hasSurface) return;
-        SurfaceHolder holder = getHolder();
-        Canvas c;
-        try {
-            c = holder.lockCanvas();
-        } catch (Exception e) {
-            return;
-        }
-        if (c == null) return;
-        try {
-            c.drawColor(Color.BLACK);
-            synchronized (lock) {
-                if (bitmap == null) return;
-                src.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
-                place(c.getWidth(), c.getHeight(), bitmap.getWidth(), bitmap.getHeight());
-                c.drawBitmap(bitmap, src, dst, paint);
-                int leds = machine.leds();
-                if (showLeds && leds > 0) {
-                    float r = 4 * density, y = dst.top + 8 * density;
-                    for (int i = 0; i < leds; i++) {
-                        boolean on = (status & (1 << i)) != 0;
-                        c.drawCircle(dst.right - (10 + 14 * (leds - 1 - i)) * density, y, r, on ? ledOn : ledOff);
-                    }
+    @Override
+    protected void onDraw(Canvas c) {
+        synchronized (lock) {
+            if (fresh) {
+                if (bitmap == null || bitmap.getWidth() != backW || bitmap.getHeight() != backH) {
+                    bitmap = Bitmap.createBitmap(backW, backH, Bitmap.Config.ARGB_8888);
                 }
-                if (showFps) c.drawText(String.format("%.1f fps", fps), dst.left + 6 * density, dst.top + 14 * density, text);
+                if (front.length != back.length) front = new int[back.length];
+                System.arraycopy(back, 0, front, 0, back.length);
+                status = backStatus;
+                fps = backFps;
+                fresh = false;
+            } else if (bitmap == null) {
+                return;
             }
-        } finally {
-            holder.unlockCanvasAndPost(c);
         }
+        if (front.length == bitmap.getWidth() * bitmap.getHeight()) {
+            bitmap.setPixels(front, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
+        }
+        src.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
+        place(getWidth(), getHeight(), bitmap.getWidth(), bitmap.getHeight());
+        c.drawBitmap(bitmap, src, dst, paint);
+        int leds = machine.leds();
+        if (showLeds && leds > 0) {
+            float r = 4 * density, y = dst.top + 8 * density;
+            for (int i = 0; i < leds; i++) {
+                boolean on = (status & (1 << i)) != 0;
+                c.drawCircle(dst.right - (10 + 14 * (leds - 1 - i)) * density, y, r, on ? ledOn : ledOff);
+            }
+        }
+        if (showFps) c.drawText(String.format("%.1f fps", fps), dst.left + 6 * density, dst.top + 14 * density, text);
     }
 }
