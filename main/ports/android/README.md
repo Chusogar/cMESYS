@@ -10,9 +10,12 @@ ZX8302, IPC 8749, dos microdrives) en una app de Android. La interfaz sigue a
   Ajustes, Salir, Ayuda / Teclado, Velocidad (turbo), Pantalla, Teclas QL,
   Recientes, Expulsar. Las opciones con varias elecciones abren una lista con
   barra de título, como los submenús de Hataroid.
-- **Teclado del QL en pantalla** (multitáctil; SHIFT, CTRL y ALT fijos para
-  la siguiente tecla, o bloqueados con dos toques), superpuesto en horizontal
-  y debajo de la imagen en vertical.
+- **Teclado del QL en pantalla**, el mismo de dsp-cpp: la foto del QL
+  (`app/assets/ql_keyboard.jpg`, la `tools/ql_keyboard.jpg` de dsp-cpp tal
+  cual) sin el fondo rojo, con las teclas medidas por `tools/gen_ql_vkb.py` y
+  la tecla pulsada hundida; aquí sin los microdrives. Multitáctil; SHIFT, CTRL
+  y ALT fijos para la siguiente tecla, o bloqueados con dos toques. Debajo de
+  la imagen (o superpuesto en horizontal, en Ajustes).
 - **Ajustes** (`PreferenceActivity`): ROM del sistema (JS, JM, Minerva o una
   de 48 KB elegida), escalado, suavizado, luces de los microdrives, fps,
   teclado, vibración, mando (joystick 1 = cursores + ESPACIO, joystick 2 =
@@ -54,7 +57,7 @@ main/ports/android/build_apk.sh       # → dist/ql_android.apk
 | `app/src/.../QLActivity.java` | pantalla, teclado, menú, cartuchos, teclado físico y mandos |
 | `app/src/.../Emulator.java` | hilo de emulación: 50,08 Hz al ritmo del sonido, turbo, pausa |
 | `app/src/.../QLView.java` | imagen 512×256 escalada (4:3, cuadrada, completa, entera) |
-| `app/src/.../QLKeyboardView.java` | teclado del QL en pantalla |
+| `app/src/.../QLKeyboardView.java` | teclado del QL en pantalla (foto y teclas de dsp-cpp) |
 | `app/src/.../SoftMenu.java` | menú a lo Hataroid (barra de iconos y listas) |
 | `app/src/.../SettingsActivity.java` | ajustes |
 | `tools/make_icons.py` | iconos y lanzador |
