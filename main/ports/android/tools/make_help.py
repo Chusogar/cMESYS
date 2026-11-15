@@ -168,6 +168,30 @@ MACHINES = {
               "mientras arranca se mantiene OPTION pulsada para que el BASIC no estorbe.</p>",
         credits="núcleo Atari de 8 bits migrado de dsp-cpp (del emulador DSP); AltirraOS y Altirra BASIC "
                 "de Avery Lee"),
+    "atarist": dict(
+        title="cMESYS ST",
+        intro="Atari ST con el núcleo ST de cMESYS (migrado de dsp-cpp, con el 68000 Musashi): TOS en "
+              "$FC0000, las tres resoluciones del shifter, el MFP (temporizadores e interrupciones), el "
+              "YM2149, la disquetera WD1772 con DMA (discos <code>.st</code>, <code>.msa</code> y "
+              "<code>.stx</code>), el IKBD (teclado, ratón, joysticks y reloj) y el blitter. Esta app lleva "
+              "EmuTOS (libre, GPL) si no se puso un TOS de Atari en <code>roms/atarist</code>.",
+        media=("Discos", "Meter un disco en A: o B: (<code>.st .msa .stx</code>) o sacarlo. Para arrancar "
+               "un juego desde A:, reinicia con el disco dentro."),
+        reset="Reset (con los discos dentro: arranca desde A:).",
+        settings="memoria (1040ST, 1 MB, o 520ST, 512 KB) y mando",
+        keys=("Teclas ST", "RETURN, ESC, UNDO, HELP y CONTROL+ALTERNATE+DELETE."),
+        keyboard="el teclado del ST de dsp-cpp (el de Hataroid, con las teclas de función inclinadas y el "
+                 "teclado numérico)",
+        mods="<kbd>Shift</kbd>, <kbd>Control</kbd> y <kbd>Alternate</kbd>",
+        physical="Las teclas del PC son las del ST; Re Pág = UNDO, Av Pág = HELP, Inicio = CLR/HOME, F1–F10 "
+                 "las del ST.",
+        pad="el joystick (puerto 1, o el del ratón), A / B = disparo, X = espacio, Y = RETURN, SELECT = ESC, "
+            "L1 = UNDO, R1 = HELP",
+        start="<p><b>La pantalla es el ratón</b>, como un touchpad: arrastra un dedo para mover la flecha, "
+              "toca para hacer clic, toca con dos dedos para el botón derecho, y mantén el dedo quieto un "
+              "momento antes de arrastrar para arrastrar con el botón pulsado (ventanas, iconos).</p>",
+        credits="núcleo Atari ST migrado de dsp-cpp (del emulador DSP); 68000 Musashi de Karl Stenerud; "
+                "EmuTOS (emutos.sourceforge.io, GPL); teclado de Hataroid (GPLv2) vía dsp-cpp"),
 }
 
 

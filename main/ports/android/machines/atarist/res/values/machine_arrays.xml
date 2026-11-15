@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="model_entries">
+        <item>1040ST (1 MB)</item>
+        <item>520ST (512 KB)</item>
+    </string-array>
+    <string-array name="model_values">
+        <item>0</item>
+        <item>1</item>
+    </string-array>
+    <string-array name="pad_entries">
+        <item>Joystick (puerto 1): A / B = disparo; X ESPACIO, Y RETURN, SELECT ESC, L1 UNDO, R1 HELP</item>
+        <item>Joystick en el puerto del ratón (puerto 0)</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>joy1</item>
+        <item>joy0</item>
+    </string-array>
+</resources>

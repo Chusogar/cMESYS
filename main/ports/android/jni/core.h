@@ -58,3 +58,7 @@ void mc_eject(int slot);
 void mc_turbo(bool on);
 int mc_status(void);
 void mc_command(int cmd);
+// A mouse (the screen as a touchpad, a USB / Bluetooth mouse): motion in
+// the picture's pixels since the last call, buttons 1 left, 2 right. Before
+// each frame; the machines without a mouse leave it out (a weak default).
+void mc_mouse(int dx, int dy, unsigned buttons);

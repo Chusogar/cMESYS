@@ -67,6 +67,9 @@ sources() {
                   $M/machine/zx_pbuf.c" ;;
         atari800xl) echo "$C/atari8/atari8_core.c $M/cpu/m6502/m65xx.c $M/video/antic.c $M/video/gtia.c
                   $M/sound/pokey.c $M/machine/zx_pbuf.c" ;;
+        atarist) echo "$C/atarist/atarist_core.c $C/atarist/m68k_tables.c $M/cpu/m68k/m68kcpu.c $M/cpu/m68k/m68kops.c
+                  $M/cpu/m68k/m68kopac.c $M/cpu/m68k/m68kopdm.c $M/cpu/m68k/m68kopnz.c $M/machine/mc68901.c
+                  $M/machine/st_floppy.c $M/machine/zx_pbuf.c $M/sound/ay8910.c" ;;
         *) echo "unknown machine: $1 (ql zxspec cpc c64 msx lynx a2600 atari800xl atarist)" >&2; exit 1 ;;
     esac
 }

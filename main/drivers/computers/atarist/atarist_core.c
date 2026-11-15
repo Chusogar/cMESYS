@@ -1158,13 +1158,26 @@ void atarist_render_row320(int y, uint16_t *out)
     }
 }
 
-void atarist_set_rgb565(uint16_t (*fn)(uint8_t r, uint8_t g, uint8_t b)) { s.rgb565 = fn; }
+static uint16_t rgb565_default(uint8_t r, uint8_t g, uint8_t b)
+{
+    return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+}
+
+void atarist_set_rgb565(uint16_t (*fn)(uint8_t r, uint8_t g, uint8_t b)) { s.rgb565 = fn ? fn : rgb565_default; }
 int atarist_resolution(void) { return s.shown_res; }
 
 // --- set-up ---------------------------------------------------------------------------------
 bool atarist_init(const uint8_t *tos, size_t tos_size, uint32_t ram_size, int audio_rate)
 {
     if (!tos || tos_size < ST_ROM_SIZE) return false;
+    // (again: a new TOS or memory size, the old RAM and disks out first)
+    for (uint32_t i = 0; i < MAX_CHUNKS; i++) {
+        free(s.ram[i]);
+        s.ram[i] = NULL;
+    }
+    s.ram_size = 0;
+    st_floppy_eject(&s.fdc, 0);
+    st_floppy_eject(&s.fdc, 1);
     if (ram_size < CHUNK) ram_size = CHUNK;
     if (ram_size > 0x100000) ram_size = 0x100000;
     ram_size &= ~(CHUNK - 1);
@@ -1178,6 +1191,7 @@ bool atarist_init(const uint8_t *tos, size_t tos_size, uint32_t ram_size, int au
     }
     s.ram_size = ram_size;
     s.rom = tos;
+    if (!s.rgb565) s.rgb565 = rgb565_default;
     s.rate = audio_rate > 0 ? audio_rate : ST_AUDIO_RATE;
     ay8910_init(&s.psg, 2000000, s.rate);
     ay8910_set_amplitude(&s.psg, 1.2f);
@@ -1328,4 +1342,35 @@ bool atarist_load_file(int drive, const char *path)
     zx_pb_init(&pb);
     zx_pb_take_flat(&pb, data, (size_t)n);
     return atarist_load_pbuf(drive, &pb, path);
+}
+
+int atarist_char_key(char c, bool *shift)
+{
+    static const char kRow1[] = "1234567890-=";             // 0x02..0x0d
+    static const char kRow1s[] = "!@#$%^&*()_+";
+    static const char kQ[] = "qwertyuiop[]";                 // 0x10..0x1b
+    static const char kQs[] = "QWERTYUIOP{}";
+    static const char kA[] = "asdfghjkl;'`";                 // 0x1e..0x29
+    static const char kAs[] = "ASDFGHJKL:\"~";
+    static const char kZ[] = "zxcvbnm,./";                   // 0x2c..0x35
+    static const char kZs[] = "ZXCVBNM<>?";
+    *shift = false;
+    const char *p;
+    if (c == ' ') return STK_SPACE;
+    if (c == '\r' || c == '\n') return STK_RETURN;
+    if (c == '\t') return STK_TAB;
+    if (c == 27) return STK_ESC;
+    if (c == 8 || c == 127) return STK_BACKSPACE;
+    if (c == '\\') return STK_BACKSLASH;
+    if (c == '|') { *shift = true; return STK_BACKSLASH; }
+    if (!c) return 0;
+    if ((p = strchr(kRow1, c))) return 0x02 + (int)(p - kRow1);
+    if ((p = strchr(kRow1s, c))) { *shift = true; return 0x02 + (int)(p - kRow1s); }
+    if ((p = strchr(kQ, c))) return 0x10 + (int)(p - kQ);
+    if ((p = strchr(kQs, c))) { *shift = true; return 0x10 + (int)(p - kQs); }
+    if ((p = strchr(kA, c))) return 0x1e + (int)(p - kA);
+    if ((p = strchr(kAs, c))) { *shift = true; return 0x1e + (int)(p - kAs); }
+    if ((p = strchr(kZ, c))) return 0x2c + (int)(p - kZ);
+    if ((p = strchr(kZs, c))) { *shift = true; return 0x2c + (int)(p - kZs); }
+    return 0;
 }

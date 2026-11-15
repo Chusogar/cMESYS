@@ -356,6 +356,19 @@ def launcher_atari8(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_atarist(size):
+    """The ST: a light grey keyboard wedge with the slanted function keys and a mouse."""
+    im, d = launcher_base()
+    d.polygon([(2, 52), (6, 26), (50, 26), (54, 52)], fill=(200, 200, 196, 255), outline=(110, 110, 108, 255))
+    for i in range(6):
+        d.polygon([(10 + i * 6, 32), (14 + i * 6, 29), (18 + i * 6, 29), (14 + i * 6, 32)], fill=(70, 70, 70, 255))
+    keys_rows(d, 9, 47, 35, 3, (90, 90, 92, 255))
+    d.rounded_rectangle([52, 38, 61, 52], 4, fill=(210, 210, 206, 255), outline=(90, 90, 90, 255))
+    d.line([(56, 38), (56, 44)], fill=(90, 90, 90, 255))
+    text(d, 3, 6, "ST", W, 3)
+    return im.resize((size, size), Image.NEAREST)
+
+
 def launcher_arcade(size):
     """An arcade cabinet: marquee, screen, the control panel with a red-ball joystick and buttons."""
     im, d = launcher_base()
@@ -375,7 +388,7 @@ def launcher_arcade(size):
 
 
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
-             "msx": launcher_msx, "lynx": launcher_lynx, "a2600": launcher_a2600, "atari800xl": launcher_atari8, "arcade": launcher_arcade}
+             "msx": launcher_msx, "lynx": launcher_lynx, "a2600": launcher_a2600, "atari800xl": launcher_atari8, "atarist": launcher_atarist, "arcade": launcher_arcade}
 
 
 ICONS = {

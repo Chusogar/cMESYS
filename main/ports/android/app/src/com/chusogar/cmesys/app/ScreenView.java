@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.view.MotionEvent;
 import android.view.View;
 
 /** The machine's screen: its picture scaled into the view (keeping the
@@ -56,6 +57,84 @@ final class ScreenView extends View implements Emulator.Screen {
     }
 
     void setScale(String s) { scale = s; invalidate(); }
+
+    // --- the machine's mouse: the screen as a touchpad ------------------------------
+    //   drag: the pointer moves (as much as the finger over the picture)
+    //   tap: a left click; a two-finger tap: a right click
+    //   hold still, then drag: the left button held (dragging windows, icons)
+    private float lastX, lastY, downX, downY, fracX, fracY;
+    private long downTime;
+    private boolean moved, dragging;
+    private int maxPointers, buttons;
+    private final Runnable holdLeft = new Runnable() {
+        @Override public void run() {
+            if (moved || maxPointers > 1) return;
+            dragging = true;
+            buttons = 1;
+            Core.mouse(0, 0, buttons);
+        }
+    };
+    private final Runnable release = new Runnable() {
+        @Override public void run() {
+            buttons = 0;
+            Core.mouse(0, 0, 0);
+        }
+    };
+
+    @Override
+    public boolean onTouchEvent(MotionEvent e) {
+        if (!machine.usesMouse()) return super.onTouchEvent(e);
+        final float k = dst.width() > 0 && bitmap != null ? bitmap.getWidth() / (float) dst.width() : 1f;
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                downX = lastX = e.getX();
+                downY = lastY = e.getY();
+                downTime = e.getEventTime();
+                moved = dragging = false;
+                maxPointers = 1;
+                fracX = fracY = 0;
+                removeCallbacks(release);
+                postDelayed(holdLeft, 450);
+                return true;
+            case MotionEvent.ACTION_POINTER_DOWN:
+                maxPointers = Math.max(maxPointers, e.getPointerCount());
+                removeCallbacks(holdLeft);
+                return true;
+            case MotionEvent.ACTION_MOVE: {
+                if (e.getPointerCount() > 1) return true;
+                float x = e.getX(), y = e.getY();
+                if (Math.abs(x - downX) + Math.abs(y - downY) > 10 * density) {
+                    if (!moved) removeCallbacks(holdLeft);
+                    moved = true;
+                }
+                fracX += (x - lastX) * k;
+                fracY += (y - lastY) * k;
+                lastX = x;
+                lastY = y;
+                int dx = (int) fracX, dy = (int) fracY;
+                fracX -= dx;
+                fracY -= dy;
+                if (moved && (dx != 0 || dy != 0)) Core.mouse(dx, dy, buttons);
+                return true;
+            }
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                removeCallbacks(holdLeft);
+                if (dragging) {
+                    dragging = false;
+                    buttons = 0;
+                    Core.mouse(0, 0, 0);
+                } else if (!moved && e.getActionMasked() == MotionEvent.ACTION_UP
+                        && e.getEventTime() - downTime < 350) {
+                    buttons = maxPointers > 1 ? 2 : 1;
+                    Core.mouse(0, 0, buttons);
+                    postDelayed(release, 90);
+                }
+                return true;
+            default:
+                return true;
+        }
+    }
 
     void setSmooth(boolean smooth) {
         paint.setFilterBitmap(smooth);

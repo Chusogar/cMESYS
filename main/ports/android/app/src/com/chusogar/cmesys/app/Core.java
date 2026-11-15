@@ -33,6 +33,8 @@ final class Core {
     static native void key(int code, boolean down);
     static native void keysClear();
     static native void joy(int port, int bits);
+    /** Mouse motion in picture pixels (added up until the next frame) and the buttons (1 left, 2 right). */
+    static native void mouse(int dx, int dy, int buttons);
     /** A file (in the app's cache, with its own name); null: loaded, otherwise why not. */
     static native String load(String path, int slot);
     static native void eject(int slot);

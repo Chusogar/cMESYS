@@ -14,6 +14,12 @@ static uint8_t keys[MC_KEYS];
 static uint32_t *frame;
 static int frame_px;
 
+// (the UI thread adds motion up; the emulation thread takes it each frame)
+static volatile int mouse_dx, mouse_dy;
+static volatile unsigned mouse_buttons;
+
+__attribute__((weak)) void mc_mouse(int dx, int dy, unsigned buttons) { (void)dx, (void)dy, (void)buttons; }
+
 JNIEXPORT jboolean JNICALL JNI_FN(init)(JNIEnv *env, jclass cls, jint model, jobjectArray roms, jlong unix_time)
 {
     (void)cls;
@@ -52,6 +58,10 @@ JNIEXPORT jint JNICALL JNI_FN(runFrame)(JNIEnv *env, jclass cls, jintArray pixel
     (void)cls;
     if (!ready) return 0;
     const int16_t *samples = NULL;
+    const int mdx = mouse_dx, mdy = mouse_dy;
+    mouse_dx -= mdx;
+    mouse_dy -= mdy;
+    mc_mouse(mdx, mdy, mouse_buttons);
     int n = mc_run_frame(keys, &samples);
     if (audio && samples && n > 0) {
         jsize cap = (*env)->GetArrayLength(env, audio);
@@ -85,6 +95,14 @@ JNIEXPORT void JNICALL JNI_FN(keysClear)(JNIEnv *env, jclass cls)
 {
     (void)env, (void)cls;
     memset(keys, 0, sizeof keys);
+}
+
+JNIEXPORT void JNICALL JNI_FN(mouse)(JNIEnv *env, jclass cls, jint dx, jint dy, jint buttons)
+{
+    (void)env, (void)cls;
+    mouse_dx += dx;
+    mouse_dy += dy;
+    mouse_buttons = (unsigned)buttons;
 }
 
 JNIEXPORT void JNICALL JNI_FN(joy)(JNIEnv *env, jclass cls, jint port, jint bits)

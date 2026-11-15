@@ -83,3 +83,7 @@ void atarist_eject(int drive);
 bool atarist_drive_light(void);
 const char *atarist_last_error(void);
 void atarist_set_turbo(bool on);
+
+// The key (and SHIFT) that types an ASCII character on the ST's (UK / US)
+// keyboard (0: none). For the typists of the boards and Android.
+int atarist_char_key(char c, bool *shift);

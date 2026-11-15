@@ -16,7 +16,7 @@
 #include "../common/comp_sd.h"
 #include "../common/comp_pico.h"
 
-#define X0 ((A8_W - PICO_W) / 2)
+#define X0 16                       // (the normal playfield: colour clocks 8..168)
 
 static atari8 *cpu_m;
 

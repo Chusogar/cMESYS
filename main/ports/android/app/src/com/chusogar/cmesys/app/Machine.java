@@ -28,6 +28,7 @@ abstract class Machine {
             case "lynx": return new Lynx();
             case "a2600": return new A2600();
             case "atari800xl": return new Atari8();
+            case "atarist": return new AtariST();
             default: throw new IllegalStateException("unknown machine " + MachineId.ID);
         }
     }
@@ -125,6 +126,9 @@ abstract class Machine {
     int[] keys(int keyCode) {
         return keymap.get(keyCode);
     }
+
+    /** The screen is a touchpad for the machine's mouse (Core.mouse). */
+    boolean usesMouse() { return false; }
 
     /** The character ROM for the keyboard picture (the C64's PETSCII fronts). */
     byte[] glyphRom(MachineActivity a) { return null; }

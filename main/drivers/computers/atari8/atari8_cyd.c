@@ -15,7 +15,7 @@
 #include "../common/comp_sd.h"
 #include "../common/comp_cyd.h"
 
-#define X0 ((A8_W - 320) / 2)
+#define X0 16                       // (the normal playfield: colour clocks 8..168)
 #define K_SHIFT 64                  // the typist's SHIFT (not an Atari scan code)
 
 static atari8 *cpu_m;

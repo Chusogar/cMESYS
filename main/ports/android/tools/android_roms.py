@@ -15,6 +15,7 @@ gen_roms_ql.py, written as plain binaries that the app gives its core.
   msx     roms/msx1/bios.rom, disk.rom; roms/msx2/bios.rom, sub.rom, disk.rom
   lynx    roms/boot.rom (roms/lynx)
   a2600   (none)
+  atarist roms/tos.img (roms/atarist: TOS 1.0x or EmuTOS)
   atari800xl roms/osxl.rom, roms/basic.rom, roms/os800.rom (roms/atari800xl)
 """
 import glob
@@ -132,6 +133,8 @@ def main():
         if os800 is not None and len(os800) >= 0x2800:
             write(os.path.join(out, "roms/os800.rom"), os800[:0x2800])
             found.append("roms/os800.rom")
+    elif machine == "atarist":
+        found = computers("atarist", os.path.join(roms, "atarist"), out, ["roms/tos.img"])
     elif machine == "a2600":
         found = []                      # (no ROMs: the cartridge is all)
     else:
