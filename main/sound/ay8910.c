@@ -98,7 +98,14 @@ void ay8910_write_reg(ay8910 *ay, uint8_t reg, uint8_t value)
         if (ay->count_n <= 0) ay->count_n = 1;
         break;
     case AY_ENABLE:
+        // (dsp-cpp: port A's output changes when its direction does; the
+        // Atari ST's drive and side select)
+        if (ay->port_a_write && (ay->last_enable == -1 || ((ay->last_enable ^ ay->regs[AY_ENABLE]) & 0x40)))
+            ay->port_a_write(ay->port_user, (ay->regs[AY_ENABLE] & 0x40) ? ay->regs[AY_PORTA] : 0xff);
         ay->last_enable = ay->regs[AY_ENABLE];
+        break;
+    case AY_PORTA:
+        if (ay->port_a_write) ay->port_a_write(ay->port_user, value);
         break;
     case AY_AVOL:
         ay->regs[AY_AVOL] &= 0x1f;

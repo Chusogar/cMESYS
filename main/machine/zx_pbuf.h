@@ -44,6 +44,8 @@ bool zx_pb_from_mem(zx_pbuf *pb, const uint8_t *data, size_t n);
 void zx_pb_take_flat(zx_pbuf *pb, uint8_t *data, size_t n);
 // A malloc'd contiguous copy of [off, off+n) (NULL: no memory / out of range)
 uint8_t *zx_pb_flatten(const zx_pbuf *pb, uint32_t off, uint32_t n);
+// Writes one byte (false: out of range, out of memory, or read from the card)
+bool zx_pb_poke(zx_pbuf *pb, uint32_t off, uint8_t v);
 void zx_pb_copy(const zx_pbuf *pb, uint32_t off, uint8_t *dst, uint32_t n);
 bool zx_pb_eq(const zx_pbuf *pb, uint32_t off, const char *text, uint32_t n);
 // The page of `off` if it is held (contiguous to the page end), else NULL
