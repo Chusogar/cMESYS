@@ -234,7 +234,7 @@ int main(int argc, char **argv)
             r.onload = function(){
                 var u8 = new Uint8Array(r.result);
                 if (typeof FS === 'undefined') return;
-                var name = (f.name || 'upload.bin').replace(/[^\w.\-]+/g, '_');
+                var name = (f.name || 'upload.bin').replace(/[^A-Za-z0-9_.-]+/g, '_');
                 var path = '/' + name;
                 FS.writeFile(path, u8);
                 if (Module.ccall) Module.ccall('zx_web_set_upload_path', null, ['string'], [path]);

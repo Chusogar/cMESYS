@@ -1,0 +1,6 @@
+# Hot code in IRAM (out of the flash cache)
+[mapping:a2600_hot]
+archive: libmain.a
+entries:
+    a2600_core (noflash)
+    tia (noflash)

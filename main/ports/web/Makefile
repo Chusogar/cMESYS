@@ -19,7 +19,7 @@ else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   D     := $(M)/drivers/computers/zxspec
 else ifeq ($(GAME),cpc6128)
   D     := $(M)/drivers/computers/cpc
-else ifneq ($(filter $(GAME),c64 lynx),)
+else ifneq ($(filter $(GAME),c64 lynx a2600),)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),msx1 msx2),)
   D     := $(M)/drivers/computers/msx
@@ -120,7 +120,7 @@ else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   LDFLAGS += -sFORCE_FILESYSTEM=1 \
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
-else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2),)
+else ifneq ($(filter $(GAME),cpc6128 c64 lynx a2600 msx1 msx2),)
   ifneq ($(filter $(GAME),msx1 msx2),)
     SRC := $(D)/msx_sdl.c $(D)/msx_core.c $(D)/rom_data_$(GAME).c $(M)/cpu/z80dsp/z80dsp.c $(M)/video/tms9918.c \
            $(M)/video/v9938.c $(M)/sound/ay8910.c $(M)/machine/msx_cart.c $(M)/machine/msx_disk.c $(M)/machine/zx_pbuf.c
@@ -130,6 +130,9 @@ else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2),)
   else ifeq ($(GAME),c64)
     SRC := $(D)/c64_sdl.c $(D)/c64_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/video/mos6569.c \
            $(M)/sound/sid6581.c $(M)/machine/mos6526.c $(M)/machine/c1541.c $(M)/machine/via6522.c $(M)/machine/zx_pbuf.c
+  else ifeq ($(GAME),a2600)
+    SRC := $(D)/a2600_sdl.c $(D)/a2600_core.c $(M)/cpu/m6502/m65xx.c $(M)/video/tia.c $(M)/machine/mos6532.c \
+           $(M)/machine/zx_pbuf.c
   else
     SRC := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/machine/zx_pbuf.c
   endif
@@ -139,12 +142,12 @@ else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2),)
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1 or msx2)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, a2600, msx1 or msx2)
 endif
 
 PORTSRC := $(M)/ports/web/sdl_port.c
 GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql \
-           spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2
+           spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx a2600 msx1 msx2
 
 $(OUT)/$(GAME).html: $(SRC) $(PORTSRC) $(wildcard $(PP)/*.inc) $(M)/ports/web/shell.html $(M)/ports/web/Makefile
 	@mkdir -p $(OUT)

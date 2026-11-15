@@ -163,7 +163,7 @@ static void comp_web_setup(const char *label, const char *accept)
             r.onload = function() {
                 var u8 = new Uint8Array(r.result);
                 if (typeof FS === 'undefined') return;
-                var path = '/' + (f.name || 'upload.bin').replace(/[^\w.\-]+/g, '_');
+                var path = '/' + (f.name || 'upload.bin').replace(/[^A-Za-z0-9_.-]+/g, '_');
                 FS.writeFile(path, u8);
                 if (Module.ccall) Module.ccall('zx_web_set_upload_path', null, ['string'], [path]);
                 if (Module._zx_web_notify_upload) Module._zx_web_notify_upload();
