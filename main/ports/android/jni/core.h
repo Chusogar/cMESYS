@@ -54,3 +54,6 @@ void mc_eject(int slot);
 void mc_turbo(bool on);
 int mc_status(void);
 void mc_command(int cmd);
+// The mouse (the Amiga's): motion in the machine's counts, buttons held
+// (bit 0 left, bit 1 right). Machines without one need not define it.
+void mc_mouse(int dx, int dy, unsigned buttons);

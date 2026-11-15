@@ -128,6 +128,33 @@ MACHINES = {
         pad="la cruceta, A y B de la consola (X / Y también A / B), L1 / R1 = OPTION 1 / 2 y SELECT = PAUSE",
         start="<p>Abre un cartucho en <b>Cartucho</b>: la consola se reinicia y lo arranca.</p>",
         credits="núcleo Lynx migrado de dsp-cpp (del emulador DSP)"),
+    "amiga": dict(
+        title="cMESYS Amiga",
+        intro="Commodore Amiga 500 (PAL, OCS) con el núcleo Amiga de cMESYS (migrado de dsp-cpp): 68000, "
+              "Agnus, Denise y Paula (copper, blitter, sprites, HAM, los cuatro canales de sonido con los filtros "
+              "del A500), las dos CIA 8520, 512 KB de chip RAM y 512 KB de slow RAM, dos disqueteras (DF0 y DF1) "
+              "y el teclado con su protocolo serie.",
+        media=("Discos", "Meter un disco <code>.adf</code> en DF0 o en DF1 (la unidad externa), cambiarlo o "
+               "expulsarlo. Para los juegos de varios discos, cambia el de DF0 cuando el juego lo pida."),
+        reset="Reset (como Ctrl + Amiga + Amiga).",
+        settings="Kickstart (1.3, 1.2, 2.04 o 3.1)",
+        keys=("Teclas Amiga", "Ctrl + Amiga + Amiga, ESC, HELP, F1, F10, Amiga + M / N…"),
+        keyboard="una foto de un A500 español",
+        same="la tecla pulsada se hunde como en los teclados de dsp-cpp",
+        mods="<kbd>Mayúsculas</kbd>, <kbd>Ctrl</kbd>, <kbd>Alt</kbd> y las teclas <kbd>Amiga</kbd>",
+        physical="Las teclas del PC son las del Amiga por su posición; Windows (o RePág / AvPág) = Amiga izq. / "
+                 "dcha., Fin = HELP, Insert = \\ |, Bloq Num / Bloq Despl = ( ) del bloque numérico.",
+        pad="el joystick (puerto 2), con el disparo en A y X, o los cursores",
+        extra="""<h2>Ratón</h2>
+<p>La imagen es un <b>trackpad</b> para el ratón del Amiga: un dedo que se mueve mueve el puntero; un
+toque es un clic con el botón izquierdo (dos toques, doble clic); tocar y volver a tocar y mover arrastra
+con el botón izquierdo pulsado; un segundo dedo es el botón derecho mientras está apoyado (los menús de
+Workbench: mantenlo y mueve el primero). Un ratón USB o Bluetooth también vale.</p>
+""",
+        start="<p>El Kickstart pide un disco (la mano con el disquete): mete uno en DF0 en <b>Discos</b> y "
+              "arranca solo.</p>",
+        kbcredit="Teclado en pantalla: foto de un Amiga 500 español.",
+        credits="núcleo Amiga migrado de dsp-cpp (del emulador DSP), 68000 de Musashi (Karl Stenerud)"),
 }
 
 
@@ -165,18 +192,18 @@ pantalla o con <kbd>START</kbd> de un mando. Mientras está abierto la máquina 
 </table>
 
 <h2>Teclado en pantalla</h2>
-<p>Es {d["keyboard"]}: el mismo de dsp-cpp, y la tecla pulsada se hunde. Admite varios dedos a la vez.
+<p>Es {d["keyboard"]}: {d.get("same", "el mismo de dsp-cpp, y la tecla pulsada se hunde")}. Admite varios dedos a la vez.
 {mods}<kbd>MENÚ</kbd> abre el menú y <kbd>▼</kbd> oculta el teclado.</p>
 
 <h2>Teclado físico y mandos</h2>
 <p>{d["physical"]} La cruceta y los botones de un mando hacen de {d["pad"]}, según los ajustes.</p>
 
-<h2>Al arrancar</h2>
+{d.get("extra", "")}<h2>Al arrancar</h2>
 {d["start"]}
 <p>Un archivo también se puede abrir con la app desde un gestor de archivos (<i>Abrir con</i>).</p>
 
 <h2>Créditos</h2>
-<p>cMESYS (Chusogar): {d["credits"]}. Teclados en pantalla de dsp-cpp.
+<p>cMESYS (Chusogar): {d["credits"]}. {d.get("kbcredit", "Teclados en pantalla de dsp-cpp.")}
 Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
 </body></html>
 """

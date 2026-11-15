@@ -20,6 +20,9 @@ static bool held[SDL_NUM_SCANCODES];
 static int presses[32], np;
 static char *drops[8];
 static int ndrops;
+static bool mouse_on, captured;
+static int mouse_dx, mouse_dy;
+static uint32_t mouse_buttons;
 
 // ---------------------------------------------------------------------------
 // --mute / --sound / --scale N
@@ -144,6 +147,66 @@ char *sdl_port_next_drop(void)
     return p;
 }
 
+// ---------------------------------------------------------------------------
+// Mouse: captured by a click, let go by the middle button or losing focus
+// ---------------------------------------------------------------------------
+static void set_capture(bool on)
+{
+    if (captured == on) return;
+    captured = on;
+    SDL_SetRelativeMouseMode(on ? SDL_TRUE : SDL_FALSE);
+    mouse_dx = mouse_dy = 0;
+    mouse_buttons = 0;
+}
+
+static bool mouse_event(const SDL_Event *e)
+{
+    switch (e->type) {
+    case SDL_MOUSEMOTION:
+        if (captured) {
+            mouse_dx += e->motion.xrel;
+            mouse_dy += e->motion.yrel;
+        }
+        return true;
+    case SDL_MOUSEBUTTONDOWN:
+        if (!captured) {
+            if (e->button.button == SDL_BUTTON_LEFT) set_capture(true);   // (the capturing click is not passed on)
+        } else if (e->button.button == SDL_BUTTON_MIDDLE) {
+            set_capture(false);
+        } else if (e->button.button == SDL_BUTTON_LEFT) {
+            mouse_buttons |= 1;
+        } else if (e->button.button == SDL_BUTTON_RIGHT) {
+            mouse_buttons |= 2;
+        }
+        return true;
+    case SDL_MOUSEBUTTONUP:
+        if (e->button.button == SDL_BUTTON_LEFT) mouse_buttons &= ~1u;
+        else if (e->button.button == SDL_BUTTON_RIGHT) mouse_buttons &= ~2u;
+        return true;
+    case SDL_WINDOWEVENT:
+        if (e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) set_capture(false);
+        return false;
+    default:
+        return false;
+    }
+}
+
+void sdl_port_mouse_enable(bool on)
+{
+    mouse_on = on;
+    if (!on) set_capture(false);
+}
+
+uint32_t sdl_port_mouse(int *dx, int *dy)
+{
+    if (dx) *dx = mouse_dx;
+    if (dy) *dy = mouse_dy;
+    mouse_dx = mouse_dy = 0;
+    return captured ? mouse_buttons : 0;
+}
+
+bool sdl_port_mouse_captured(void) { return captured; }
+
 bool sdl_port_poll(bool *reset)
 {
     SDL_Event e;
@@ -157,6 +220,7 @@ bool sdl_port_poll(bool *reset)
             }
             continue;
         }
+        if (mouse_on && mouse_event(&e)) continue;
         if (e.type != SDL_KEYDOWN && e.type != SDL_KEYUP) continue;
         bool dn = e.type == SDL_KEYDOWN;
         SDL_Scancode sc = e.key.keysym.scancode;

@@ -1,0 +1,1 @@
+Kickstart: the MAME a500 set (a500.zip) or 315093-02.u2 / kick13.rom (256 KB); then tools/regen.sh amiga

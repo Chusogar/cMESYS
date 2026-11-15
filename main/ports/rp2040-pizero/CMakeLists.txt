@@ -7,7 +7,8 @@
 #
 # or ./build_pico.sh for all of them (-> dist/). GAME: indytemp, roadrunn,
 # gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql,
-# spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion.
+# spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2,
+# amiga (RP2350 only: its RAM is in the PSRAM).
 cmake_minimum_required(VERSION 3.13)
 
 get_filename_component(PORT_DIR "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
@@ -48,7 +49,7 @@ endif()
 pico_sdk_init()
 
 if(NOT GAME)
-    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2>")
+    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga>")
 endif()
 # HDMI: PicoDVI on the RP2040; on the RP2350 rp2350/hdmi (pico_lib's DVI,
 # which also sends the sound to the TV, in data islands)
@@ -71,7 +72,7 @@ elseif(GAME IN_LIST ZX_GAMES)
     set(IS_ZXSPEC 1)
 elseif(GAME STREQUAL "cpc6128")
     set(D ${M}/drivers/computers/cpc)
-elseif(GAME STREQUAL "c64" OR GAME STREQUAL "lynx")
+elseif(GAME STREQUAL "c64" OR GAME STREQUAL "lynx" OR GAME STREQUAL "amiga")
     set(D ${M}/drivers/computers/${GAME})
 elseif(GAME STREQUAL "msx1" OR GAME STREQUAL "msx2")
     set(D ${M}/drivers/computers/msx)
@@ -168,6 +169,14 @@ elseif(GAME STREQUAL "msx1" OR GAME STREQUAL "msx2")
              ${M}/machine/msx_disk.c ${M}/machine/zx_pbuf.c)
     set(DEFS MSX_MODEL=${MSX_N})
     set(RAM_CODE z80dsp.c.o msx_core.c.o tms9918.c.o v9938.c.o ay8910.c.o msx_cart.c.o)
+elseif(GAME STREQUAL "amiga")
+    if(NOT PIZERO STREQUAL "2350")
+        message(FATAL_ERROR "amiga: the RP2350-PiZero only (-DPIZERO=2350): its 1 MB of RAM goes in the PSRAM")
+    endif()
+    set(SRCS ${D}/amiga_pico.c ${D}/amiga_core.c ${D}/amiga_chipset.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c ${M68K})
+    set(DEFS M68K_FLASH_TABLES)
+    set(RAM_CODE m68kcpu.c.o amiga_core.c.o amiga_chipset.c.o)
+    set(HOT_MAX 120)                # (the hottest 68000 handlers of amiga.lf)
 elseif(GAME STREQUAL "lynx")
     set(SRCS ${D}/lynx_pico.c ${D}/lynx_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c
              ${M}/machine/zx_pbuf.c)     # (cpu/m6502/m65xx.c is compiled inside lynx_core.c)

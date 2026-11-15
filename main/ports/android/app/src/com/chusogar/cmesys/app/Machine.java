@@ -26,6 +26,7 @@ abstract class Machine {
             case "c64": return new C64();
             case "msx": return new Msx();
             case "lynx": return new Lynx();
+            case "amiga": return new Amiga();
             default: throw new IllegalStateException("unknown machine " + MachineId.ID);
         }
     }
@@ -123,6 +124,12 @@ abstract class Machine {
     int[] keys(int keyCode) {
         return keymap.get(keyCode);
     }
+
+    /** A mouse: touching the picture moves it as a trackpad (Trackpad). */
+    boolean usesMouse() { return false; }
+
+    /** The machine's picture width the mouse moves over (pixels). */
+    int mouseWidth() { return 320; }
 
     /** The character ROM for the keyboard picture (the C64's PETSCII fronts). */
     byte[] glyphRom(MachineActivity a) { return null; }

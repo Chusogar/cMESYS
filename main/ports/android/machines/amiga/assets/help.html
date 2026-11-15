@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS Amiga</h1>
+<p>Commodore Amiga 500 (PAL, OCS) con el núcleo Amiga de cMESYS (migrado de dsp-cpp): 68000, Agnus, Denise y Paula (copper, blitter, sprites, HAM, los cuatro canales de sonido con los filtros del A500), las dos CIA 8520, 512 KB de chip RAM y 512 KB de slow RAM, dos disqueteras (DF0 y DF1) y el teclado con su protocolo serie.</p>
+
+<h2>Menú</h2>
+<p>Se abre con <kbd>Atrás</kbd>, con el icono de la esquina, con el botón <kbd>MENÚ</kbd> del teclado en
+pantalla o con <kbd>START</kbd> de un mando. Mientras está abierto la máquina se detiene.</p>
+<table>
+<tr><td><b>Discos</b></td><td>Meter un disco <code>.adf</code> en DF0 o en DF1 (la unidad externa), cambiarlo o expulsarlo. Para los juegos de varios discos, cambia el de DF0 cuando el juego lo pida.</td></tr>
+<tr><td><b>Reset</b></td><td>Reset (como Ctrl + Amiga + Amiga).</td></tr>
+<tr><td><b>Pausa</b></td><td>Detiene la máquina hasta volver a pulsarlo.</td></tr>
+<tr><td><b>Ajustes</b></td><td>Kickstart (1.3, 1.2, 2.04 o 3.1); pantalla, teclado, mando y sonido.</td></tr>
+<tr><td><b>Teclado</b></td><td>Muestra u oculta el teclado en pantalla.</td></tr>
+<tr><td><b>Velocidad</b></td><td>Turbo: la máquina va tan rápido como puede (sin sonido).</td></tr>
+<tr><td><b>Pantalla</b></td><td>Proporción del monitor, píxeles cuadrados, pantalla completa o múltiplo entero.</td></tr>
+<tr><td><b>Teclas Amiga</b></td><td>Ctrl + Amiga + Amiga, ESC, HELP, F1, F10, Amiga + M / N…</td></tr>
+<tr><td><b>Recientes</b></td><td>Los últimos archivos abiertos.</td></tr>
+<tr><td><b>Expulsar</b></td><td>Saca lo que se pueda sacar (o para la cinta).</td></tr>
+</table>
+
+<h2>Teclado en pantalla</h2>
+<p>Es una foto de un A500 español: la tecla pulsada se hunde como en los teclados de dsp-cpp. Admite varios dedos a la vez.
+<kbd>Mayúsculas</kbd>, <kbd>Ctrl</kbd>, <kbd>Alt</kbd> y las teclas <kbd>Amiga</kbd> se quedan pulsadas para la tecla siguiente; dos toques seguidos las bloquean (hundidas y rojizas) hasta volver a tocarlas. <kbd>MENÚ</kbd> abre el menú y <kbd>▼</kbd> oculta el teclado.</p>
+
+<h2>Teclado físico y mandos</h2>
+<p>Las teclas del PC son las del Amiga por su posición; Windows (o RePág / AvPág) = Amiga izq. / dcha., Fin = HELP, Insert = \ |, Bloq Num / Bloq Despl = ( ) del bloque numérico. La cruceta y los botones de un mando hacen de el joystick (puerto 2), con el disparo en A y X, o los cursores, según los ajustes.</p>
+
+<h2>Ratón</h2>
+<p>La imagen es un <b>trackpad</b> para el ratón del Amiga: un dedo que se mueve mueve el puntero; un
+toque es un clic con el botón izquierdo (dos toques, doble clic); tocar y volver a tocar y mover arrastra
+con el botón izquierdo pulsado; un segundo dedo es el botón derecho mientras está apoyado (los menús de
+Workbench: mantenlo y mueve el primero). Un ratón USB o Bluetooth también vale.</p>
+<h2>Al arrancar</h2>
+<p>El Kickstart pide un disco (la mano con el disquete): mete uno en DF0 en <b>Discos</b> y arranca solo.</p>
+<p>Un archivo también se puede abrir con la app desde un gestor de archivos (<i>Abrir con</i>).</p>
+
+<h2>Créditos</h2>
+<p>cMESYS (Chusogar): núcleo Amiga migrado de dsp-cpp (del emulador DSP), 68000 de Musashi (Karl Stenerud). Teclado en pantalla: foto de un Amiga 500 español.
+Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
+</body></html>

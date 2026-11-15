@@ -38,4 +38,6 @@ final class Core {
     static native void turbo(boolean on);
     static native int status();
     static native void command(int cmd);
+    /** The mouse (the Amiga's): motion in the machine's counts, buttons held (bit 0 left, bit 1 right). */
+    static native void mouse(int dx, int dy, int buttons);
 }

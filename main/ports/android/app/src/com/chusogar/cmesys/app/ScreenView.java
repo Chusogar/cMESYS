@@ -57,6 +57,9 @@ final class ScreenView extends View implements Emulator.Screen {
 
     void setScale(String s) { scale = s; invalidate(); }
 
+    /** The picture's width on the screen (pixels; 0: not drawn yet). */
+    int pictureWidth() { return dst.width(); }
+
     void setSmooth(boolean smooth) {
         paint.setFilterBitmap(smooth);
         invalidate();

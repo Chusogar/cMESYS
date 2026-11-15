@@ -1,6 +1,6 @@
 # Arcades y ordenadores (Sinclair, Amstrad, Commodore, MSX, Atari Lynx) para ESP32 CYD (ST7789), RP2040/RP2350-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
 
-Veintitrés máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clones, el Amstrad CPC 6128, el Commodore 64, el MSX, el MSX2 y la Atari Lynx) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
+Veinticuatro máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clones, el Amstrad CPC 6128, el Commodore 64, el MSX, el MSX2, la Atari Lynx y el Commodore Amiga 500) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -26,6 +26,7 @@ Veintitrés máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clon
 | MSX (1983) — ordenador | `msx1` | Z80 | AY-3-8910 (+ SCC) | dsp-cpp `msx1.cpp` → `drivers/computers/msx/msx_core.c` (TMS9918) |
 | MSX2 (1985) — ordenador | `msx2` | Z80 | AY-3-8910 (+ SCC) | dsp-cpp `msx2.cpp` → `drivers/computers/msx/msx_core.c` (V9938) |
 | Atari Lynx (1989) — consola portátil | `lynx` | 65C02 | Mikey (4 canales) | dsp-cpp `atari_lynx.cpp` + `lynx_mikey` + `lynx_suzy` → `drivers/computers/lynx/lynx_core.c` |
+| Commodore Amiga 500 (PAL, OCS, 1987) — ordenador (no en la CYD: necesita PSRAM) | `amiga` | 68000 | Paula (4 canales) | dsp-cpp `amiga.cpp` + `amiga_chipset` + `cia8520` + `amiga_adf` → `drivers/computers/amiga/amiga_core.c` + `amiga_chipset.c` |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
 
 Cada firmware lleva una sola máquina (el del QL lleva también un cartucho de microdrive; los Spectrum cargan cintas, snapshots, RZX y discos (ver «ZX Spectrum: migración de dsp-cpp») desde microSD, arrastrar-y-soltar, diálogo o barra web, igual que el menú de cartucho del QL). Las ROMs van dentro. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
@@ -324,7 +325,7 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o … / polepos / polepos2 / ql / spectrum48 / … / scorpion / cpc6128 / c64 / lynx / msx1 / msx2; "make all" -> build/sdl/<juego>
+make GAME=indytemp        # o … / polepos / polepos2 / ql / spectrum48 / … / scorpion / cpc6128 / c64 / lynx / msx1 / msx2 / amiga; "make all" -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
 ./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ./build/sdl/gauntlet      # ROMs incluidas
@@ -386,14 +387,14 @@ python3 -m http.server --directory build/web 8080
 # http://localhost:8080/  → index; http://localhost:8080/robocop.html
 ```
 
-Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum, CPC, C64, MSX y Lynx: barra «Upload» (todos sus formatos), drag&drop o F9; F12 = TURBO. `?frames=n` en la URL corta tras n frames.
+Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum, CPC, C64, MSX y Lynx: barra «Upload» (todos sus formatos), drag&drop o F9; F12 = TURBO. En el Amiga: barra «Upload» o drag&drop de un `.adf` (a DF0), F11 menú, F12 TURBO, y un clic en la imagen captura el ratón (*pointer lock*; el botón central lo suelta). `?frames=n` en la URL corta tras n frames.
 
 ## Android (ordenadores y arcades)
 
-Los drivers de ordenadores como apps de Android, una por máquina, todas con la interfaz de Hataroid del QL (menú de iconos inferior, ajustes, medios desde los archivos del teléfono, *Abrir con*) y con el teclado en pantalla de dsp-cpp (la foto del QL, el 48K, el CPC 464, el C64 con sus PETSCII; MSX y la Lynx dibujados al mismo estilo). Y los 11 arcades en una app, **cMESYS Arcade**, con la lista de juegos como MAME para Android, cada juego con su frontend de escritorio tal cual (sobre `sdl_port.h` para Android) y controles en pantalla: joystick de bola roja, los botones del juego, START y un monedero con la animación de la moneda. Se compilan sin Android Studio ni NDK; ver `main/ports/android/README.md`.
+Los drivers de ordenadores como apps de Android, una por máquina, todas con la interfaz de Hataroid del QL (menú de iconos inferior, ajustes, medios desde los archivos del teléfono, *Abrir con*) y con el teclado en pantalla de dsp-cpp (la foto del QL, el 48K, el CPC 464, el C64 con sus PETSCII; MSX y la Lynx dibujados al mismo estilo; el Amiga, la foto de un A500 español, con la imagen como trackpad del ratón). Y los 11 arcades en una app, **cMESYS Arcade**, con la lista de juegos como MAME para Android, cada juego con su frontend de escritorio tal cual (sobre `sdl_port.h` para Android) y controles en pantalla: joystick de bola roja, los botones del juego, START y un monedero con la animación de la moneda. Se compilan sin Android Studio ni NDK; ver `main/ports/android/README.md`.
 
 ```
-main/ports/android/build_apk.sh       # → dist/{ql,zxspec,cpc,c64,msx,lynx}_android.apk (arm64-v8a y x86_64)
+main/ports/android/build_apk.sh       # → dist/{ql,zxspec,cpc,c64,msx,lynx,amiga}_android.apk (arm64-v8a y x86_64)
 main/ports/android/build_arcade.sh    # → dist/arcade_android.apk (los 11 arcades)
 ```
 
@@ -462,8 +463,8 @@ Firmware para la [Waveshare RP2350-PiZero](https://www.waveshare.com/wiki/RP2350
 | HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz desde una imagen de 320x240. Aquí la imagen se guarda entera (150 KB, y otra de 150 KB si cabe en la SRAM dejando 48 KB libres; las líneas TMDS siempre en SRAM, nunca en la PSRAM): las filas salen al HDMI desde la interrupción de su DMA (un callback de línea en el `DVI` de pico_lib, `rp2350/hdmi`), y el núcleo 1 dibuja con el mismo callback de la RP2040 la imagen siguiente en la de atrás; se cambian arriba de la pantalla. Un juego que dibuja despacio enseña menos imágenes por segundo, nunca líneas rojas ni cortes. Si no caben dos (OutRun, Puzzle Bobble, el QL), dibuja sobre la que se ve: alguna línea de corte, como en el CYD |
 | Mandos | puerto PIO-USB: D+ 28, D- 29 | teclado USB y/o mando HID (también por un hub). El USB-C nativo es para alimentar y flashear. El frame de 1 ms del PIO-USB va en `rp2350/usb_frame.c`, con un arreglo para la errata RP2350-E9 (con las entradas siempre activas las líneas D+/D- se quedan altas y no se ve el teclado; afecta a las revisiones A2 y A3). `USB=native ./build_pico2.sh` → `dist/<juego>_rp2350_pizero_usbc.uf2`: el teclado en el USB-C nativo, como en la RP2040 (alimentando la placa con un cable OTG/Y) |
 | Sonido | por el HDMI (la tele) | 44,1 kHz en las *data islands* del HDMI (pico_lib de Shuichi Takano / Frank Hoedemakers, MIT); el sonido del juego se remuestrea y va igual a los dos canales |
-| microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL, los Spectrum, el CPC, el C64, los MSX y la Lynx cargan de ella con el menú en pantalla (F9) |
-| PSRAM | QMI CS1 = GPIO47 | la placa trae solo el hueco para soldarla (la de prueba no la tiene: "PSRAM: 0 KB" al arrancar). Si hay una, el heap sigue en ella cuando se llena la SRAM. Los ordenadores usan una sola imagen de 150 KB (no dos) para dejar RAM a discos y cintas; los .trd/.scl se leen de la tarjeta pista a pista |
+| microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL, los Spectrum, el CPC, el C64, los MSX y la Lynx cargan de ella con el menú en pantalla (F9), el Amiga sus `.adf` (F11) |
+| PSRAM | QMI CS1 = GPIO47 | la placa trae solo el hueco para soldarla (la de prueba no la tiene: "PSRAM: 0 KB" al arrancar). Si hay una, el heap sigue en ella cuando se llena la SRAM. Los ordenadores usan una sola imagen de 150 KB (no dos) para dejar RAM a discos y cintas; los .trd/.scl se leen de la tarjeta pista a pista. **El Amiga la necesita** (su chip y slow RAM, 1 MB, y cada disco, 880 KB, van en ella; sin PSRAM avisa en pantalla) |
 | Log | UART0: TX GPIO0 | 115200 baudios |
 
 Las teclas y los menús son los de la RP2040 (arriba). Para compilar: `tools/setup_pico.sh` (ahora también baja Pico-PIO-USB) y `./build_pico2.sh` (todas) o `./build_pico2.sh ql spectrum128` → `dist/<juego>_rp2350_pizero.uf2`. Para flashear: BOOT al enchufar el USB-C nativo, aparece la unidad `RP2350` y se copia el `.uf2`. **No está probado en una placa real** (como el de dsp-cpp): compila con el SDK 2.1.1, pero el simulador rp2040js no emula el RP2350.
@@ -601,6 +602,23 @@ Las ROMs salen de [RetroPieBIOS](https://github.com/archtaurus/RetroPieBIOS/tree
 **Placas**: al cargar un fichero se libera antes el cartucho o la cinta que sustituye (no caben dos). La VRAM del TMS9918 solo se reserva en el MSX1. En la RP2350 (sin PSRAM, 280 KB de montón) el MSX2 escribe sus líneas directamente en la imagen de la HDMI (`pico_port_fb_row`, nuevo), sin imagen propia. Un cartucho que no cabe en la memoria se lee de la microSD según se usa, con tanta caché como quepa, de 32 KB (16 KB en el CYD) para abajo (`zx_pb_open_lazy_n`, nuevo). Con 64 KB de RAM y 128 KB de VRAM, al MSX2 de la RP2350 le quedan unos 50 KB: casi todos los megaROM van por la tarjeta. En la pantalla de 320×240 los modos de 512 puntos (SCREEN 6, 7 y WIDTH 80) se muestran a media anchura (de cada pareja de puntos, el que no es fondo): WIDTH 80 no se lee bien. En QEMU el CYD va a 49 fps con el 40-47 % de un núcleo.
 
 **Probado** (escritorio y frontend de la RP2350 en el PC): arranque de MSX BASIC 1.0 y 2.1 con Disk BASIC; SCREEN 2, 5, 7 y 8 y WIDTH 80 desde BASIC; cartuchos homebrew (Corridor Runner 32 KB, Rally 48 KB desde $0000, Go Penguin ASCII16 de 288 KB, demos de SCREEN 5 y sprites para MSX2); cintas `.cas` ASCII y binaria; un `.dsk` de 720 KB con AUTOEXEC.BAS y un fichero en la pista 78, en MSX y MSX2. Un disco japonés (Block Breaker) termina en «Out of DATA» con estas BIOS internacionales. **No probado en placas reales**; la web no se ha compilado aquí (falta `emcc`).
+
+## Commodore Amiga 500: migración de dsp-cpp
+
+El Amiga 500 de dsp-cpp (`amiga.cpp`, `amiga_chipset`, `cia8520`, `amiga_adf`) pasado a C sobre Musashi: `drivers/computers/amiga/amiga_core.c` (el 68000, el mapa de memoria, las dos CIA 8520, las disqueteras, teclado, ratón y joystick, los filtros de sonido del A500) y `amiga_chipset.c` (Agnus, Denise y Paula: copper, blitter con modo línea y relleno, bitplanos lores / hires, dual playfield, HAM, EHB, los 8 sprites, DMA de disco y los cuatro canales de audio). Frontends para escritorio (Linux / Windows), web, RP2350-PiZero (no RP2040 ni CYD: no tienen dónde poner 1 MB de RAM) y Android.
+
+| | |
+|---|---|
+| Máquina | A500 PAL: 68000 a 7,09 MHz, 512 KB de chip RAM + 512 KB de slow RAM (`$C00000`), 313 líneas de 454 ciclos, 50 Hz |
+| Kickstart (`roms/amiga/`) | el set `a500` de MAME tal cual (el `.zip` vale): `315093-02.u2` (1.3) se mete en `rom_data.c` con `tools/regen.sh amiga`. En el escritorio, `--kick fichero.rom` arranca con otro (1.2, 2.04 y 3.1 probados); en Android se elige en los ajustes |
+| Discos | `.adf` (11 sectores por pista, 80 cilindros, una o dos caras) en DF0 y DF1 (la unidad externa, que aparece al meterle un disco). Solo lectura |
+| Imagen | 320×256 (la ventana PAL), RGB565 |
+
+**Lo añadido a dsp-cpp**: el **teclado** (dsp-cpp no tiene): el procesador del teclado del A500 manda cada código por el puerto serie de la CIA-A (rotado e invertido, con la interrupción SP) y espera el *handshake* del Amiga antes del siguiente; Caps Lock se queda bloqueada y Ctrl + Amiga + Amiga hace reset. El **DMA de disco** empieza donde está el disco girando (300 rpm) y, con WORDSYNC (ADKCON bit 10; dsp-cpp miraba el bit 8), justo después de la palabra de sincronía: sin eso los cargadores propios de muchos juegos (Shadow of the Beast) no pasan de la primera pista. **HPOS** (VHPOSR) sale del ciclo de la CPU en la línea (dsp-cpp da siempre `$80` y el Kickstart 3.1 se queda esperando). Las CIA y Paula se ponen al día con la CPU antes de cada acceso a ellas y al final de cada tramo de un cuarto de línea; las interrupciones cambian entre instrucciones.
+
+**Teclas** (escritorio, web y RP2350 con teclado USB): por posición (la distribución del A500 español es la del PC español). F1-F10 son los del Amiga; Windows izq. / RePág = Amiga izq., Windows dcha. / Menú / AvPág = Amiga dcha., Fin = HELP, Insert = `\ |`, Bloq Num / Bloq Despl = `(` `)` del bloque numérico. Joystick (puerto 2): teclado numérico 8 4 6 2 (7 9 1 3 diagonales), disparo 0 / 5 / Ctrl dcho. (en el menú se cambia a las teclas del bloque numérico). **F11** menú (disco en DF0 / DF1, expulsar, reset, teclado numérico), **F12** TURBO. **Ratón**: en el escritorio un clic en la ventana lo captura (modo relativo) y el botón central lo suelta; en la RP2350 un ratón USB; en Android la imagen es un trackpad (un dedo mueve, toque = clic, toque + toque y mover = arrastrar, segundo dedo = botón derecho). En la RP2350 un mando USB es el joystick.
+
+Probado en el escritorio con el Kickstart 1.3 (pantalla del disquete; 2.04 y 3.1 con `--kick`), **Shadow of the Beast** (disco 1: menú del *trainer* con el ratón, cargador propio, la intro con sus imágenes y la petición del disco 2 con el disparo del joystick), **North & South** (selección de idioma con el ratón, presentación, el mapa) y un disco de prueba que lee el teclado. Pruebas sin ventana: `AMIGA_INPUT="900:m0/100,920:b1,930:b0,6000:j16"` (fotograma: `j` joystick, `k`/`u` tecla abajo/arriba en hex, `m` movimiento del ratón, `b` botones) con `SDL_PORT_FRAMES` / `SDL_PORT_SHOT`. En la RP2350 compila (`./build_pico2.sh amiga`, la chip RAM y los discos en la PSRAM, el Kickstart en la flash, los 120 manejadores de 68000 más usados en RAM: `amiga.lf`, medidos con Beast y North & South) y funciona con `PORT=picohost`, pero **no está probado en la placa**: puede no llegar a 50 fps. La versión web no se ha compilado aquí (falta `emcc`).
 
 ## Atari System 1: Indy y Road Runner
 
