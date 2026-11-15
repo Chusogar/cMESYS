@@ -18,9 +18,13 @@ pantalla de dsp-cpp:
 | `dist/c64_android.apk` | Commodore 64 con la 1541 | el de dsp-cpp (`gen_c64_vkb.py`), con los PETSCII de la ROM |
 | `dist/msx_android.apk` | MSX1 y MSX2 (con la ROM de disco) | dibujado aquí al estilo de dsp-cpp (`tools/gen_msx_vkb.py`) |
 | `dist/lynx_android.apk` | Atari Lynx | los mandos de la consola al estilo de dsp-cpp (`tools/gen_lynx_vkb.py`) |
+| `dist/a2600_android.apk` | Atari 2600 / VCS | joystick, FUEGO, SELECT y RESET al estilo de dsp-cpp (`tools/gen_a2600_vkb.py`) |
+| `dist/atari800xl_android.apk` | Atari 800XL y 400/800 (AltirraOS y Altirra BASIC, o las ROM de Atari) | dibujado aquí al estilo de dsp-cpp (`tools/gen_atari8_vkb.py`) |
+| `dist/atarist_android.apk` | Atari ST, 1 MB o 512 KB (EmuTOS, o TOS 1.0x) | el de Hataroid que trae dsp-cpp (`tools/import_st_keyboard.py`); la pantalla es el ratón, como un touchpad |
 
-dsp-cpp no tiene teclado de MSX ni mandos de Lynx: los dibujan
-`gen_msx_vkb.py` y `gen_lynx_vkb.py` con el mismo `vkb_common.py` de dsp-cpp
+dsp-cpp no tiene teclado de MSX ni de Atari de 8 bits ni mandos de Lynx o 2600:
+los dibujan `gen_msx_vkb.py`, `gen_atari8_vkb.py`, `gen_lynx_vkb.py` y
+`gen_a2600_vkb.py` con el mismo `vkb_common.py` de dsp-cpp
 (copiado en `tools/`) y el mismo estilo (teclas esculpidas, sin logotipos).
 
 ## La interfaz (igual en todas)
@@ -86,7 +90,7 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | | |
 |---|---|
 | `jni/core.h`, `jni/core_jni.c` | lo que da cada máquina y las llamadas de `Core` (frames, imagen ARGB, sonido, teclas, joystick, medios) |
-| `jni/m_ql.c` … `m_lynx.c` | cada máquina sobre su núcleo de `main/drivers/computers` |
+| `jni/m_ql.c` … `m_lynx.c`, `m_a2600.c`, `m_atari8.c`, `m_atarist.c` | cada máquina sobre su núcleo de `main/drivers/computers` |
 | `jni/libc/` | cabeceras mínimas de bionic para compilar sin el NDK |
 | `app/src/.../MachineActivity.java` | pantalla, teclado, menú, medios, teclado físico y mandos |
 | `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |
@@ -96,7 +100,8 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | `app/src/.../SoftMenu.java` | menú a lo Hataroid (barra de iconos y listas) |
 | `machines/<máquina>/` | recursos de cada APK: nombre, ajustes, lanzador, teclado, ayuda |
 | `tools/import_dsp_keyboards.py` | los teclados de dsp-cpp (`*_vkb_data.inc`) → `keyboard.png` + `keyboard.txt` |
-| `tools/gen_msx_vkb.py`, `gen_lynx_vkb.py` | los teclados de MSX y Lynx |
+| `tools/gen_msx_vkb.py`, `gen_lynx_vkb.py`, `gen_a2600_vkb.py`, `gen_atari8_vkb.py` | los teclados de MSX, Lynx, 2600 y 800XL |
+| `tools/import_st_keyboard.py` | el teclado del ST de dsp-cpp (`atari_st_vkb_data.inc`) |
 | `tools/android_roms.py` | las ROM de cada máquina para el APK |
 | `tools/make_icons.py`, `make_help.py` | iconos, lanzadores y ayuda |
 
