@@ -1,5 +1,5 @@
-// atarist_cyd.c - Atari ST on the ESP32 CYD (common/comp_cyd.h): 256 KB of
-// RAM (what the ESP32 has room for; TOS told it is already sized, as after
+// atarist_cyd.c - Atari ST on the ESP32 CYD (common/comp_cyd.h): 128-256 KB
+// of RAM (what the ESP32 has room for; TOS told it is already sized, as after
 // a warm reset), the picture as 320x200 (low resolution as it is, medium
 // and high halved) in the middle of the panel. TOS built in (roms/atarist).
 //
@@ -136,9 +136,16 @@ void app_main(void)
 {
     static const cyd_game_t info = { "atarist", "ATARI ST", "MEDIA: RETURN / HOLD=SD", { 120, 200, 120 } };
     cyd_boot(&info);
-    if (!atarist_rom_tos || !atarist_init(atarist_rom_tos, ST_ROM_SIZE, 256 * 1024, ST_AUDIO_RATE)) {
+    // as much RAM as the heap has left, 256 KB down to 128 KB (EmuTOS boots
+    // its desktop and runs programs in 128 KB)
+    bool ok = false;
+    for (uint32_t kb = 256; kb >= 128 && atarist_rom_tos && !ok; kb -= 32)
+        ok = atarist_init(atarist_rom_tos, ST_ROM_SIZE, kb * 1024, ST_AUDIO_RATE);
+    if (!ok) {
         ESP_LOGE("atarist", "%s", atarist_rom_tos ? "out of memory for the ST" : "no TOS built in (roms/atarist/)");
         abort();
     }
+    ESP_LOGI("atarist", "%u KB of RAM, %u KB of heap left", (unsigned)(atarist_ram_size() / 1024),
+             (unsigned)(heap_caps_get_free_size(MALLOC_CAP_8BIT) / 1024));
     comp_cyd_start(&kMachine);
 }

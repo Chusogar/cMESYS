@@ -113,16 +113,16 @@ static st_t s;
 bool st_ipl_dirty;
 
 // --- RAM ------------------------------------------------------------------------------
-static inline uint8_t ram_rd(uint32_t a) { return s.ram[a >> CHUNK_BITS][a & (CHUNK - 1)]; }
-static inline void ram_wr(uint32_t a, uint8_t v) { s.ram[a >> CHUNK_BITS][a & (CHUNK - 1)] = v; }
+static inline uint8_t ram_rd(uint32_t a) { return s.ram[(a >> CHUNK_BITS) & (MAX_CHUNKS - 1)][a & (CHUNK - 1)]; }
+static inline void ram_wr(uint32_t a, uint8_t v) { s.ram[(a >> CHUNK_BITS) & (MAX_CHUNKS - 1)][a & (CHUNK - 1)] = v; }
 static inline uint16_t ram_rd16(uint32_t a)
 {
-    const uint8_t *p = s.ram[a >> CHUNK_BITS] + (a & (CHUNK - 1));
+    const uint8_t *p = s.ram[(a >> CHUNK_BITS) & (MAX_CHUNKS - 1)] + (a & (CHUNK - 1));
     return (uint16_t)((p[0] << 8) | p[1]);
 }
 static inline void ram_wr16(uint32_t a, uint16_t v)
 {
-    uint8_t *p = s.ram[a >> CHUNK_BITS] + (a & (CHUNK - 1));
+    uint8_t *p = s.ram[(a >> CHUNK_BITS) & (MAX_CHUNKS - 1)] + (a & (CHUNK - 1));
     p[0] = (uint8_t)(v >> 8);
     p[1] = (uint8_t)v;
 }

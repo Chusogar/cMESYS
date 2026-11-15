@@ -1,5 +1,5 @@
 // atarist_pico.c - Atari ST on the RP2350-PiZero (HDMI): 1 MB of RAM (in the
-// PSRAM; 512 KB if that is all there is room for), the picture as 320x200
+// PSRAM; without one 512 KB or 256 KB, what the SRAM takes), the picture as 320x200
 // (low resolution as it is, medium and high halved) in the middle of the
 // 320x240 picture. TOS built in (roms/atarist).
 //
@@ -135,8 +135,13 @@ static void game(void)
 
 int main(void)
 {
-    const bool ok = atarist_rom_tos && (atarist_init(atarist_rom_tos, ST_ROM_SIZE, 0x100000, ST_AUDIO_RATE) ||
-                                        atarist_init(atarist_rom_tos, ST_ROM_SIZE, 0x80000, ST_AUDIO_RATE));
+    // 1 MB with a PSRAM; without one (the board's is often not fitted) as
+    // much as the SRAM takes: 512 KB or 256 KB (as the CYD's)
+    bool ok = false;
+    static const uint32_t kSizes[] = { 0x100000, 0x80000, 0x40000 };
+    for (int i = 0; i < 3 && atarist_rom_tos && !ok; i++)
+        ok = atarist_init(atarist_rom_tos, ST_ROM_SIZE, kSizes[i], ST_AUDIO_RATE);
+    if (ok) printf("atarist: %u KB of RAM\n", (unsigned)(atarist_ram_size() / 1024));
     if (!ok) {
         printf("%s\n", atarist_rom_tos ? "out of memory" : "no TOS built in (roms/atarist/)");
         for (;;) {}
