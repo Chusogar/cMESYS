@@ -44,6 +44,10 @@ typedef struct pokey {
     uint32_t ticks, i4, i5, i9, i17, at4, at5, at9, at17;
     uint8_t potx[8];
     uint8_t audctl, allpot, kbcode, serin, irqst, irqen, skstat, skctl, pot_counter;
+    // Optional (set after pokey_init): an IRQST bit raised (timers 1 / 2 / 4
+    // when they borrow with the bit set, the keyboard, BREAK)
+    void (*irq)(void *user, uint8_t mask);
+    void *irq_user;
 } pokey;
 
 void pokey_init(pokey *p);
@@ -52,5 +56,7 @@ uint8_t pokey_read(pokey *p, uint16_t offset);
 void pokey_write(pokey *p, uint16_t offset, uint8_t data);
 void pokey_run(pokey *p, int cycles);
 int32_t pokey_update(pokey *p);
+void pokey_set_key(pokey *p, uint8_t code, bool pressed, bool shift_held);
+void pokey_press_break(pokey *p);
 
 #endif
