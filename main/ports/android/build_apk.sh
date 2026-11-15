@@ -3,7 +3,7 @@
 #
 #   main/ports/android/build_apk.sh [machine ...]       (from anywhere)
 #
-# machines: ql zxspec cpc c64 msx lynx (default: all of them), each one as
+# machines: ql zxspec cpc c64 msx lynx a2600 atari800xl atarist (default: all of them), each one as
 # dist/<machine>_android.apk (package com.chusogar.cmesys.<machine>).
 #
 # Needs no Android Studio, Gradle or NDK: clang + lld for the core (arm64-v8a
@@ -37,7 +37,7 @@ for tool in clang ld.lld aapt javac keytool zipalign apksigner python3; do
 done
 [ -f "$JAR" ] || { echo "missing android.jar (apt install android-sdk-platform-23)" >&2; exit 1; }
 
-MACHINES="${*:-ql zxspec cpc c64 msx lynx}"
+MACHINES="${*:-ql zxspec cpc c64 msx lynx a2600 atari800xl atarist}"
 RES_INC="$(clang -print-resource-dir)/include"
 JDK_INC="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")/include"
 mkdir -p "$OUTBASE" "$ROOT/dist"
@@ -63,12 +63,23 @@ sources() {
         msx) echo "$C/msx/msx_core.c $M/cpu/z80dsp/z80dsp.c $M/video/tms9918.c $M/video/v9938.c
                   $M/sound/ay8910.c $M/machine/msx_cart.c $M/machine/msx_disk.c $M/machine/zx_pbuf.c" ;;
         lynx) echo "$C/lynx/lynx_core.c $M/machine/zx_pbuf.c" ;;
-        *) echo "unknown machine: $1 (ql zxspec cpc c64 msx lynx)" >&2; exit 1 ;;
+        a2600) echo "$C/a2600/a2600_core.c $M/cpu/m6502/m65xx.c $M/video/tia.c $M/machine/mos6532.c
+                  $M/machine/zx_pbuf.c" ;;
+        atari800xl) echo "$C/atari8/atari8_core.c $M/cpu/m6502/m65xx.c $M/video/antic.c $M/video/gtia.c
+                  $M/sound/pokey.c $M/machine/zx_pbuf.c" ;;
+        atarist) echo "$C/atarist/atarist_core.c $C/atarist/m68k_tables.c $M/cpu/m68k/m68kcpu.c $M/cpu/m68k/m68kops.c
+                  $M/cpu/m68k/m68kopac.c $M/cpu/m68k/m68kopdm.c $M/cpu/m68k/m68kopnz.c $M/machine/mc68901.c
+                  $M/machine/st_floppy.c $M/machine/zx_pbuf.c $M/sound/ay8910.c" ;;
+        *) echo "unknown machine: $1 (ql zxspec cpc c64 msx lynx a2600 atari800xl atarist)" >&2; exit 1 ;;
     esac
 }
 
+core_dir() {
+    case $1 in atari800xl) echo atari8 ;; *) echo "$1" ;; esac
+}
+
 jni_file() {
-    case $1 in zxspec) echo m_zx.c ;; *) echo "m_$1.c" ;; esac
+    case $1 in zxspec) echo m_zx.c ;; atari800xl) echo m_atari8.c ;; *) echo "m_$1.c" ;; esac
 }
 
 build() {
@@ -94,7 +105,7 @@ build() {
             clang --target=$triple -O2 -fPIC -ffreestanding -nostdinc -fno-stack-protector \
                 -ffunction-sections -fdata-sections -fvisibility=hidden \
                 -isystem "$RES_INC" -isystem "$HERE/jni/libc" -isystem "$JDK_INC" -isystem "$JDK_INC/linux" \
-                -DM68K_FLASH_TABLES -I"$HERE/jni" -I"$C/$mach" -I"$M/cpu" -I"$M/cpu/m68k" -I"$M/cpu/mcs48" \
+                -DM68K_FLASH_TABLES -I"$HERE/jni" -I"$C/$(core_dir "$mach")" -I"$M/cpu" -I"$M/cpu/m68k" -I"$M/cpu/mcs48" \
                 -I"$M/cpu/m6502" -I"$M/cpu/z80" -I"$M/sound" -I"$M/machine" -I"$M/video" -w -c "$f" -o "$o"
             objs="$objs $o"
         done

@@ -237,3 +237,23 @@ bool zx_pb_eq(const zx_pbuf *pb, uint32_t off, const char *text, uint32_t n)
         if (zx_pb_byte(pb, off + i) != (uint8_t)text[i]) return false;
     return true;
 }
+
+bool zx_pb_poke(zx_pbuf *pb, uint32_t off, uint8_t v)
+{
+    if (off >= pb->size) return false;
+    if (pb->flat) {
+        pb->flat[off] = v;
+        return true;
+    }
+    if (pb->lazy) return false;
+    uint8_t **pg = &pb->pages[off >> ZX_PAGE_BITS];
+    if (!*pg) {
+        if (pb->fill[off >> ZX_PAGE_BITS] == v) return true;
+        uint8_t *p = malloc(ZX_PAGE);
+        if (!p) return false;
+        memset(p, pb->fill[off >> ZX_PAGE_BITS], ZX_PAGE);
+        *pg = p;
+    }
+    (*pg)[off & (ZX_PAGE - 1)] = v;
+    return true;
+}

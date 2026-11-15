@@ -72,6 +72,9 @@ uint16_t *pico_port_fb_row(int y);
 // modifiers as 0xE0-0xE7, and the next usage pressed (-1: none).
 bool pico_port_key(int usage);
 int pico_port_next_press(void);
+// A USB mouse: its motion since the last call and its buttons (1 left,
+// 2 right); false when none is plugged in
+bool pico_port_mouse(int *dx, int *dy, unsigned *buttons);
 // Queues the frame's sound; waits while the queue is full, which paces the
 // emulation at the real speed (when there is no sound: at cfg.fps).
 void pico_port_audio(const int16_t *samples, int n);

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS ST</h1>
+<p>Atari ST con el núcleo ST de cMESYS (migrado de dsp-cpp, con el 68000 Musashi): TOS en $FC0000, las tres resoluciones del shifter, el MFP (temporizadores e interrupciones), el YM2149, la disquetera WD1772 con DMA (discos <code>.st</code>, <code>.msa</code> y <code>.stx</code>), el IKBD (teclado, ratón, joysticks y reloj) y el blitter. Esta app lleva EmuTOS (libre, GPL) si no se puso un TOS de Atari en <code>roms/atarist</code>.</p>
+
+<h2>Menú</h2>
+<p>Se abre con <kbd>Atrás</kbd>, con el icono de la esquina, con el botón <kbd>MENÚ</kbd> del teclado en
+pantalla o con <kbd>START</kbd> de un mando. Mientras está abierto la máquina se detiene.</p>
+<table>
+<tr><td><b>Discos</b></td><td>Meter un disco en A: o B: (<code>.st .msa .stx</code>) o sacarlo. Para arrancar un juego desde A:, reinicia con el disco dentro.</td></tr>
+<tr><td><b>Reset</b></td><td>Reset (con los discos dentro: arranca desde A:).</td></tr>
+<tr><td><b>Pausa</b></td><td>Detiene la máquina hasta volver a pulsarlo.</td></tr>
+<tr><td><b>Ajustes</b></td><td>Memoria (1040ST, 1 MB, o 520ST, 512 KB) y mando; pantalla, teclado, mando y sonido.</td></tr>
+<tr><td><b>Teclado</b></td><td>Muestra u oculta el teclado en pantalla.</td></tr>
+<tr><td><b>Velocidad</b></td><td>Turbo: la máquina va tan rápido como puede (sin sonido).</td></tr>
+<tr><td><b>Pantalla</b></td><td>Proporción del monitor, píxeles cuadrados, pantalla completa o múltiplo entero.</td></tr>
+<tr><td><b>Teclas ST</b></td><td>RETURN, ESC, UNDO, HELP y CONTROL+ALTERNATE+DELETE.</td></tr>
+<tr><td><b>Recientes</b></td><td>Los últimos archivos abiertos.</td></tr>
+<tr><td><b>Expulsar</b></td><td>Saca lo que se pueda sacar (o para la cinta).</td></tr>
+</table>
+
+<h2>Teclado en pantalla</h2>
+<p>Es el teclado del ST de dsp-cpp (el de Hataroid, con las teclas de función inclinadas y el teclado numérico): el mismo de dsp-cpp, y la tecla pulsada se hunde. Admite varios dedos a la vez.
+<kbd>Shift</kbd>, <kbd>Control</kbd> y <kbd>Alternate</kbd> se quedan pulsadas para la tecla siguiente; dos toques seguidos las bloquean (hundidas y rojizas) hasta volver a tocarlas. <kbd>MENÚ</kbd> abre el menú y <kbd>▼</kbd> oculta el teclado.</p>
+
+<h2>Teclado físico y mandos</h2>
+<p>Las teclas del PC son las del ST; Re Pág = UNDO, Av Pág = HELP, Inicio = CLR/HOME, F1–F10 las del ST. La cruceta y los botones de un mando hacen de el joystick (puerto 1, o el del ratón), A / B = disparo, X = espacio, Y = RETURN, SELECT = ESC, L1 = UNDO, R1 = HELP, según los ajustes.</p>
+
+<h2>Al arrancar</h2>
+<p><b>La pantalla es el ratón</b>, como un touchpad: arrastra un dedo para mover la flecha, toca para hacer clic, toca con dos dedos para el botón derecho, y mantén el dedo quieto un momento antes de arrastrar para arrastrar con el botón pulsado (ventanas, iconos).</p>
+<p>Un archivo también se puede abrir con la app desde un gestor de archivos (<i>Abrir con</i>).</p>
+
+<h2>Créditos</h2>
+<p>cMESYS (Chusogar): núcleo Atari ST migrado de dsp-cpp (del emulador DSP); 68000 Musashi de Karl Stenerud; EmuTOS (emutos.sourceforge.io, GPL); teclado de Hataroid (GPLv2) vía dsp-cpp. Teclados en pantalla de dsp-cpp.
+Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
+</body></html>

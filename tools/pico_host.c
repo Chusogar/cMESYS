@@ -94,6 +94,13 @@ uint64_t pico_port_us(void)
 }
 bool pico_port_key(int usage) { return usage == held_usage && frames < held_until; }
 
+bool pico_port_mouse(int *dx, int *dy, unsigned *buttons)
+{
+    *dx = *dy = 0;
+    *buttons = 0;
+    return false;
+}
+
 int pico_port_next_press(void)
 {
     static long last = -1;

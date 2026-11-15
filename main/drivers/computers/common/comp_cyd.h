@@ -39,6 +39,8 @@ enum { CZ_MEDIA = 0, CZ_HELP = 3 };     // zones: row * 4 + column
 typedef struct {
     uint16_t zones;                     // bit z: zone z held (not MEDIA / HELP)
     bool up, down, left, right, fire, fire2;    // the Nunchuk (C = fire2)
+    bool touch;                         // the panel touched (not MEDIA / HELP), at
+    int touch_x, touch_y;               //   (0..319, 0..239): the machines with a mouse
 } comp_cyd_in;
 
 typedef struct {
@@ -277,7 +279,12 @@ static void cyd_input_task(void *arg)
                 touch_zone = z;
                 touch_t0 = now;
             }
-            if (touch_zone > 0 && touch_zone != CZ_HELP) in.zones |= (uint16_t)(1u << touch_zone);
+            if (touch_zone > 0 && touch_zone != CZ_HELP) {
+                in.zones |= (uint16_t)(1u << touch_zone);
+                in.touch = true;
+                in.touch_x = x < 0 ? 0 : x > 319 ? 319 : x;
+                in.touch_y = y < 0 ? 0 : y > 239 ? 239 : y;
+            }
             if (touch_zone == CZ_HELP && now - touch_t0 > 100000 && !cyd_help_req) {
                 cyd_help_req = true;
                 touch_zone = -9;

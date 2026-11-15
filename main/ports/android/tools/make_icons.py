@@ -24,6 +24,11 @@ T = (0, 0, 0, 0)
 
 # 5x7 digits / letters for labels on the icons
 FONT = {
+    "0": [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
+    "6": ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
+    "T": ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
+    "A": [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+    "8": [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
     "1": ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],
     "2": [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
     "F": ["#####", "#....", "#....", "####.", "#....", "#....", "#...."],
@@ -38,6 +43,9 @@ FONT = {
     "Y": ["#...#", "#...#", ".#.#.", "..#..", "..#..", "..#..", "..#.."],
     "N": ["#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#", "#...#"],
     "6": ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
+    "T": ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
+    "A": [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+    "8": [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
     "4": ["...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."],
 }
 
@@ -322,6 +330,45 @@ def launcher_lynx(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_a2600(size):
+    """The 2600: the black console with its wood-grain front and a joystick."""
+    im, d = launcher_base()
+    d.rectangle([4, 30, 59, 52], fill=(26, 25, 24, 255), outline=(90, 90, 90, 255))
+    d.rectangle([6, 44, 57, 50], fill=(120, 76, 40, 255))
+    for x in (12, 20, 28, 36):
+        d.rectangle([x, 34, x + 3, 38], fill=(180, 180, 176, 255))
+    d.rectangle([44, 18, 56, 30], fill=(30, 30, 30, 255), outline=(90, 90, 90, 255))
+    d.rectangle([49, 10, 51, 22], fill=(20, 20, 20, 255))
+    d.ellipse([45, 19, 49, 23], fill=(220, 40, 30, 255))
+    text(d, 6, 6, "2600", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+def launcher_atari8(size):
+    """The 800XL: a wedge of charcoal keyboard with the grey console keys on the right."""
+    im, d = launcher_base()
+    d.polygon([(3, 50), (8, 28), (56, 28), (61, 50)], fill=(46, 46, 50, 255), outline=(150, 150, 154, 255))
+    keys_rows(d, 9, 46, 31, 4, (20, 20, 22, 255))
+    for i in range(4):
+        d.rectangle([49, 31 + i * 4, 56, 33 + i * 4], fill=(176, 178, 180, 255))
+    d.rectangle([3, 50, 61, 54], fill=(30, 30, 32, 255))
+    text(d, 3, 6, "800XL", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+def launcher_atarist(size):
+    """The ST: a light grey keyboard wedge with the slanted function keys and a mouse."""
+    im, d = launcher_base()
+    d.polygon([(2, 52), (6, 26), (50, 26), (54, 52)], fill=(200, 200, 196, 255), outline=(110, 110, 108, 255))
+    for i in range(6):
+        d.polygon([(10 + i * 6, 32), (14 + i * 6, 29), (18 + i * 6, 29), (14 + i * 6, 32)], fill=(70, 70, 70, 255))
+    keys_rows(d, 9, 47, 35, 3, (90, 90, 92, 255))
+    d.rounded_rectangle([52, 38, 61, 52], 4, fill=(210, 210, 206, 255), outline=(90, 90, 90, 255))
+    d.line([(56, 38), (56, 44)], fill=(90, 90, 90, 255))
+    text(d, 3, 6, "ST", W, 3)
+    return im.resize((size, size), Image.NEAREST)
+
+
 def launcher_arcade(size):
     """An arcade cabinet: marquee, screen, the control panel with a red-ball joystick and buttons."""
     im, d = launcher_base()
@@ -341,7 +388,7 @@ def launcher_arcade(size):
 
 
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
-             "msx": launcher_msx, "lynx": launcher_lynx, "arcade": launcher_arcade}
+             "msx": launcher_msx, "lynx": launcher_lynx, "a2600": launcher_a2600, "atari800xl": launcher_atari8, "atarist": launcher_atarist, "arcade": launcher_arcade}
 
 
 ICONS = {

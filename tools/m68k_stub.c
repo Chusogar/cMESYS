@@ -8,3 +8,4 @@ _Bool as1_ipl_dirty;   /* referenced by the Indy m68k_game_conf.h hook test */
 _Bool gt_ipl_dirty;    /* referenced by the Gauntlet m68k_game_conf.h hook test */
 _Bool or_ipl_dirty;    /* referenced by the OutRun m68k_game_conf.h hook test */
 _Bool rc_ipl_dirty;    /* referenced by the RoboCop m68k_game_conf.h hook test */
+_Bool st_ipl_dirty;  /* referenced by the Atari ST m68k_game_conf.h hook test */

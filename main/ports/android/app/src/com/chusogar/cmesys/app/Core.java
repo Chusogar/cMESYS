@@ -14,7 +14,8 @@ final class Core {
     static final int LED1 = 1, LED2 = 2, TAPE_LOADED = 4, TAPE_PLAYING = 8, HAS_DISK = 16;
     // commands
     static final int CMD_TAPE_TOGGLE = 1, CMD_AUTOBOOT = 2, CMD_MAGIC = 3, CMD_MONITOR = 4,
-            CMD_FAST_LOAD_ON = 5, CMD_FAST_LOAD_OFF = 6;
+            CMD_FAST_LOAD_ON = 5, CMD_FAST_LOAD_OFF = 6,
+            CMD_TV_TYPE = 7, CMD_DIFF_LEFT = 8, CMD_DIFF_RIGHT = 9, CMD_MOUSE_MODE = 10;
 
     static final int AUDIO_MAX = 4096;
 
@@ -32,6 +33,8 @@ final class Core {
     static native void key(int code, boolean down);
     static native void keysClear();
     static native void joy(int port, int bits);
+    /** Mouse motion in picture pixels (added up until the next frame) and the buttons (1 left, 2 right). */
+    static native void mouse(int dx, int dy, int buttons);
     /** A file (in the app's cache, with its own name); null: loaded, otherwise why not. */
     static native String load(String path, int slot);
     static native void eject(int slot);

@@ -1,6 +1,6 @@
-# Arcades y ordenadores (Sinclair, Amstrad, Commodore, MSX, Atari Lynx) para ESP32 CYD (ST7789), RP2040/RP2350-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
+# Arcades y ordenadores (Sinclair, Amstrad, Commodore, MSX, Atari Lynx, 2600, 800XL y ST) para ESP32 CYD (ST7789), RP2040/RP2350-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
 
-Veintitrés máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clones, el Amstrad CPC 6128, el Commodore 64, el MSX, el MSX2 y la Atari Lynx) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
+Veintiséis máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clones, el Amstrad CPC 6128, el Commodore 64, el MSX, el MSX2, la Atari Lynx, la Atari 2600, el Atari 800XL y el Atari ST) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -26,6 +26,9 @@ Veintitrés máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clon
 | MSX (1983) — ordenador | `msx1` | Z80 | AY-3-8910 (+ SCC) | dsp-cpp `msx1.cpp` → `drivers/computers/msx/msx_core.c` (TMS9918) |
 | MSX2 (1985) — ordenador | `msx2` | Z80 | AY-3-8910 (+ SCC) | dsp-cpp `msx2.cpp` → `drivers/computers/msx/msx_core.c` (V9938) |
 | Atari Lynx (1989) — consola portátil | `lynx` | 65C02 | Mikey (4 canales) | dsp-cpp `atari_lynx.cpp` + `lynx_mikey` + `lynx_suzy` → `drivers/computers/lynx/lynx_core.c` |
+| Atari 2600 / VCS (1977) — consola | `a2600` | 6507 | TIA (2 canales) | dsp-cpp `a2600.cpp` + `tia` + `mos6532` → `drivers/computers/a2600/a2600_core.c` |
+| Atari 800XL (1983) — ordenador | `atari800xl` | 6502B | POKEY | dsp-cpp `atari8.cpp` + `antic` + `gtia` → `drivers/computers/atari8/atari8_core.c` (también 400/800 en Android) |
+| Atari ST (1985) — ordenador | `atarist` | 68000 | YM2149 | dsp-cpp `atari_st.cpp` + `mc68901` + `st_floppy` → `drivers/computers/atarist/atarist_core.c` (68000 Musashi) |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
 
 Cada firmware lleva una sola máquina (el del QL lleva también un cartucho de microdrive; los Spectrum cargan cintas, snapshots, RZX y discos (ver «ZX Spectrum: migración de dsp-cpp») desde microSD, arrastrar-y-soltar, diálogo o barra web, igual que el menú de cartucho del QL). Las ROMs van dentro. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
@@ -324,7 +327,7 @@ Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, compa
 ## Escritorio (SDL2)
 
 ```
-make GAME=indytemp        # o … / polepos / polepos2 / ql / spectrum48 / … / scorpion / cpc6128 / c64 / lynx / msx1 / msx2; "make all" -> build/sdl/<juego>
+make GAME=indytemp        # o … / polepos / polepos2 / ql / spectrum48 / … / scorpion / cpc6128 / c64 / lynx / a2600 / atari800xl / atarist / msx1 / msx2; "make all" -> build/sdl/<juego>
 ./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
 ./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
 ./build/sdl/gauntlet      # ROMs incluidas
@@ -393,7 +396,7 @@ Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `
 Los drivers de ordenadores como apps de Android, una por máquina, todas con la interfaz de Hataroid del QL (menú de iconos inferior, ajustes, medios desde los archivos del teléfono, *Abrir con*) y con el teclado en pantalla de dsp-cpp (la foto del QL, el 48K, el CPC 464, el C64 con sus PETSCII; MSX y la Lynx dibujados al mismo estilo). Y los 11 arcades en una app, **cMESYS Arcade**, con la lista de juegos como MAME para Android, cada juego con su frontend de escritorio tal cual (sobre `sdl_port.h` para Android) y controles en pantalla: joystick de bola roja, los botones del juego, START y un monedero con la animación de la moneda. Se compilan sin Android Studio ni NDK; ver `main/ports/android/README.md`.
 
 ```
-main/ports/android/build_apk.sh       # → dist/{ql,zxspec,cpc,c64,msx,lynx}_android.apk (arm64-v8a y x86_64)
+main/ports/android/build_apk.sh       # → dist/{ql,zxspec,cpc,c64,msx,lynx,a2600,atari800xl,atarist}_android.apk (arm64-v8a y x86_64)
 main/ports/android/build_arcade.sh    # → dist/arcade_android.apk (los 11 arcades)
 ```
 
@@ -462,7 +465,7 @@ Firmware para la [Waveshare RP2350-PiZero](https://www.waveshare.com/wiki/RP2350
 | HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz desde una imagen de 320x240. Aquí la imagen se guarda entera (150 KB, y otra de 150 KB si cabe en la SRAM dejando 48 KB libres; las líneas TMDS siempre en SRAM, nunca en la PSRAM): las filas salen al HDMI desde la interrupción de su DMA (un callback de línea en el `DVI` de pico_lib, `rp2350/hdmi`), y el núcleo 1 dibuja con el mismo callback de la RP2040 la imagen siguiente en la de atrás; se cambian arriba de la pantalla. Un juego que dibuja despacio enseña menos imágenes por segundo, nunca líneas rojas ni cortes. Si no caben dos (OutRun, Puzzle Bobble, el QL), dibuja sobre la que se ve: alguna línea de corte, como en el CYD |
 | Mandos | puerto PIO-USB: D+ 28, D- 29 | teclado USB y/o mando HID (también por un hub). El USB-C nativo es para alimentar y flashear. El frame de 1 ms del PIO-USB va en `rp2350/usb_frame.c`, con un arreglo para la errata RP2350-E9 (con las entradas siempre activas las líneas D+/D- se quedan altas y no se ve el teclado; afecta a las revisiones A2 y A3). `USB=native ./build_pico2.sh` → `dist/<juego>_rp2350_pizero_usbc.uf2`: el teclado en el USB-C nativo, como en la RP2040 (alimentando la placa con un cable OTG/Y) |
 | Sonido | por el HDMI (la tele) | 44,1 kHz en las *data islands* del HDMI (pico_lib de Shuichi Takano / Frank Hoedemakers, MIT); el sonido del juego se remuestrea y va igual a los dos canales |
-| microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL, los Spectrum, el CPC, el C64, los MSX y la Lynx cargan de ella con el menú en pantalla (F9) |
+| microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL, los Spectrum, el CPC, el C64, los MSX, la Lynx, la 2600 y el 800XL cargan de ella con el menú en pantalla (F9; el ST, F11) |
 | PSRAM | QMI CS1 = GPIO47 | la placa trae solo el hueco para soldarla (la de prueba no la tiene: "PSRAM: 0 KB" al arrancar). Si hay una, el heap sigue en ella cuando se llena la SRAM. Los ordenadores usan una sola imagen de 150 KB (no dos) para dejar RAM a discos y cintas; los .trd/.scl se leen de la tarjeta pista a pista |
 | Log | UART0: TX GPIO0 | 115200 baudios |
 
@@ -576,6 +579,42 @@ Como el CYD no tiene teclado, el menú de la SD también **teclea** por ti: en e
 **TURBO (F12)**: sin límite de velocidad y sin sonido; además los núcleos dejan de generar sonido (SID, AY, Mikey) y el C64 dibuja solo una imagen de cada 8, para que en las placas el tiempo vaya a la emulación (cargas de cinta y cargadores rápidos).
 
 **Memoria y velocidad en las placas**: el CPC guarda la RAM en páginas de 16 KB (el ESP32 no tiene un bloque libre de 128 KB) y la imagen como registros de línea, dibujados desde la RAM al sacarlos (no hay frame buffer de 400×312). El C64 guarda la imagen recortada a 4 bits por píxel (38 KB). **En las placas la 1541 se enciende con el primer disco que se carga** (se lleva un tercio del tiempo del C64): sin disco, `LOAD"*",8` da DEVICE NOT PRESENT; en el escritorio y la web siempre está encendida. Con QEMU (que no reproduce los tiempos reales del ESP32) el CPC va a 50 fps con un 40 % del núcleo, y el C64 y la Lynx a 40-47 fps con el núcleo lleno: en el CYD real el C64 y la Lynx pueden ir algo por debajo de la velocidad real. En la RP2350 (Cortex-M33 a 252 MHz, código caliente en RAM) deberían ir a su velocidad. **Ninguno de los tres está probado en una placa real**: comprobados en el escritorio (CPC: BASIC 1.1, `CAT` de un disco; C64: BASIC V2, `LOAD"*",8,1` de un `.d64` con la 1541 y `RUN`; Lynx: la ROM de arranque real descifra y arranca un cartucho `.lnx` hecho con cc65, que dibuja con Suzy, y un `.o` BS93), con el frontend de la RP2350 en el PC (`PORT=picohost`, cargando de la «microSD» con el menú) y el del CYD en QEMU (arranca y emula sin pantalla). No se han compilado aquí las versiones web (falta `emcc`); usan el mismo `*_sdl.c` que el escritorio. Solo para la RP2350 (no RP2040).
+
+## Atari 2600, Atari 800XL y Atari ST: migración de dsp-cpp
+
+Las tres máquinas de Atari de dsp-cpp en C11, con frontends para escritorio (Linux / Windows), web, CYD, RP2350-PiZero y Android.
+
+| | Atari 2600 (`a2600`) | Atari 800XL (`atari800xl`) | Atari ST (`atarist`) |
+|---|---|---|---|
+| Núcleo | `a2600_core.c`: el 6507 (`cpu/m6502/m65xx`), `video/tia` (imagen y sonido, escrituras retrasadas), `machine/mos6532` (RIOT) y los cartuchos con sus bancos: F8 / F6 / F4 con y sin Superchip, E0, E7, FE, 3F, F0, detectados como el CartDetector de Stella | `atari8_core.c`: el 6502 a 1,79 MHz, `video/antic` (listas de display, DLI, scroll fino, players/misiles por DMA), `video/gtia` (prioridades, colisiones, modos GTIA), `sound/pokey` (ahora con teclado e interrupciones de los temporizadores) y el PIA (joysticks y bancos del XL). Discos `.atr` con el «parche SIO» de dsp-cpp | `atarist_core.c`: el 68000 es Musashi (como en el QL; dsp-cpp usa el suyo), `machine/mc68901` (MFP), `machine/st_floppy` (WD1772 + DMA; `.st`, `.msa` y `.stx` de Pasti con tiempos, bits difusos y pistas en bruto), el YM2149 (`sound/ay8910`, ahora con la salida del puerto A: unidad y cara), el IKBD (teclado, ratón relativo y absoluto, joysticks, reloj, el «gem_sync» de dsp-cpp que pone la flecha de GEM bajo la del PC), el ACIA y el blitter |
+| Igual que dsp-cpp | sí: imagen y sonido idénticos fotograma a fotograma en 59 ROMs homebrew (600 fotogramas) y 24 cartuchos con bancos | sí: imagen y sonido idénticos en 3.000 fotogramas tecleando en BASIC (800, XL y XE) y arrancando un `.atr` con DLI y players | no se compara (otro 68000); arranca TOS/EmuTOS, el escritorio, programas de AUTO desde `.st` y `.msa` |
+| ROMs (`roms/<GAME>/`) | ninguna | `co61598b.rom` (SO del XL) y `co60302a.rom` (BASIC C), o los libres **AltirraOS** y **Altirra BASIC** de Avery Lee como `ATARIXL.ROM` / `ATARIBAS.ROM` (los binarios llevan estos); `ATARIOSB.ROM` para el 400/800 en Android | `tos104.bin` / `tos102.bin` / `tos100.bin` (192 KB) o **EmuTOS** 192 KB (`etos192uk.img`, GPL; los binarios lo llevan) |
+
+`tools/regen.sh atari800xl|atarist` genera `rom_data.c` (el del ST también `m68k_tables.c`); en el repositorio solo hay stubs.
+
+**Teclas** (escritorio, web y RP2350 con teclado USB):
+
+- **2600**: cursores + Z / Ctrl / Espacio = joystick 1; W A S D + Q = joystick 2; F1 GAME RESET, F2 GAME SELECT, F5 color / B/N, F6 / F7 dificultad izquierda / derecha. F9 menú, F3 apagar y encender, F12 TURBO.
+- **800XL**: el teclado del PC es el del Atari (Ctrl dcho. = CONTROL, Bloq Mayús = CAPS, F7 = vídeo inverso, Supr/Retroceso = DELETE); cursores + Ctrl izq. = joystick 1. F2 START, F3 SELECT, F4 OPTION, F6 BREAK. F9 menú (el disco arranca solo, con OPTION pulsada para quitar el BASIC, como dsp-cpp), F10 arranque en frío, F12 TURBO.
+- **ST**: el teclado del PC es el del ST (F1-F10 los suyos, Re Pág = UNDO, Av Pág = HELP, Inicio = CLR/HOME, el teclado numérico); **el ratón del PC es el del ST** (nuevo en `sdl_port`: `sdl_port_mouse`). F11 menú (disco en A: o B:, reset, cursores como joystick), F12 TURBO.
+
+**Ratón en todos los puertos** (para el ST): escritorio y web con el ratón del PC; RP2350 con un **ratón USB** (nuevo en `pico_port`: `pico_port_mouse`); CYD con **la pantalla táctil** (la flecha va donde se toca y el botón izquierdo se mantiene mientras el dedo sigue; C del Nunchuk = botón derecho); Android con **la pantalla como touchpad** (arrastrar mueve, tocar = clic, dos dedos = botón derecho, mantener quieto y arrastrar = arrastrar con el botón).
+
+**CYD** (zonas; MEDIA mantenido = menú de la SD):
+
+| | fila 1 | fila 2 | fila 3 |
+|---|---|---|---|
+| 2600 | MEDIA (toque: SELECT) · RESET · SELECT · HELP | ← ↑ ↓ → | FUEGO ×4 |
+| 800XL | MEDIA (toque: RETURN) · START · OPTION · HELP | ← ↑ ↓ → (joystick) | FUEGO · ESPACIO · SELECT · FUEGO |
+| ST | MEDIA (toque: RETURN) · ratón · ratón · HELP | ratón | ratón |
+
+La consola serie es el teclado en el 800XL y el ST (en la 2600: w a s d, k fuego, r RESET, e SELECT).
+
+**Placas**: la 2600 y el 800XL caben en todas (el 800XL guarda la imagen como bytes de color, 90 KB; en 320 puntos se ve el campo de juego normal entero). El ST del **CYD tiene la RAM que cabe en el ESP32**, de 256 KB a 128 KB en trozos de 32 KB (224 KB en QEMU, a 50 fps con la mitad de un núcleo; EmuTOS arranca el escritorio y programas incluso con 128 KB): como no es una configuración que TOS sepa medir, al arrancar se le dejan las variables de un reinicio en caliente (`memvalid`, `phystop`…), y EmuTOS arranca con el escritorio; los programas que pidan más memoria no irán. En la **RP2350** el ST tiene 1 MB si la placa lleva la PSRAM (suele venir sin ella); sin PSRAM, 512 KB o 256 KB (lo que quepa en la SRAM). En las dos placas la imagen del ST es de 320×200 (la resolución media y la alta, a media anchura con los puntos mezclados) y un disco `.st` / `.stx` se lee de la microSD según se usa (de solo lectura); un `.msa` se descomprime en memoria.
+
+**Android**: `a2600` (mandos en pantalla: joystick, FUEGO, SELECT, RESET; los interruptores en el menú de reset), `atari800xl` (teclado de 800XL dibujado al estilo de dsp-cpp, con START / SELECT / OPTION / BREAK; modelo 800XL o 400/800) y `atarist` (el teclado de Hataroid que trae dsp-cpp, sin su insignia; 1 MB o 512 KB; dos disqueteras).
+
+**No probado en placas reales** (ni el CYD ni la RP2350): comprobado en el escritorio, en la web (Chromium), con el frontend de la RP2350 en el PC (`PORT=picohost`) con el firmware del CYD en QEMU (los tres arrancan y emulan sin pantalla: la 2600 y el 800XL a 60 fps, el ST a 50) y compilando las APK.
 
 ## MSX y MSX2: migración de dsp-cpp
 

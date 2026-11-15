@@ -25,6 +25,10 @@ typedef struct ay8910 {
     /* amplitude as amp_mantissa * 2^amp_exponent (integer mix path). */
     int64_t amp_mantissa;
     int amp_exponent;
+    /* Optional (set after ay8910_init): port A written (or its direction
+       changed, as dsp-cpp's port_a_write handler) */
+    void (*port_a_write)(void *user, uint8_t value);
+    void *port_user;
 } ay8910;
 
 void ay8910_init(ay8910 *ay, uint32_t clock, int sample_rate);

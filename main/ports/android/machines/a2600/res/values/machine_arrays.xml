@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="pad_entries">
+        <item>Joystick 1: cruceta, A / B = FIRE; X = RESET, Y = SELECT</item>
+        <item>Joystick 2: cruceta, A / B = FIRE; X = RESET, Y = SELECT</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>pad</item>
+        <item>pad2</item>
+    </string-array>
+</resources>

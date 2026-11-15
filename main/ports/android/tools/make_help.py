@@ -128,6 +128,70 @@ MACHINES = {
         pad="la cruceta, A y B de la consola (X / Y también A / B), L1 / R1 = OPTION 1 / 2 y SELECT = PAUSE",
         start="<p>Abre un cartucho en <b>Cartucho</b>: la consola se reinicia y lo arranca.</p>",
         credits="núcleo Lynx migrado de dsp-cpp (del emulador DSP)"),
+    "a2600": dict(
+        title="cMESYS 2600",
+        intro="Atari 2600 (VCS) con el núcleo 2600 de cMESYS (migrado de dsp-cpp): el 6507, el TIA (imagen y "
+              "sonido), el RIOT y los cartuchos con sus cambios de banco (F8, F6, F4, Superchip, E0, E7, FE, "
+              "3F, F0).",
+        media=("Cartucho", "Abrir un cartucho (<code>.a26 .bin .rom</code>) o sacarlo."),
+        reset="Apagar y encender; los interruptores de la consola: TV en color o en blanco y negro y la "
+              "dificultad (A / B) de cada jugador.",
+        settings="mando (joystick 1 o 2)",
+        keys=("Consola", "GAME RESET y GAME SELECT."),
+        keyboard="el joystick (con diagonales), su botón FIRE y las palancas GAME SELECT y GAME RESET "
+                 "dibujados como los teclados de dsp-cpp",
+        mods=None,
+        physical="Cursores = joystick 1, Espacio / Z / Ctrl = FIRE; W A S D y Q = joystick 2; F1 o Intro = "
+                 "GAME RESET, F2 o Tab = GAME SELECT.",
+        pad="el joystick 1 (o el 2), A / B = FIRE, X = GAME RESET y Y / SELECT = GAME SELECT",
+        start="<p>Abre un cartucho en <b>Cartucho</b>: la consola se enciende con él. Casi todos los juegos "
+              "empiezan con <b>GAME RESET</b>.</p>",
+        credits="núcleo 2600 migrado de dsp-cpp (del emulador DSP)"),
+    "atari800xl": dict(
+        title="cMESYS 800XL",
+        intro="Atari 800XL (y 400/800) con el núcleo Atari de 8 bits de cMESYS (migrado de dsp-cpp): el 6502 a "
+              "1,79 MHz, ANTIC (listas de display), GTIA (colores, players y misiles), POKEY (sonido, teclado y "
+              "temporizadores) y el PIA (joysticks y bancos de memoria del XL). Las ROM de esta app son AltirraOS "
+              "y Altirra BASIC (libres), o las de Atari si se pusieron en <code>roms/atari800xl</code>.",
+        media=("Disco", "Abrir un disco <code>.atr</code> (el ordenador arranca con él, sin BASIC) o sacarlo "
+               "(vuelve a BASIC)."),
+        reset="Arranque en frío.",
+        settings="modelo (800XL o 400/800) y mando",
+        keys=("Teclas Atari", "START, SELECT, OPTION, BREAK, RETURN y ESC."),
+        keyboard="un teclado de 800XL dibujado como los de dsp-cpp (dsp-cpp no tiene uno de Atari), con "
+                 "START, SELECT, OPTION y BREAK",
+        mods="<kbd>SHIFT</kbd> y <kbd>CONTROL</kbd>",
+        physical="Las teclas del PC son las del Atari; F2 = START, F3 = SELECT, F4 = OPTION, F6 = BREAK, "
+                 "F7 = la tecla de vídeo inverso, Supr / Retroceso = DELETE.",
+        pad="el joystick 1 o 2 (A / B = FIRE), X = espacio, Y = RETURN, L1 = START, R1 = OPTION, SELECT",
+        start="<p>Sin disco arranca el BASIC (<code>READY</code>). Un disco <code>.atr</code> arranca solo; "
+              "mientras arranca se mantiene OPTION pulsada para que el BASIC no estorbe.</p>",
+        credits="núcleo Atari de 8 bits migrado de dsp-cpp (del emulador DSP); AltirraOS y Altirra BASIC "
+                "de Avery Lee"),
+    "atarist": dict(
+        title="cMESYS ST",
+        intro="Atari ST con el núcleo ST de cMESYS (migrado de dsp-cpp, con el 68000 Musashi): TOS en "
+              "$FC0000, las tres resoluciones del shifter, el MFP (temporizadores e interrupciones), el "
+              "YM2149, la disquetera WD1772 con DMA (discos <code>.st</code>, <code>.msa</code> y "
+              "<code>.stx</code>), el IKBD (teclado, ratón, joysticks y reloj) y el blitter. Esta app lleva "
+              "EmuTOS (libre, GPL) si no se puso un TOS de Atari en <code>roms/atarist</code>.",
+        media=("Discos", "Meter un disco en A: o B: (<code>.st .msa .stx</code>) o sacarlo. Para arrancar "
+               "un juego desde A:, reinicia con el disco dentro."),
+        reset="Reset (con los discos dentro: arranca desde A:).",
+        settings="memoria (1040ST, 1 MB, o 520ST, 512 KB) y mando",
+        keys=("Teclas ST", "RETURN, ESC, UNDO, HELP y CONTROL+ALTERNATE+DELETE."),
+        keyboard="el teclado del ST de dsp-cpp (el de Hataroid, con las teclas de función inclinadas y el "
+                 "teclado numérico)",
+        mods="<kbd>Shift</kbd>, <kbd>Control</kbd> y <kbd>Alternate</kbd>",
+        physical="Las teclas del PC son las del ST; Re Pág = UNDO, Av Pág = HELP, Inicio = CLR/HOME, F1–F10 "
+                 "las del ST.",
+        pad="el joystick (puerto 1, o el del ratón), A / B = disparo, X = espacio, Y = RETURN, SELECT = ESC, "
+            "L1 = UNDO, R1 = HELP",
+        start="<p><b>La pantalla es el ratón</b>, como un touchpad: arrastra un dedo para mover la flecha, "
+              "toca para hacer clic, toca con dos dedos para el botón derecho, y mantén el dedo quieto un "
+              "momento antes de arrastrar para arrastrar con el botón pulsado (ventanas, iconos).</p>",
+        credits="núcleo Atari ST migrado de dsp-cpp (del emulador DSP); 68000 Musashi de Karl Stenerud; "
+                "EmuTOS (emutos.sourceforge.io, GPL); teclado de Hataroid (GPLv2) vía dsp-cpp"),
 }
 
 
