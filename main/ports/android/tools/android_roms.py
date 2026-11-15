@@ -14,6 +14,8 @@ gen_roms_ql.py, written as plain binaries that the app gives its core.
   c64     roms/kernal.rom, basic.rom, chargen.rom, dos1541.rom
   msx     roms/msx1/bios.rom, disk.rom; roms/msx2/bios.rom, sub.rom, disk.rom
   lynx    roms/boot.rom (roms/lynx)
+  amiga   roms/kick13.rom (required), kick12.rom, kick204.rom, kick31.rom (roms/amiga:
+          the MAME a500 set, its .zip as it is)
 """
 import glob
 import io
@@ -97,6 +99,30 @@ def zxspec(roms, out):
     return found
 
 
+AMIGA_KICKS = [  # (file in the APK, size, names in the set (first found wins), required)
+    ("kick13.rom", 0x40000, [("315093-02.u2", 0xc4f0f55f), ("kick13.rom", None), ("kick34005.a500", None)], True),
+    ("kick12.rom", 0x40000, [("315093-01.u2", 0xa6ce1636), ("kick12.rom", None)], False),
+    ("kick204.rom", 0x80000, [("390979-01.u2", 0xc3bdb240), ("kick204.rom", None)], False),
+    ("kick31.rom", 0x80000, [("kick40063.u2", 0xfc24ae0d), ("kick31.rom", None)], False),
+]
+
+
+def amiga(roms, out):
+    import gen_roms_computers as g
+    files = g.open_dir(os.path.join(roms, "amiga"))
+    found = []
+    for name, size, cands, required in AMIGA_KICKS:
+        with redirect_stdout(io.StringIO()):
+            src, data = g.find(files, cands, size)
+        if data is None:
+            if required:
+                sys.exit("amiga: Kickstart 1.3 (315093-02.u2) missing in %s/amiga" % roms)
+            continue
+        write(os.path.join(out, "roms", name), data)
+        found.append(name)
+    return found
+
+
 def main():
     if len(sys.argv) != 4:
         sys.exit(__doc__)
@@ -116,6 +142,8 @@ def main():
             d = os.path.join(roms, model)
             if os.path.isdir(d):
                 found += [model + "/" + n for n in computers(model, d, os.path.join(out, "roms", model), names)]
+    elif machine == "amiga":
+        found = amiga(roms, out)
     elif machine == "lynx":
         found = computers("lynx", os.path.join(roms, "lynx"), out, ["roms/boot.rom"])
     else:

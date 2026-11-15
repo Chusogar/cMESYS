@@ -18,6 +18,16 @@ pantalla de dsp-cpp:
 | `dist/c64_android.apk` | Commodore 64 con la 1541 | el de dsp-cpp (`gen_c64_vkb.py`), con los PETSCII de la ROM |
 | `dist/msx_android.apk` | MSX1 y MSX2 (con la ROM de disco) | dibujado aquí al estilo de dsp-cpp (`tools/gen_msx_vkb.py`) |
 | `dist/lynx_android.apk` | Atari Lynx | los mandos de la consola al estilo de dsp-cpp (`tools/gen_lynx_vkb.py`) |
+| `dist/amiga_android.apk` | Commodore Amiga 500 (Kickstart 1.3, 1.2, 2.04 o 3.1) | la foto de un A500 español (`tools/gen_amiga_vkb.py`) |
+
+El Amiga (dsp-cpp tampoco tiene su teclado) usa la foto de un Amiga 500
+español: `gen_amiga_vkb.py` la recorta y escribe el rectángulo y el código de
+cada tecla, medidos sobre la foto; Caps Lock se bloquea y las Mayúsculas,
+Ctrl, Alt y las teclas Amiga se quedan pulsadas para la siguiente. Además, en
+el Amiga la **imagen es un trackpad** para el ratón (`Trackpad.java`): un dedo
+mueve el puntero, un toque es un clic, tocar dos veces y mover arrastra con
+el botón izquierdo, y un segundo dedo es el botón derecho mientras está
+apoyado (los menús de Workbench); un ratón USB o Bluetooth también vale.
 
 dsp-cpp no tiene teclado de MSX ni mandos de Lynx: los dibujan
 `gen_msx_vkb.py` y `gen_lynx_vkb.py` con el mismo `vkb_common.py` de dsp-cpp
@@ -63,7 +73,7 @@ Sin Android Studio, Gradle ni NDK:
 ```
 sudo apt install clang lld openjdk-17-jdk-headless android-sdk-platform-23 \
                  aapt dalvik-exchange apksigner zipalign python3 python3-pil
-main/ports/android/build_apk.sh                 # las seis
+main/ports/android/build_apk.sh                 # las siete
 main/ports/android/build_apk.sh zxspec c64      # algunas
 ```
 
@@ -75,7 +85,8 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
   Páginas de 16 KB (Android 15+).
 - Las ROM salen de `roms/<juego de ROMs>` (`tools/android_roms.py`, con los
   generadores de `tools/`) y van solo en el APK, nunca en git. El Spectrum
-  lleva los seis modelos que encuentre; el MSX, MSX1 y MSX2.
+  lleva los seis modelos que encuentre; el MSX, MSX1 y MSX2; el Amiga, los
+  Kickstart del set `a500` de MAME (`roms/amiga/a500.zip`).
 - Paquetes `com.chusogar.cmesys.<máquina>`; el del QL es el de antes, así que
   se actualiza encima. Firma: `$CMESYS_KEYSTORE` (o `$QL_KEYSTORE`) o
   `build/android/debug.keystore` (se crea la primera vez; consérvala para
@@ -86,17 +97,19 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | | |
 |---|---|
 | `jni/core.h`, `jni/core_jni.c` | lo que da cada máquina y las llamadas de `Core` (frames, imagen ARGB, sonido, teclas, joystick, medios) |
-| `jni/m_ql.c` … `m_lynx.c` | cada máquina sobre su núcleo de `main/drivers/computers` |
+| `jni/m_ql.c` … `m_lynx.c`, `m_amiga.c` | cada máquina sobre su núcleo de `main/drivers/computers` |
 | `jni/libc/` | cabeceras mínimas de bionic para compilar sin el NDK |
 | `app/src/.../MachineActivity.java` | pantalla, teclado, menú, medios, teclado físico y mandos |
-| `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |
+| `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx`, `Amiga` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |
 | `app/src/.../Emulator.java` | hilo de emulación al ritmo del sonido (prioridad de audio, ~6 frames de búfer, empieza a sonar con 3 en cola), cola de teclas, turbo, pausa |
 | `app/src/.../ScreenView.java` | imagen escalada por la GPU en el hilo de la interfaz (monitor, cuadrada, completa, entera) y luces; el hilo de emulación solo copia los píxeles, para que nunca se retrase el sonido |
 | `app/src/.../KeyboardView.java` | teclado en pantalla (imágenes y teclas de dsp-cpp) |
+| `app/src/.../Trackpad.java` | la imagen como trackpad del ratón (el Amiga) |
 | `app/src/.../SoftMenu.java` | menú a lo Hataroid (barra de iconos y listas) |
 | `machines/<máquina>/` | recursos de cada APK: nombre, ajustes, lanzador, teclado, ayuda |
 | `tools/import_dsp_keyboards.py` | los teclados de dsp-cpp (`*_vkb_data.inc`) → `keyboard.png` + `keyboard.txt` |
 | `tools/gen_msx_vkb.py`, `gen_lynx_vkb.py` | los teclados de MSX y Lynx |
+| `tools/gen_amiga_vkb.py` | el teclado del Amiga desde la foto |
 | `tools/android_roms.py` | las ROM de cada máquina para el APK |
 | `tools/make_icons.py`, `make_help.py` | iconos, lanzadores y ayuda |
 

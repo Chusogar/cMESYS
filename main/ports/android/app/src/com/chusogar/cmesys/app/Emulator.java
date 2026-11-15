@@ -36,6 +36,8 @@ final class Emulator implements Runnable {
     private int keyHold;                               // frames before the next change
     private final int[] joy = new int[3];              // ports 1, 2
     private final int[] joySent = new int[3];
+    // the mouse: motion not yet given, buttons held, frames left of a click
+    private int mouseDx, mouseDy, mouseButtons, mouseClick, mouseSent;
 
     private Thread thread;
     private volatile boolean running;
@@ -140,11 +142,22 @@ final class Emulator implements Runnable {
         else joy[port] &= ~bits;
     }
 
+    synchronized void mouseMove(int dx, int dy) {
+        mouseDx += dx;
+        mouseDy += dy;
+    }
+
+    synchronized void mouseButtons(int bits) { mouseButtons = bits; }
+
+    /** A left click: pressed for a few frames. */
+    synchronized void mouseClick() { mouseClick = 4; }
+
     synchronized void releaseAll() {
         java.util.Arrays.fill(held, 0);
         keyEvents.clear();
         keyHold = 0;
         joy[1] = joy[2] = 0;
+        mouseButtons = mouseClick = 0;
     }
 
     /** Presses keys together for a few frames (menu shortcuts). */
@@ -170,6 +183,13 @@ final class Emulator implements Runnable {
         for (int c = 0; c < KEYS; c++) {
             if (held[c] > 0 || taps[c] > 0) Core.key(c, true);
             if (taps[c] > 0) taps[c]--;
+        }
+        int b = mouseButtons | (mouseClick > 0 ? 1 : 0);
+        if (mouseClick > 0) mouseClick--;
+        if (mouseDx != 0 || mouseDy != 0 || b != mouseSent) {
+            Core.mouse(mouseDx, mouseDy, b);
+            mouseDx = mouseDy = 0;
+            mouseSent = b;
         }
         for (int p = 1; p <= 2; p++) {
             if (joy[p] != joySent[p]) {

@@ -492,7 +492,7 @@ static void audio_init(int rate)
 #endif
 
 // ---------------------------------------------------------------------------
-// USB input (TinyUSB host): boot keyboards and HID gamepads
+// USB input (TinyUSB host): boot keyboards and mice, HID gamepads
 // ---------------------------------------------------------------------------
 static volatile uint8_t kb_state[256];      // by HID usage; 0xE0-0xE7 modifiers
 static uint8_t presses[32];
@@ -644,6 +644,26 @@ static void kb_report(const uint8_t *r, uint32_t len)
     if (!cfg.computer && kb_state[0x3c] && !old[0x3c]) reset_req = true;
 }
 
+// a boot mouse: buttons, X, Y (signed bytes), [wheel]
+static int mouse_dx, mouse_dy;
+static uint32_t mouse_buttons;
+
+static void mouse_report(const uint8_t *r, uint32_t len)
+{
+    if (len < 3) return;
+    mouse_buttons = r[0] & 7;
+    mouse_dx += (int8_t)r[1];
+    mouse_dy += (int8_t)r[2];
+}
+
+uint32_t pico_port_mouse(int *dx, int *dy)
+{
+    if (dx) *dx = mouse_dx;
+    if (dy) *dy = mouse_dy;
+    mouse_dx = mouse_dy = 0;
+    return mouse_buttons;
+}
+
 // USB diagnostics (pico_port_usb_info)
 static volatile uint32_t usb_mounts, usb_hid_mounts, usb_reports;
 static volatile uint8_t usb_last_vid_pid_ok;
@@ -674,7 +694,8 @@ void tuh_hid_mount_cb(uint8_t dev, uint8_t inst, uint8_t const *desc, uint16_t l
     d->inst = inst;
     d->proto = tuh_hid_interface_protocol(dev, inst);
     if (d->proto == HID_ITF_PROTOCOL_NONE) d->is_pad = pad_parse(d, desc, len);
-    printf("usb: %s connected\n", d->proto == HID_ITF_PROTOCOL_KEYBOARD ? "keyboard" : d->is_pad ? "gamepad" : "HID device");
+    printf("usb: %s connected\n", d->proto == HID_ITF_PROTOCOL_KEYBOARD ? "keyboard" :
+           d->proto == HID_ITF_PROTOCOL_MOUSE ? "mouse" : d->is_pad ? "gamepad" : "HID device");
     tuh_hid_receive_report(dev, inst);
 }
 
@@ -683,6 +704,7 @@ void tuh_hid_umount_cb(uint8_t dev, uint8_t inst)
     for (int i = 0; i < CFG_TUH_HID; i++)
         if (devs[i].used && devs[i].dev == dev && devs[i].inst == inst) {
             if (devs[i].proto == HID_ITF_PROTOCOL_KEYBOARD) for (int k = 0; k < 256; k++) kb_state[k] = 0;
+            if (devs[i].proto == HID_ITF_PROTOCOL_MOUSE) mouse_buttons = 0;
             devs[i].used = false;
         }
 }
@@ -694,6 +716,7 @@ void tuh_hid_report_received_cb(uint8_t dev, uint8_t inst, uint8_t const *r, uin
         hid_dev *d = &devs[i];
         if (!d->used || d->dev != dev || d->inst != inst) continue;
         if (d->proto == HID_ITF_PROTOCOL_KEYBOARD) kb_report(r, len);
+        else if (d->proto == HID_ITF_PROTOCOL_MOUSE) mouse_report(r, len);
         else if (d->is_pad) {
             bool sel_start = d->b[d->buttons >= 10 ? 9 : 7] && d->b[d->buttons >= 10 ? 10 : 8];
             pad_report(d, r, len);

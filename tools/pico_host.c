@@ -78,6 +78,12 @@ uint32_t pico_port_keys(void)
 }
 
 uint32_t pico_port_pad(void) { return pico_port_keys(); }
+uint32_t pico_port_mouse(int *dx, int *dy)
+{
+    if (dx) *dx = 0;
+    if (dy) *dy = 0;
+    return 0;
+}
 
 static int held_usage = -1;
 static long held_until;

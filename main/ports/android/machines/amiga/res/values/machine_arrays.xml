@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="kick_entries">
+        <item>Kickstart 1.3 (A500, 1987)</item>
+        <item>Kickstart 1.2 (1986)</item>
+        <item>Kickstart 2.04 (A500+, 1991)</item>
+        <item>Kickstart 3.1 (1993)</item>
+    </string-array>
+    <string-array name="kick_values">
+        <item>kick13</item>
+        <item>kick12</item>
+        <item>kick204</item>
+        <item>kick31</item>
+    </string-array>
+    <string-array name="pad_entries">
+        <item>Joystick (puerto 2)</item>
+        <item>Cursores, ESPACIO y RETURN</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>joy</item>
+        <item>cursors</item>
+    </string-array>
+</resources>

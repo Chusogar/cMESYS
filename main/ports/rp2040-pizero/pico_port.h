@@ -64,6 +64,9 @@ void pico_port_run(void (*fn)(void)) __attribute__((noreturn));
 bool pico_port_poll(void);
 uint32_t pico_port_keys(void);              // SP_* bits held
 uint32_t pico_port_pad(void);               // the same from the gamepads only (the computers)
+// A USB mouse (boot protocol): the motion since the last call and the
+// buttons held (bit 0 left, bit 1 right, bit 2 middle)
+uint32_t pico_port_mouse(int *dx, int *dy);
 #ifdef PIZERO_FB
 // RP2350 with render == NULL: row y of the picture, for the game to write
 uint16_t *pico_port_fb_row(int y);

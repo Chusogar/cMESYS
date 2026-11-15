@@ -58,6 +58,7 @@ public final class MachineActivity extends Activity implements KeyboardView.List
     private final String[] slotName = new String[4];
     private int[] padActions;
     private boolean menuPausedIt;
+    private Trackpad trackpad;
 
     // --- life cycle -------------------------------------------------------
     @Override
@@ -74,6 +75,7 @@ public final class MachineActivity extends Activity implements KeyboardView.List
         root.setBackgroundColor(Color.BLACK);
         view = new ScreenView(this, machine);
         root.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        if (machine.usesMouse()) trackpad = new Trackpad(view, machine.mouseWidth());
         keyboard = new KeyboardView(this, machine, machine.glyphRom(this));
         keyboard.setListener(this);
         keyboard.setVisibility(View.GONE);
@@ -110,6 +112,7 @@ public final class MachineActivity extends Activity implements KeyboardView.List
         menu = new SoftMenu(this);
         menu.setListener(this);
         emu = new Emulator(view);
+        if (trackpad != null) trackpad.setEmulator(emu);
         applySettings();
         emu.start();
         startMachine(state == null && !opening(getIntent()));

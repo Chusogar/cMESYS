@@ -2,7 +2,8 @@
 # ESP32 CYD firmware.
 #
 #   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | ql
-#                             | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion)  -> build/sdl/<game>
+#                             | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion
+#                             | cpc6128 | c64 | lynx | msx1 | msx2 | amiga)  -> build/sdl/<game>
 #                             (ql / spectrum*: computers in main/drivers/computers/)
 #   make TARGET=windows ...   same, but MinGW -> build/win/<game>.exe  (see ./build_windows.sh)
 #   make all                  all of them
@@ -23,6 +24,8 @@ else ifeq ($(GAME),cpc6128)
   D     := $(M)/drivers/computers/cpc
 else ifeq ($(GAME),c64)
   D     := $(M)/drivers/computers/c64
+else ifeq ($(GAME),amiga)
+  D     := $(M)/drivers/computers/amiga
 else ifeq ($(GAME),lynx)
   D     := $(M)/drivers/computers/lynx
 else ifneq ($(filter $(GAME),msx1 msx2),)
@@ -146,6 +149,9 @@ else ifeq ($(GAME),c64)
           $(M)/sound/sid6581.c $(M)/machine/mos6526.c $(M)/machine/c1541.c $(M)/machine/via6522.c \
           $(M)/machine/zx_pbuf.c
   DEFS :=
+else ifeq ($(GAME),amiga)
+  SRC  := $(D)/amiga_sdl.c $(D)/amiga_core.c $(D)/amiga_chipset.c $(D)/rom_data.c $(M68K)
+  DEFS :=
 else ifeq ($(GAME),lynx)
   SRC  := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/machine/zx_pbuf.c
   DEFS :=
@@ -172,7 +178,7 @@ else ifeq ($(GAME),scorpion)
   SRC  := $(ZX_SRC)
   DEFS := -DZX_MODEL=ZX_SCORPION
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024 or scorpion)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2 or amiga)
 endif
 
 # PORT=picohost: the game's RP2040-PiZero frontend (<game>_pico.c) on the
@@ -185,7 +191,7 @@ ifeq ($(PORT),picohost)
   PORTSRC := tools/pico_host.c
   CFLAGS += -I$(M)/ports/rp2040-pizero -I$(M)/drivers/computers/ql -DPICO_BAND=4
   # microSD is board-only; stub the API so ql / zxspec *_pico.c link on the host.
-  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2),)
+  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2 amiga),)
     PORTSRC += tools/ql_sd_host_stub.c
   endif
   SDL_CFLAGS :=
@@ -225,6 +231,7 @@ all:
 	$(MAKE) GAME=lynx TARGET=$(TARGET)
 	$(MAKE) GAME=msx1 TARGET=$(TARGET)
 	$(MAKE) GAME=msx2 TARGET=$(TARGET)
+	$(MAKE) GAME=amiga TARGET=$(TARGET)
 
 clean:
 	rm -rf $(OUT)

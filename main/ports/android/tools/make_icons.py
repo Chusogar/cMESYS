@@ -39,6 +39,9 @@ FONT = {
     "N": ["#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#", "#...#"],
     "6": ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
     "4": ["...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."],
+    "A": [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+    "G": [".###.", "#...#", "#....", "#.###", "#...#", "#...#", ".###."],
+    "I": [".###.", "..#..", "..#..", "..#..", "..#..", "..#..", ".###."],
 }
 
 
@@ -322,6 +325,20 @@ def launcher_lynx(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_amiga(size):
+    """An A500: the beige wedge, its keys, the power and drive lights."""
+    im, d = launcher_base()
+    d.polygon([(3, 46), (6, 22), (58, 22), (61, 46)], fill=(214, 206, 186, 255), outline=(244, 238, 222, 255))
+    d.rectangle([8, 26, 56, 27], fill=(150, 144, 128, 255))
+    keys_rows(d, 9, 41, 30, 4, (244, 240, 228, 255))
+    d.rectangle([9, 42, 40, 43], fill=(244, 240, 228, 255))
+    keys_rows(d, 46, 57, 30, 4, (120, 116, 104, 255))
+    d.rectangle([47, 24, 50, 24], fill=(60, 220, 80, 255))
+    d.rectangle([53, 24, 56, 24], fill=(240, 120, 40, 255))
+    text(d, 3, 6, "AMIGA", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
 def launcher_arcade(size):
     """An arcade cabinet: marquee, screen, the control panel with a red-ball joystick and buttons."""
     im, d = launcher_base()
@@ -341,7 +358,7 @@ def launcher_arcade(size):
 
 
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
-             "msx": launcher_msx, "lynx": launcher_lynx, "arcade": launcher_arcade}
+             "msx": launcher_msx, "lynx": launcher_lynx, "amiga": launcher_amiga, "arcade": launcher_arcade}
 
 
 ICONS = {

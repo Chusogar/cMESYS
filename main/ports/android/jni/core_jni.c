@@ -127,3 +127,12 @@ JNIEXPORT void JNICALL JNI_FN(command)(JNIEnv *env, jclass cls, jint cmd)
     (void)env, (void)cls;
     if (ready) mc_command(cmd);
 }
+
+// (the machines without a mouse: nothing)
+__attribute__((weak)) void mc_mouse(int dx, int dy, unsigned buttons) { (void)dx, (void)dy, (void)buttons; }
+
+JNIEXPORT void JNICALL JNI_FN(mouse)(JNIEnv *env, jclass cls, jint dx, jint dy, jint buttons)
+{
+    (void)env, (void)cls;
+    if (ready) mc_mouse(dx, dy, (unsigned)buttons);
+}

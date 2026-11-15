@@ -51,5 +51,14 @@ void sdl_port_queue_drop(const char *path);
 void sdl_port_set_turbo(bool on);
 bool sdl_port_turbo(void);
 
+// Mouse (computers that use one, after sdl_port_mouse_enable(true)): a click
+// in the window captures the pointer (hidden, relative motion), the middle
+// button or the window losing focus lets it go. sdl_port_mouse() gives the
+// motion since the last call and the buttons held (bit 0 left, bit 1 right),
+// both 0 while not captured.
+void sdl_port_mouse_enable(bool on);
+uint32_t sdl_port_mouse(int *dx, int *dy);
+bool sdl_port_mouse_captured(void);
+
 // Tests: SDL_PORT_FRAMES=n quits after n frames, SDL_PORT_SHOT=k saves frame
 // k as shot.ppm (with SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy).
