@@ -128,6 +128,25 @@ MACHINES = {
         pad="la cruceta, A y B de la consola (X / Y también A / B), L1 / R1 = OPTION 1 / 2 y SELECT = PAUSE",
         start="<p>Abre un cartucho en <b>Cartucho</b>: la consola se reinicia y lo arranca.</p>",
         credits="núcleo Lynx migrado de dsp-cpp (del emulador DSP)"),
+    "a2600": dict(
+        title="cMESYS 2600",
+        intro="Atari 2600 (VCS) con el núcleo 2600 de cMESYS (migrado de dsp-cpp): el 6507, el TIA (imagen y "
+              "sonido), el RIOT y los cartuchos con sus cambios de banco (F8, F6, F4, Superchip, E0, E7, FE, "
+              "3F, F0).",
+        media=("Cartucho", "Abrir un cartucho (<code>.a26 .bin .rom</code>) o sacarlo."),
+        reset="Apagar y encender; los interruptores de la consola: TV en color o en blanco y negro y la "
+              "dificultad (A / B) de cada jugador.",
+        settings="mando (joystick 1 o 2)",
+        keys=("Consola", "GAME RESET y GAME SELECT."),
+        keyboard="el joystick (con diagonales), su botón FIRE y las palancas GAME SELECT y GAME RESET "
+                 "dibujados como los teclados de dsp-cpp",
+        mods=None,
+        physical="Cursores = joystick 1, Espacio / Z / Ctrl = FIRE; W A S D y Q = joystick 2; F1 o Intro = "
+                 "GAME RESET, F2 o Tab = GAME SELECT.",
+        pad="el joystick 1 (o el 2), A / B = FIRE, X = GAME RESET y Y / SELECT = GAME SELECT",
+        start="<p>Abre un cartucho en <b>Cartucho</b>: la consola se enciende con él. Casi todos los juegos "
+              "empiezan con <b>GAME RESET</b>.</p>",
+        credits="núcleo 2600 migrado de dsp-cpp (del emulador DSP)"),
 }
 
 

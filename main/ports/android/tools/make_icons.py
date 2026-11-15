@@ -24,6 +24,8 @@ T = (0, 0, 0, 0)
 
 # 5x7 digits / letters for labels on the icons
 FONT = {
+    "0": [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
+    "6": ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
     "1": ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],
     "2": [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
     "F": ["#####", "#....", "#....", "####.", "#....", "#....", "#...."],
@@ -322,6 +324,20 @@ def launcher_lynx(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_a2600(size):
+    """The 2600: the black console with its wood-grain front and a joystick."""
+    im, d = launcher_base()
+    d.rectangle([4, 30, 59, 52], fill=(26, 25, 24, 255), outline=(90, 90, 90, 255))
+    d.rectangle([6, 44, 57, 50], fill=(120, 76, 40, 255))
+    for x in (12, 20, 28, 36):
+        d.rectangle([x, 34, x + 3, 38], fill=(180, 180, 176, 255))
+    d.rectangle([44, 18, 56, 30], fill=(30, 30, 30, 255), outline=(90, 90, 90, 255))
+    d.rectangle([49, 10, 51, 22], fill=(20, 20, 20, 255))
+    d.ellipse([45, 19, 49, 23], fill=(220, 40, 30, 255))
+    text(d, 6, 6, "2600", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
 def launcher_arcade(size):
     """An arcade cabinet: marquee, screen, the control panel with a red-ball joystick and buttons."""
     im, d = launcher_base()
@@ -341,7 +357,7 @@ def launcher_arcade(size):
 
 
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
-             "msx": launcher_msx, "lynx": launcher_lynx, "arcade": launcher_arcade}
+             "msx": launcher_msx, "lynx": launcher_lynx, "a2600": launcher_a2600, "arcade": launcher_arcade}
 
 
 ICONS = {

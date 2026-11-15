@@ -1,0 +1,16 @@
+# tools/gen_a2600_vkb.py, do not edit
+picture keyboard.png 1536 520
+travel 4
+button menu 548 110 788 180
+button hide 818 110 968 180
+key 0 0 270 110 390 240  # UP
+key 1 0 270 360 390 490  # DOWN
+key 2 0 140 240 270 360  # LEFT
+key 3 0 390 240 520 360  # RIGHT
+key 7 0 140 110 270 240  # UP+LEFT
+key 8 0 390 110 520 240  # UP+RIGHT
+key 9 0 140 360 270 490  # DOWN+LEFT
+key 10 0 390 360 520 490  # DOWN+RIGHT
+key 4 0 1106 170 1366 430  # FIRE
+key 6 0 578 190 738 430  # SELECT
+key 5 0 798 190 958 430  # RESET

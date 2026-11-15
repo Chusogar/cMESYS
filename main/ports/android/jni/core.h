@@ -31,6 +31,10 @@ enum {
     MC_CMD_MONITOR = 4,                     // CPC: colour / green monitor
     MC_CMD_FAST_LOAD_ON = 5,                // C64: LOAD from the .d64 at once
     MC_CMD_FAST_LOAD_OFF = 6,
+    MC_CMD_TV_TYPE = 7,                     // Atari 2600: colour / B&W switch
+    MC_CMD_DIFF_LEFT = 8,                   //   left / right difficulty A / B
+    MC_CMD_DIFF_RIGHT = 9,
+    MC_CMD_MOUSE_MODE = 10,                 // Atari ST: the mouse as a pointer / relative
 };
 
 // roms[i] (malloc'd, lens[i] bytes, NULL when absent) are the machine's:

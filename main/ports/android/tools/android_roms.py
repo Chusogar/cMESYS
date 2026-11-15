@@ -14,6 +14,7 @@ gen_roms_ql.py, written as plain binaries that the app gives its core.
   c64     roms/kernal.rom, basic.rom, chargen.rom, dos1541.rom
   msx     roms/msx1/bios.rom, disk.rom; roms/msx2/bios.rom, sub.rom, disk.rom
   lynx    roms/boot.rom (roms/lynx)
+  a2600   (none)
 """
 import glob
 import io
@@ -118,6 +119,8 @@ def main():
                 found += [model + "/" + n for n in computers(model, d, os.path.join(out, "roms", model), names)]
     elif machine == "lynx":
         found = computers("lynx", os.path.join(roms, "lynx"), out, ["roms/boot.rom"])
+    elif machine == "a2600":
+        found = []                      # (no ROMs: the cartridge is all)
     else:
         sys.exit("unknown machine %s" % machine)
     print("ROMs (%s): %s" % (machine, ", ".join(found)))

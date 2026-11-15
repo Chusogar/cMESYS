@@ -26,6 +26,7 @@ abstract class Machine {
             case "c64": return new C64();
             case "msx": return new Msx();
             case "lynx": return new Lynx();
+            case "a2600": return new A2600();
             default: throw new IllegalStateException("unknown machine " + MachineId.ID);
         }
     }
