@@ -1,0 +1,9 @@
+# Hot code in IRAM (out of the flash cache)
+[mapping:atari8_hot]
+archive: libmain.a
+entries:
+    m65xx (noflash)
+    atari8_core (noflash)
+    antic (noflash)
+    gtia (noflash)
+    pokey (noflash)

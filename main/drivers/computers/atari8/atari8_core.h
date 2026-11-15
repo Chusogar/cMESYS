@@ -80,3 +80,7 @@ bool atari8_has_disk(const atari8 *m);
 void atari8_eject(atari8 *m);
 const char *atari8_last_error(const atari8 *m);
 void atari8_set_turbo(atari8 *m, bool on);
+
+// The key (and SHIFT) that types an ASCII character (-1: none). For the
+// typists of the boards and Android.
+int atari8_char_key(char c, bool *shift);

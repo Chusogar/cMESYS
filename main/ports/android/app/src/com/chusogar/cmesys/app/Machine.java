@@ -27,6 +27,7 @@ abstract class Machine {
             case "msx": return new Msx();
             case "lynx": return new Lynx();
             case "a2600": return new A2600();
+            case "atari800xl": return new Atari8();
             default: throw new IllegalStateException("unknown machine " + MachineId.ID);
         }
     }

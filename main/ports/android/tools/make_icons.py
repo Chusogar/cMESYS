@@ -26,6 +26,9 @@ T = (0, 0, 0, 0)
 FONT = {
     "0": [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
     "6": ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
+    "T": ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
+    "A": [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+    "8": [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
     "1": ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],
     "2": [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
     "F": ["#####", "#....", "#....", "####.", "#....", "#....", "#...."],
@@ -40,6 +43,9 @@ FONT = {
     "Y": ["#...#", "#...#", ".#.#.", "..#..", "..#..", "..#..", "..#.."],
     "N": ["#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#", "#...#"],
     "6": ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
+    "T": ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
+    "A": [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+    "8": [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
     "4": ["...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."],
 }
 
@@ -338,6 +344,18 @@ def launcher_a2600(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_atari8(size):
+    """The 800XL: a wedge of charcoal keyboard with the grey console keys on the right."""
+    im, d = launcher_base()
+    d.polygon([(3, 50), (8, 28), (56, 28), (61, 50)], fill=(46, 46, 50, 255), outline=(150, 150, 154, 255))
+    keys_rows(d, 9, 46, 31, 4, (20, 20, 22, 255))
+    for i in range(4):
+        d.rectangle([49, 31 + i * 4, 56, 33 + i * 4], fill=(176, 178, 180, 255))
+    d.rectangle([3, 50, 61, 54], fill=(30, 30, 32, 255))
+    text(d, 3, 6, "800XL", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
 def launcher_arcade(size):
     """An arcade cabinet: marquee, screen, the control panel with a red-ball joystick and buttons."""
     im, d = launcher_base()
@@ -357,7 +375,7 @@ def launcher_arcade(size):
 
 
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
-             "msx": launcher_msx, "lynx": launcher_lynx, "a2600": launcher_a2600, "arcade": launcher_arcade}
+             "msx": launcher_msx, "lynx": launcher_lynx, "a2600": launcher_a2600, "atari800xl": launcher_atari8, "arcade": launcher_arcade}
 
 
 ICONS = {

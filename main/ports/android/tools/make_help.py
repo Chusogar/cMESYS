@@ -147,6 +147,27 @@ MACHINES = {
         start="<p>Abre un cartucho en <b>Cartucho</b>: la consola se enciende con él. Casi todos los juegos "
               "empiezan con <b>GAME RESET</b>.</p>",
         credits="núcleo 2600 migrado de dsp-cpp (del emulador DSP)"),
+    "atari800xl": dict(
+        title="cMESYS 800XL",
+        intro="Atari 800XL (y 400/800) con el núcleo Atari de 8 bits de cMESYS (migrado de dsp-cpp): el 6502 a "
+              "1,79 MHz, ANTIC (listas de display), GTIA (colores, players y misiles), POKEY (sonido, teclado y "
+              "temporizadores) y el PIA (joysticks y bancos de memoria del XL). Las ROM de esta app son AltirraOS "
+              "y Altirra BASIC (libres), o las de Atari si se pusieron en <code>roms/atari800xl</code>.",
+        media=("Disco", "Abrir un disco <code>.atr</code> (el ordenador arranca con él, sin BASIC) o sacarlo "
+               "(vuelve a BASIC)."),
+        reset="Arranque en frío.",
+        settings="modelo (800XL o 400/800) y mando",
+        keys=("Teclas Atari", "START, SELECT, OPTION, BREAK, RETURN y ESC."),
+        keyboard="un teclado de 800XL dibujado como los de dsp-cpp (dsp-cpp no tiene uno de Atari), con "
+                 "START, SELECT, OPTION y BREAK",
+        mods="<kbd>SHIFT</kbd> y <kbd>CONTROL</kbd>",
+        physical="Las teclas del PC son las del Atari; F2 = START, F3 = SELECT, F4 = OPTION, F6 = BREAK, "
+                 "F7 = la tecla de vídeo inverso, Supr / Retroceso = DELETE.",
+        pad="el joystick 1 o 2 (A / B = FIRE), X = espacio, Y = RETURN, L1 = START, R1 = OPTION, SELECT",
+        start="<p>Sin disco arranca el BASIC (<code>READY</code>). Un disco <code>.atr</code> arranca solo; "
+              "mientras arranca se mantiene OPTION pulsada para que el BASIC no estorbe.</p>",
+        credits="núcleo Atari de 8 bits migrado de dsp-cpp (del emulador DSP); AltirraOS y Altirra BASIC "
+                "de Avery Lee"),
 }
 
 

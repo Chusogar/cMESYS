@@ -15,6 +15,7 @@ gen_roms_ql.py, written as plain binaries that the app gives its core.
   msx     roms/msx1/bios.rom, disk.rom; roms/msx2/bios.rom, sub.rom, disk.rom
   lynx    roms/boot.rom (roms/lynx)
   a2600   (none)
+  atari800xl roms/osxl.rom, roms/basic.rom, roms/os800.rom (roms/atari800xl)
 """
 import glob
 import io
@@ -119,6 +120,18 @@ def main():
                 found += [model + "/" + n for n in computers(model, d, os.path.join(out, "roms", model), names)]
     elif machine == "lynx":
         found = computers("lynx", os.path.join(roms, "lynx"), out, ["roms/boot.rom"])
+    elif machine == "atari800xl":
+        d = os.path.join(roms, "atari800xl")
+        found = computers("atari800xl", d, out, ["roms/osxl.rom", "roms/basic.rom"])
+        # the 400/800's OS (optional): one 10 KB file, or the three chips
+        import gen_roms_computers as g
+        files = g.open_dir(d)
+        os800 = files.get("atariosb.rom") or files.get("altirraos_800.rom")
+        if os800 is None and all(n in files for n in ("co12399b.rom", "co12499b.rom", "co14599b.rom")):
+            os800 = files["co12399b.rom"][:0x800] + files["co12499b.rom"][:0x1000] + files["co14599b.rom"][:0x1000]
+        if os800 is not None and len(os800) >= 0x2800:
+            write(os.path.join(out, "roms/os800.rom"), os800[:0x2800])
+            found.append("roms/os800.rom")
     elif machine == "a2600":
         found = []                      # (no ROMs: the cartridge is all)
     else:

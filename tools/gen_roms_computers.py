@@ -5,7 +5,7 @@ Usage:
   tools/gen_roms_computers.py <machine> <romdir> <out.c>
   tools/gen_roms_computers.py --stub <machine> <out.c>
 
-<machine>: cpc6128 | c64 | lynx | msx1 | msx2. <romdir> is roms/<machine>/, unzipped or the
+<machine>: cpc6128 | c64 | lynx | atari800xl | atarist | msx1 | msx2. <romdir> is roms/<machine>/, unzipped or the
 MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   cpc6128  cpc6128.rom (32 KB: OS + BASIC), amsdos.rom | cpcados.rom (16 KB)
   c64      901227-03.u4 | kernal.rom (kernal 8 KB), 901226-01.u3 | basic.rom (8 KB),
@@ -13,6 +13,8 @@ MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
            (C000-DFFF) + 901229-05 ae.uab5 | 901229-06 aa.uab5 | 901229-03.uab5
            (E000-FFFF), or one 16 KB dos1541 | 1541.rom (optional: no drive without it)
   lynx     lynxboot.img | lynx.bin | lynxa.bin (512 bytes)
+  atari800xl co61598b.rom | ATARIXL.ROM (16 KB OS: the XL's, or AltirraOS), co60302a.rom |
+           ATARIBAS.ROM (8 KB BASIC, optional: Atari BASIC C or Altirra BASIC)
   msx1     MSX.ROM | msx1.rom | mpc100bios.rom (32 KB); DISK.ROM (16 KB, optional)
   msx2     MSX2.ROM | nms8250_basic-bios2.rom (32 KB), MSX2EXT.ROM | nms8250_msx2sub.rom
            (16 KB), DISK.ROM | nms8250_disk.rom (16 KB, optional)
@@ -50,6 +52,12 @@ SETS = {
                                  ('msx2_ext.rom', None)], True),
         ('msx_rom_disk', 0x4000, [('DISK.ROM', None), ('DISKROM.ROM', None), ('nms8250_disk.rom', None),
                                   ('v1.08.ic117', None), ('jq00014.ic117', None)], False),
+    ],
+    'atari800xl': [
+        ('atari8_rom_os', 0x4000, [('co61598b.rom', 0x1f9cd270), ('atarixl.rom', None), ('ATARIXL.ROM', None),
+                                   ('altirraos_xl.rom', None)], True),
+        ('atari8_rom_basic', 0x2000, [('co60302a.rom', 0xf0202fb3), ('ataribas.rom', None), ('ATARIBAS.ROM', None),
+                                      ('altirra_basic.rom', None)], False),
     ],
     'lynx': [
         ('lynx_rom_boot', 0x200, [('lynxboot.img', 0x0d973c9d), ('lynx.bin', None), ('lynxa.bin', None)], True),

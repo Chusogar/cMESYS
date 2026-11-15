@@ -589,3 +589,33 @@ bool atari8_load_file(atari8 *m, const char *path)
     zx_pb_take_flat(&pb, data, (size_t)n);
     return atari8_load_pbuf(m, &pb, path);
 }
+
+int atari8_char_key(char c, bool *shift)
+{
+    static const int8_t kLetters[26] = {
+        A8K_A, A8K_B, A8K_C, A8K_D, A8K_E, A8K_F, A8K_G, A8K_H, A8K_I, A8K_J, A8K_K, A8K_L, A8K_M,
+        A8K_N, A8K_O, A8K_P, A8K_Q, A8K_R, A8K_S, A8K_T, A8K_U, A8K_V, A8K_W, A8K_X, A8K_Y, A8K_Z,
+    };
+    static const int8_t kDigits[10] = { A8K_0, A8K_1, A8K_2, A8K_3, A8K_4, A8K_5, A8K_6, A8K_7, A8K_8, A8K_9 };
+    static const struct { char c; int8_t key; bool shift; } kOther[] = {
+        { ' ', A8K_SPACE, false }, { '\r', A8K_RETURN, false }, { '\n', A8K_RETURN, false },
+        { ';', A8K_SEMICOLON, false }, { ':', A8K_SEMICOLON, true }, { '+', A8K_PLUS, false }, { '\\', A8K_PLUS, true },
+        { '*', A8K_ASTERISK, false }, { '^', A8K_ASTERISK, true }, { '-', A8K_MINUS, false }, { '_', A8K_MINUS, true },
+        { '=', A8K_EQUALS, false }, { '|', A8K_EQUALS, true }, { ',', A8K_COMMA, false }, { '[', A8K_COMMA, true },
+        { '.', A8K_PERIOD, false }, { ']', A8K_PERIOD, true }, { '/', A8K_SLASH, false }, { '?', A8K_SLASH, true },
+        { '<', A8K_LESS, false }, { '>', A8K_GREATER, false }, { '!', A8K_1, true }, { '"', A8K_2, true },
+        { '#', A8K_3, true }, { '$', A8K_4, true }, { '%', A8K_5, true }, { '&', A8K_6, true },
+        { '\'', A8K_7, true }, { '@', A8K_8, true }, { '(', A8K_9, true }, { ')', A8K_0, true },
+        { 27, A8K_ESC, false }, { '\t', A8K_TAB, false }, { 8, A8K_BACKSPACE, false }, { 127, A8K_BACKSPACE, false },
+    };
+    *shift = false;
+    if (c >= 'a' && c <= 'z') return kLetters[c - 'a'];
+    if (c >= 'A' && c <= 'Z') return kLetters[c - 'A'];
+    if (c >= '0' && c <= '9') return kDigits[c - '0'];
+    for (size_t i = 0; i < sizeof kOther / sizeof kOther[0]; i++)
+        if (kOther[i].c == c) {
+            *shift = kOther[i].shift;
+            return kOther[i].key;
+        }
+    return -1;
+}
