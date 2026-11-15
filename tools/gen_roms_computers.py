@@ -13,6 +13,7 @@ MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
            (C000-DFFF) + 901229-05 ae.uab5 | 901229-06 aa.uab5 | 901229-03.uab5
            (E000-FFFF), or one 16 KB dos1541 | 1541.rom (optional: no drive without it)
   lynx     lynxboot.img | lynx.bin | lynxa.bin (512 bytes)
+  atarist  tos104.bin | tos102.bin | tos100.bin (192 KB), or EmuTOS's etos192uk.img (192 KB)
   atari800xl co61598b.rom | ATARIXL.ROM (16 KB OS: the XL's, or AltirraOS), co60302a.rom |
            ATARIBAS.ROM (8 KB BASIC, optional: Atari BASIC C or Altirra BASIC)
   msx1     MSX.ROM | msx1.rom | mpc100bios.rom (32 KB); DISK.ROM (16 KB, optional)
@@ -58,6 +59,12 @@ SETS = {
                                    ('altirraos_xl.rom', None)], True),
         ('atari8_rom_basic', 0x2000, [('co60302a.rom', 0xf0202fb3), ('ataribas.rom', None), ('ATARIBAS.ROM', None),
                                       ('altirra_basic.rom', None)], False),
+    ],
+    'atarist': [
+        ('atarist_rom_tos', 0x30000, [('tos104.bin', 0x90f4fbff), ('tos102.bin', 0xd3c32283), ('tos100.bin', 0xd331af30),
+                                      ('tos.img', None), ('etos192uk.img', None), ('etos192us.img', None),
+                                      ('etos192es.img', None), ('etos192de.img', None), ('etos192fr.img', None),
+                                      ('emutos.img', None)], True),
     ],
     'lynx': [
         ('lynx_rom_boot', 0x200, [('lynxboot.img', 0x0d973c9d), ('lynx.bin', None), ('lynxa.bin', None)], True),

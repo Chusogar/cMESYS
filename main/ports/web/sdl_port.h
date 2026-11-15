@@ -37,6 +37,11 @@ void sdl_port_close(void);
 bool sdl_port_poll(bool *reset);
 uint32_t sdl_port_keys(void);            // SP_* bits held
 bool sdl_port_paused(void);
+// The mouse over the picture (picture pixels; buttons: 1 left, 2 right):
+// false when it is out of the window. *entered: it came (back) since the
+// last call. And the host's arrow over the picture on / off.
+bool sdl_port_mouse(int *x, int *y, unsigned *buttons, bool *entered);
+void sdl_port_show_cursor(bool on);
 // Computer mode: SDL scancode held / next key pressed (-1: none) / title.
 bool sdl_port_key(int scancode);
 int sdl_port_next_press(void);

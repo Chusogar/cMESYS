@@ -18,6 +18,10 @@ static uint64_t next_tick, frame_ticks;
 static long frames, quit_after = -1, shot_at = -1;
 static bool held[SDL_NUM_SCANCODES];
 static int presses[32], np;
+// the mouse over the picture (SDL scales its events to the logical size)
+static int mouse_x, mouse_y;
+static unsigned mouse_buttons;
+static bool mouse_in, mouse_enter;
 static char *drops[8];
 static int ndrops;
 
@@ -157,6 +161,30 @@ bool sdl_port_poll(bool *reset)
             }
             continue;
         }
+        if (e.type == SDL_MOUSEMOTION) {
+            mouse_x = e.motion.x;
+            mouse_y = e.motion.y;
+            if (!mouse_in) mouse_enter = true;
+            mouse_in = true;
+            continue;
+        }
+        if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
+            const unsigned bit = e.button.button == SDL_BUTTON_LEFT ? 1u : e.button.button == SDL_BUTTON_RIGHT ? 2u : 0u;
+            if (e.type == SDL_MOUSEBUTTONDOWN) mouse_buttons |= bit;
+            else mouse_buttons &= ~bit;
+            mouse_x = e.button.x;
+            mouse_y = e.button.y;
+            mouse_in = true;
+            continue;
+        }
+        if (e.type == SDL_WINDOWEVENT) {
+            if (e.window.event == SDL_WINDOWEVENT_LEAVE) mouse_in = false;
+            if (e.window.event == SDL_WINDOWEVENT_ENTER && !mouse_in) {
+                mouse_in = true;
+                mouse_enter = true;
+            }
+            continue;
+        }
         if (e.type != SDL_KEYDOWN && e.type != SDL_KEYUP) continue;
         bool dn = e.type == SDL_KEYDOWN;
         SDL_Scancode sc = e.key.keysym.scancode;
@@ -186,6 +214,18 @@ int sdl_port_next_press(void)
 }
 void sdl_port_set_title(const char *t) { if (win) SDL_SetWindowTitle(win, t); }
 bool sdl_port_paused(void) { return paused; }
+
+bool sdl_port_mouse(int *x, int *y, unsigned *buttons, bool *entered)
+{
+    if (x) *x = mouse_x < 0 ? 0 : mouse_x >= cfg.width ? cfg.width - 1 : mouse_x;
+    if (y) *y = mouse_y < 0 ? 0 : mouse_y >= cfg.height ? cfg.height - 1 : mouse_y;
+    if (buttons) *buttons = mouse_buttons;
+    if (entered) *entered = mouse_enter;
+    mouse_enter = false;
+    return mouse_in;
+}
+
+void sdl_port_show_cursor(bool on) { SDL_ShowCursor(on ? SDL_ENABLE : SDL_DISABLE); }
 
 void sdl_port_audio(const int16_t *s, int n)
 {

@@ -69,6 +69,9 @@ spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion)
 cpc6128|c64|lynx|atari800xl)
     python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data.c
     exit 0 ;;
+atarist)
+    python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data.c
+    CYC=0 ;;
 msx1|msx2)
     python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data_$G.c
     exit 0 ;;

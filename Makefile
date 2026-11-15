@@ -29,6 +29,8 @@ else ifeq ($(GAME),a2600)
   D     := $(M)/drivers/computers/a2600
 else ifeq ($(GAME),atari800xl)
   D     := $(M)/drivers/computers/atari8
+else ifeq ($(GAME),atarist)
+  D     := $(M)/drivers/computers/atarist
 else ifneq ($(filter $(GAME),msx1 msx2),)
   D     := $(M)/drivers/computers/msx
 else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
@@ -161,6 +163,10 @@ else ifeq ($(GAME),atari800xl)
   SRC  := $(D)/atari8_sdl.c $(D)/atari8_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/video/antic.c \
           $(M)/video/gtia.c $(M)/sound/pokey.c $(M)/machine/zx_pbuf.c
   DEFS :=
+else ifeq ($(GAME),atarist)
+  SRC  := $(D)/atarist_sdl.c $(D)/atarist_core.c $(D)/rom_data.c $(M68K) $(M)/machine/mc68901.c \
+          $(M)/machine/st_floppy.c $(M)/machine/zx_pbuf.c $(M)/sound/ay8910.c
+  DEFS :=
 else ifneq ($(filter $(GAME),msx1 msx2),)
   SRC  := $(D)/msx_sdl.c $(D)/msx_core.c $(D)/rom_data_$(GAME).c $(M)/cpu/z80dsp/z80dsp.c $(M)/video/tms9918.c \
           $(M)/video/v9938.c $(M)/sound/ay8910.c $(M)/machine/msx_cart.c $(M)/machine/msx_disk.c $(M)/machine/zx_pbuf.c
@@ -197,7 +203,7 @@ ifeq ($(PORT),picohost)
   PORTSRC := tools/pico_host.c
   CFLAGS += -I$(M)/ports/rp2040-pizero -I$(M)/drivers/computers/ql -DPICO_BAND=4
   # microSD is board-only; stub the API so ql / zxspec *_pico.c link on the host.
-  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx a2600 atari800xl msx1 msx2),)
+  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx a2600 atari800xl atarist msx1 msx2),)
     PORTSRC += tools/ql_sd_host_stub.c
   endif
   SDL_CFLAGS :=
@@ -237,6 +243,7 @@ all:
 	$(MAKE) GAME=lynx TARGET=$(TARGET)
 	$(MAKE) GAME=a2600 TARGET=$(TARGET)
 	$(MAKE) GAME=atari800xl TARGET=$(TARGET)
+	$(MAKE) GAME=atarist TARGET=$(TARGET)
 	$(MAKE) GAME=msx1 TARGET=$(TARGET)
 	$(MAKE) GAME=msx2 TARGET=$(TARGET)
 

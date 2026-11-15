@@ -23,6 +23,8 @@ else ifneq ($(filter $(GAME),c64 lynx a2600),)
   D     := $(M)/drivers/computers/$(GAME)
 else ifeq ($(GAME),atari800xl)
   D     := $(M)/drivers/computers/atari8
+else ifeq ($(GAME),atarist)
+  D     := $(M)/drivers/computers/atarist
 else ifneq ($(filter $(GAME),msx1 msx2),)
   D     := $(M)/drivers/computers/msx
 else
@@ -122,7 +124,7 @@ else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   LDFLAGS += -sFORCE_FILESYSTEM=1 \
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
-else ifneq ($(filter $(GAME),cpc6128 c64 lynx a2600 atari800xl msx1 msx2),)
+else ifneq ($(filter $(GAME),cpc6128 c64 lynx a2600 atari800xl atarist msx1 msx2),)
   ifneq ($(filter $(GAME),msx1 msx2),)
     SRC := $(D)/msx_sdl.c $(D)/msx_core.c $(D)/rom_data_$(GAME).c $(M)/cpu/z80dsp/z80dsp.c $(M)/video/tms9918.c \
            $(M)/video/v9938.c $(M)/sound/ay8910.c $(M)/machine/msx_cart.c $(M)/machine/msx_disk.c $(M)/machine/zx_pbuf.c
@@ -132,6 +134,9 @@ else ifneq ($(filter $(GAME),cpc6128 c64 lynx a2600 atari800xl msx1 msx2),)
   else ifeq ($(GAME),c64)
     SRC := $(D)/c64_sdl.c $(D)/c64_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/video/mos6569.c \
            $(M)/sound/sid6581.c $(M)/machine/mos6526.c $(M)/machine/c1541.c $(M)/machine/via6522.c $(M)/machine/zx_pbuf.c
+  else ifeq ($(GAME),atarist)
+    SRC := $(D)/atarist_sdl.c $(D)/atarist_core.c $(D)/rom_data.c $(M68K) $(M)/machine/mc68901.c \
+           $(M)/machine/st_floppy.c $(M)/machine/zx_pbuf.c $(M)/sound/ay8910.c
   else ifeq ($(GAME),atari800xl)
     SRC := $(D)/atari8_sdl.c $(D)/atari8_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/video/antic.c \
            $(M)/video/gtia.c $(M)/sound/pokey.c $(M)/machine/zx_pbuf.c
