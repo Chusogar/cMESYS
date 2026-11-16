@@ -4,7 +4,7 @@
 # and main/ports/android/build_apk.sh. Every console also gets CONS_COMMON
 # and its frontend (common/cons_sdl.c, cons_pico.c, cons_cyd.c, or the
 # Android port's m_cons.c).
-CONSOLES := sg1000 coleco pv2000 pv1000 sms gamegear nes a2600 a7800 vectrex gameboy pcengine
+CONSOLES := sg1000 coleco pv2000 pv1000 sms gamegear nes a2600 a7800 vectrex gameboy pcengine scv
 CONS_COMMON := drivers/consoles/common/cons_util.c machine/zx_inflate.c
 CONS_SRC_sg1000 := drivers/consoles/sg1000/sg1000_core.c cpu/z80dsp/z80dsp.c video/tms9918.c sound/sn76496.c
 CONS_SRC_coleco := drivers/consoles/coleco/coleco_core.c drivers/consoles/coleco/rom_data.c cpu/z80dsp/z80dsp.c video/tms9918.c sound/sn76496.c sound/ay8910.c machine/i2cmem.c
@@ -18,3 +18,4 @@ CONS_SRC_a7800 := drivers/consoles/a7800/a7800_core.c cpu/m6502/m65xx.c video/ma
 CONS_SRC_vectrex := drivers/consoles/vectrex/vectrex_core.c drivers/consoles/vectrex/rom_data.c drivers/consoles/vectrex/vx_cpu.c machine/via6522.c sound/ay8910.c
 CONS_SRC_gameboy := drivers/consoles/gameboy/gb_core.c cpu/lr35902/lr35902.c video/gb_ppu.c sound/gb_apu.c
 CONS_SRC_pcengine := drivers/consoles/pcengine/pce_core.c cpu/h6280/h6280.c video/huc6270.c sound/huc6280_psg.c
+CONS_SRC_scv := drivers/consoles/scv/scv_core.c drivers/consoles/scv/rom_data.c cpu/upd7801/upd7801.c sound/upd1771.c

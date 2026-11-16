@@ -62,6 +62,10 @@ SETS = {
     'coleco': [
         ('coleco_rom_bios', 0x2000, [('coleco.rom', 0x3aa93ef3), ('313 10031-4005 73108a.u2', 0x3aa93ef3)], False),
     ],
+    'scv': [
+        ('scv_rom_bios', 0x1000, [('upd7801g.s01', 0x7ac06182)], False),
+        ('scv_rom_chr', 0x400, [('epochtv.chr', 0xdb521533)], False),
+    ],
     'vectrex': [
         ('vectrex_rom_bios', 0x2000, [('exec_rom.bin', 0xba13fb57)], False),
     ],
