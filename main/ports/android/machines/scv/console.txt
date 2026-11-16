@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from scv's cons_machine.
+title = Epoch Super Cassette Vision
+media = Cartucho
+exts = .bin .0 .rom
+buttons = 1 2 - -
+start = PAUSE
+select = -
+keys = 1
+aspect = 1.3333

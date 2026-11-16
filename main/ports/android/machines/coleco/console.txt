@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from coleco's cons_machine.
+title = ColecoVision
+media = Cartucho
+exts = .col .rom .bin
+buttons = LEFT FIRE RIGHT FIRE - -
+start = -
+select = -
+keys = 1
+aspect = 1.3333

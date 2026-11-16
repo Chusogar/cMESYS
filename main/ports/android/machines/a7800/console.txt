@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from a7800's cons_machine.
+title = Atari 7800
+media = Cartucho
+exts = .a78 .bin
+buttons = FIRE - - -
+start = RESET
+select = SELECT
+keys = 0
+aspect = 1.3333

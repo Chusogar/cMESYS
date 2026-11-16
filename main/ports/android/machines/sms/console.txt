@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from sms's cons_machine.
+title = Sega Master System
+media = Cartucho
+exts = .sms .bin .rom
+buttons = 1 2 - -
+start = PAUSE
+select = -
+keys = 0
+aspect = 1.3333

@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from vectrex's cons_machine.
+title = Vectrex
+media = Cartucho
+exts = .vec .bin .gam
+buttons = 1 2 3 4
+start = -
+select = -
+keys = 0
+aspect = 0

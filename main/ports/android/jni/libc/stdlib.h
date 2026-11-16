@@ -13,4 +13,6 @@ int atoi(const char *s);
 long atol(const char *s);
 char *getenv(const char *name);
 void qsort(void *base, size_t n, size_t size, int (*cmp)(const void *, const void *));
+int rand(void);
+void srand(unsigned seed);
 #endif

@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from nes's cons_machine.
+title = Nintendo NES
+media = Cartucho
+exts = .nes
+buttons = A B - -
+start = START
+select = SELECT
+keys = 0
+aspect = 1.3333

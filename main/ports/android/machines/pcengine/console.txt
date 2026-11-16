@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from pcengine's cons_machine.
+title = NEC PC Engine
+media = HuCard
+exts = .pce .bin
+buttons = I II - -
+start = RUN
+select = SELECT
+keys = 0
+aspect = 1.3333

@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from sg1000's cons_machine.
+title = Sega SG-1000
+media = Cartucho
+exts = .sg .sc .bin
+buttons = 1 2 - -
+start = PAUSE
+select = -
+keys = 0
+aspect = 1.3333

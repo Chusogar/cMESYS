@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from gba's cons_machine.
+title = Game Boy Advance
+media = Cartucho
+exts = .gba .agb .bin
+buttons = A B L R
+start = START
+select = SELECT
+keys = 0
+aspect = 0

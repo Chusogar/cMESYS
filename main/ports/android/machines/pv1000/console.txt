@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from pv1000's cons_machine.
+title = Casio PV-1000
+media = Cartucho
+exts = .bin .rom
+buttons = BUTTON 1 BUTTON 2 - -
+start = START
+select = -
+keys = 0
+aspect = 1.3333
