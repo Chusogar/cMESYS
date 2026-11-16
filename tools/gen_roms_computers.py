@@ -60,7 +60,7 @@ SETS = {
     ],
     # consoles (main/drivers/consoles): their BIOS, all optional
     'coleco': [
-        ('coleco_rom_bios', 0x2000, [('coleco.rom', 0x3aa93ef3), ('313 10031-4005 73108a.u2', 0x3aa93ef3)], False),
+        ('coleco_rom_bios', 0x2000, [('coleco.rom', 0x3aa93ef3), ('313 10031-4005 73108a.u2', 0x3aa93ef3), ('313_10031-4005_73108a.u2', 0x3aa93ef3)], False),
     ],
     'scv': [
         ('scv_rom_bios', 0x1000, [('upd7801g.s01', 0x7ac06182)], False),
