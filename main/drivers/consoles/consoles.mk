@@ -4,6 +4,9 @@
 # and main/ports/android/build_apk.sh. Every console also gets CONS_COMMON
 # and its frontend (common/cons_sdl.c, cons_pico.c, cons_cyd.c, or the
 # Android port's m_cons.c).
-CONSOLES := sg1000
+CONSOLES := sg1000 coleco pv2000 pv1000
 CONS_COMMON := drivers/consoles/common/cons_util.c machine/zx_inflate.c
 CONS_SRC_sg1000 := drivers/consoles/sg1000/sg1000_core.c cpu/z80dsp/z80dsp.c video/tms9918.c sound/sn76496.c
+CONS_SRC_coleco := drivers/consoles/coleco/coleco_core.c drivers/consoles/coleco/rom_data.c cpu/z80dsp/z80dsp.c video/tms9918.c sound/sn76496.c sound/ay8910.c machine/i2cmem.c
+CONS_SRC_pv2000 := drivers/consoles/pv2000/pv2000_core.c drivers/consoles/pv2000/rom_data.c cpu/z80dsp/z80dsp.c video/tms9918.c sound/sn76496.c
+CONS_SRC_pv1000 := drivers/consoles/pv1000/pv1000_core.c cpu/z80dsp/z80dsp.c

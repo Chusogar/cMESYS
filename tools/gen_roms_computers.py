@@ -5,7 +5,8 @@ Usage:
   tools/gen_roms_computers.py <machine> <romdir> <out.c>
   tools/gen_roms_computers.py --stub <machine> <out.c>
 
-<machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga. <romdir> is roms/<machine>/, unzipped or the
+<machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga, or a console of
+main/drivers/consoles with a BIOS (coleco, ...). <romdir> is roms/<machine>/, unzipped or the
 MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   cpc6128  cpc6128.rom (32 KB: OS + BASIC), amsdos.rom | cpcados.rom (16 KB)
   c64      901227-03.u4 | kernal.rom (kernal 8 KB), 901226-01.u3 | basic.rom (8 KB),
@@ -56,6 +57,13 @@ SETS = {
     'amiga': [
         ('amiga_rom_kick', 0x40000, [('315093-02.u2', 0xc4f0f55f), ('kick13.rom', None), ('kick34005.a500', None),
                                      ('315093-01.u2', 0xa6ce1636), ('kick.rom', None), ('kickstart.rom', None)], True),
+    ],
+    # consoles (main/drivers/consoles): their BIOS, all optional
+    'coleco': [
+        ('coleco_rom_bios', 0x2000, [('coleco.rom', 0x3aa93ef3), ('313 10031-4005 73108a.u2', 0x3aa93ef3)], False),
+    ],
+    'pv2000': [
+        ('pv2000_rom_bios', 0x4000, [('hn613128pc64.bin', 0x8f31f297)], False),
     ],
     'lynx': [
         ('lynx_rom_boot', 0x200, [('lynxboot.img', 0x0d973c9d), ('lynx.bin', None), ('lynxa.bin', None)], True),
