@@ -77,6 +77,9 @@ SETS = {
         ('s32x_rom_bios_m', 0x800, [('32x_m_bios.bin', 0xdd9c46b8)], False),
         ('s32x_rom_bios_s', 0x400, [('32x_s_bios.bin', 0xbfda1fe5)], False),
     ],
+    'gba': [
+        ('gba_rom_bios', 0x4000, [('gba_bios.bin', 0x81977335), ('gba.bin', 0x81977335)], False),
+    ],
     'lynx': [
         ('lynx_rom_boot', 0x200, [('lynxboot.img', 0x0d973c9d), ('lynx.bin', None), ('lynxa.bin', None)], True),
     ],
