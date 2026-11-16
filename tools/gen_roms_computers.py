@@ -62,6 +62,9 @@ SETS = {
     'coleco': [
         ('coleco_rom_bios', 0x2000, [('coleco.rom', 0x3aa93ef3), ('313 10031-4005 73108a.u2', 0x3aa93ef3)], False),
     ],
+    'vectrex': [
+        ('vectrex_rom_bios', 0x2000, [('exec_rom.bin', 0xba13fb57)], False),
+    ],
     'pv2000': [
         ('pv2000_rom_bios', 0x4000, [('hn613128pc64.bin', 0x8f31f297)], False),
     ],
