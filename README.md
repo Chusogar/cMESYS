@@ -1,6 +1,6 @@
-# Arcades y ordenadores (Sinclair, Amstrad, Commodore, MSX, Atari Lynx) para ESP32 CYD (ST7789), RP2040/RP2350-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
+# Arcades, ordenadores (Sinclair, Amstrad, Commodore, MSX, Atari Lynx) y consolas para ESP32 CYD (ST7789), RP2040/RP2350-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
 
-Veinticuatro máquinas (once recreativas, el Sinclair QL, seis ZX Spectrum / clones, el Amstrad CPC 6128, el Commodore 64, el MSX, el MSX2, la Atari Lynx y el Commodore Amiga 500) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
+Cuarenta y tres máquinas (las 19 consolas de dsp-cpp —ver «Consolas: migración de dsp-cpp»—, once recreativas, el Sinclair QL, seis ZX Spectrum / clones, el Amstrad CPC 6128, el Commodore 64, el MSX, el MSX2, la Atari Lynx y el Commodore Amiga 500) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
 
 | Juego | `GAME` | CPUs | Sonido | Origen del driver |
 |---|---|---|---|---|
@@ -389,12 +389,12 @@ python3 -m http.server --directory build/web 8080
 
 Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum, CPC, C64, MSX y Lynx: barra «Upload» (todos sus formatos), drag&drop o F9; F12 = TURBO. En el Amiga: barra «Upload» o drag&drop de un `.adf` (a DF0), F11 menú, F12 TURBO, y un clic en la imagen captura el ratón (*pointer lock*; el botón central lo suelta). `?frames=n` en la URL corta tras n frames.
 
-## Android (ordenadores y arcades)
+## Android (ordenadores, consolas y arcades)
 
 Los drivers de ordenadores como apps de Android, una por máquina, todas con la interfaz de Hataroid del QL (menú de iconos inferior, ajustes, medios desde los archivos del teléfono, *Abrir con*) y con el teclado en pantalla de dsp-cpp (la foto del QL, el 48K, el CPC 464, el C64 con sus PETSCII; MSX y la Lynx dibujados al mismo estilo; el Amiga, la foto de un A500 español, con la imagen como trackpad del ratón). Y los 11 arcades en una app, **cMESYS Arcade**, con la lista de juegos como MAME para Android, cada juego con su frontend de escritorio tal cual (sobre `sdl_port.h` para Android) y controles en pantalla: joystick de bola roja, los botones del juego, START y un monedero con la animación de la moneda. Se compilan sin Android Studio ni NDK; ver `main/ports/android/README.md`.
 
 ```
-main/ports/android/build_apk.sh       # → dist/{ql,zxspec,cpc,c64,msx,lynx,amiga}_android.apk (arm64-v8a y x86_64)
+main/ports/android/build_apk.sh       # → dist/{ql,zxspec,cpc,c64,msx,lynx,amiga,<consolas>}_android.apk (arm64-v8a y x86_64)
 main/ports/android/build_arcade.sh    # → dist/arcade_android.apk (los 11 arcades)
 ```
 
@@ -619,6 +619,36 @@ El Amiga 500 de dsp-cpp (`amiga.cpp`, `amiga_chipset`, `cia8520`, `amiga_adf`) p
 **Teclas** (escritorio, web y RP2350 con teclado USB): por posición (la distribución del A500 español es la del PC español). F1-F10 son los del Amiga; Windows izq. / RePág = Amiga izq., Windows dcha. / Menú / AvPág = Amiga dcha., Fin = HELP, Insert = `\ |`, Bloq Num / Bloq Despl = `(` `)` del bloque numérico. Joystick (puerto 2): teclado numérico 8 4 6 2 (7 9 1 3 diagonales), disparo 0 / 5 / Ctrl dcho. (en el menú se cambia a las teclas del bloque numérico). **F11** menú (disco en DF0 / DF1, expulsar, reset, teclado numérico), **F12** TURBO. **Ratón**: en el escritorio un clic en la ventana lo captura (modo relativo) y el botón central lo suelta; en la RP2350 un ratón USB; en Android la imagen es un trackpad (un dedo mueve, toque = clic, toque + toque y mover = arrastrar, segundo dedo = botón derecho). En la RP2350 un mando USB es el joystick.
 
 Probado en el escritorio con el Kickstart 1.3 (pantalla del disquete; 2.04 y 3.1 con `--kick`), **Shadow of the Beast** (disco 1: menú del *trainer* con el ratón, cargador propio, la intro con sus imágenes y la petición del disco 2 con el disparo del joystick), **North & South** (selección de idioma con el ratón, presentación, el mapa) y un disco de prueba que lee el teclado. Pruebas sin ventana: `AMIGA_INPUT="900:m0/100,920:b1,930:b0,6000:j16"` (fotograma: `j` joystick, `k`/`u` tecla abajo/arriba en hex, `m` movimiento del ratón, `b` botones) con `SDL_PORT_FRAMES` / `SDL_PORT_SHOT`. En la RP2350 compila (`./build_pico2.sh amiga`, la chip RAM y los discos en la PSRAM, el Kickstart en la flash, los 120 manejadores de 68000 más usados en RAM: `amiga.lf`, medidos con Beast y North & South) y funciona con `PORT=picohost`, pero **no está probado en la placa**: puede no llegar a 50 fps. La versión web no se ha compilado aquí (falta `emcc`).
+
+## Consolas: migración de dsp-cpp
+
+Las 19 consolas de [dsp-cpp](https://github.com/Chusogar/dsp-cpp) pasadas a C11 en `main/drivers/consoles/<id>/`, todas con la misma API (`common/cons.h`: `cons_init`, `cons_load`, `cons_run_frame`, `cons_frame` en RGB565, `cons_pad`, `cons_key`) y un único frontend por plataforma: `common/cons_sdl.c` (escritorio y web), `cons_pico.c` (RP2040 / RP2350), `cons_cyd.c` (CYD) y `jni/m_cons.c` (Android). El manifiesto `drivers/consoles/consoles.mk` (`CONSOLES`, y por consola `CONS_SRC_<id>`, `CONS_DEFS_<id>`, `CONS_RAM_<id>`) lo leen el Makefile, el de la web, los CMakeLists de la CYD y de las placas y `build_apk.sh`.
+
+| Consola | `GAME` | CPU | Vídeo / sonido | BIOS (`tools/regen.sh <id>`) |
+|---|---|---|---|---|
+| Sega SG-1000 | `sg1000` | Z80 | TMS9918 / SN76489 | — |
+| ColecoVision | `coleco` | Z80 | TMS9918 / SN76489 (+ AY del SGM) | `coleco.rom` |
+| Casio PV-2000 | `pv2000` | Z80 | TMS9918 / SN76489 | `hn613128pc64.bin` |
+| Casio PV-1000 | `pv1000` | Z80 | propio | — |
+| Sega Master System | `sms` | Z80 | 315-5124 / SN76489 + YM2413 | — |
+| Sega Game Gear | `gamegear` | Z80 | 315-5246 / SN76489 | — |
+| NES | `nes` | 2A03 (6502) | 2C02 / APU | — |
+| Atari 2600 | `a2600` | 6507 | TIA + RIOT | — |
+| Atari 7800 | `a7800` | 6502 | MARIA / TIA | — |
+| Vectrex | `vectrex` | 6809 (el núcleo de dsp-cpp, `cpu/m6809dsp`) | haz vectorial / AY-3-8912 | `exec_rom.bin` (o como cartucho) |
+| Game Boy / Color | `gameboy` | LR35902 | PPU / APU | — |
+| PC Engine | `pcengine` | HuC6280 | HuC6270 + HuC6260 / PSG | — |
+| Super Cassette Vision | `scv` | uPD7801 | EPOCH TV-1 / uPD1771 | `upd7801g.s01` + `epochtv.chr` |
+| WonderSwan / Color | `wonderswan` | V30MZ | propio | — |
+| Mega Drive / Genesis | `genesis` | 68000 (Musashi) + Z80 | 315-5313 / YM2612 + SN76489 | — |
+| 32X | `sega32x` | 2 x SH-2 + lo del Mega Drive | frame buffers / PWM | `32x_g_bios.bin`, `32x_m_bios.bin`, `32x_s_bios.bin` |
+| Super Nintendo | `snes` | 65C816 + SPC700 | S-PPU (modos 0-7) / sin DSP aún (como dsp-cpp) | — (IPL del SPC700 incluido) |
+| Game Boy Advance | `gba` | ARM7TDMI | PPU (modos 0-5) / APU + FIFO | `gba_bios.bin` |
+| PlayStation | `psx` | R3000A + GTE | GPU / SPU, CD-ROM (XA), MDEC (según ProjectPSX, MIT) | `scph1001.bin` u otra de 512 KB; el disco, una imagen `.bin` |
+
+Las BIOS nunca van a git: `rom_data.c` es un stub NULL; con `tools/regen.sh <id>` (BIOS en `roms/<id>/`) se meten en la compilación, y GBA y PlayStation también aceptan la BIOS como primer fichero que se abre. Cada núcleo se ha comparado con dsp-cpp con programas de prueba propios (0 píxeles distintos) y cada CPU nueva con el original C++ instrucción a instrucción (más de un millón de instrucciones aleatorias, ciclos, registros y memoria idénticos).
+
+Mandos (escritorio y web): cursores, Z X C V (o Ctrl / Alt) = botones 1-4, ENTER = START, Retroceso o Mayús derecha = SELECT; segundo mando en el teclado numérico; F9 menú (abrir / sacar cartucho), F3 reset, F12 TURBO. Las consolas con teclas (ColecoVision, SCV, WonderSwan) las leen además del teclado del PC; el PV-2000 usa el teclado entero (botones con Ctrl / Alt). Android: un APK por consola (`main/ports/android/build_apk.sh <id>`, ficheros de cada app con `tools/gen_consoles_android.py`). Placas: `./build_pico.sh <id>`, `./build_pico2.sh <id>`, `./build_all.sh` (CYD). Memoria: Mega Drive (≈ 0,4 MB), SNES (≈ 0,4 MB), 32X (≈ 0,9 MB), GBA (≈ 0,8 MB) y PlayStation (≈ 10 MB) tienen su estado en el heap: en la RP2350 va a la PSRAM, y donde no cabe la consola lo dice en pantalla («OUT OF MEMORY FOR THIS CONSOLE»). La PlayStation no cabe ni en los 8 MB de PSRAM de la RP2350.
 
 ## Atari System 1: Indy y Road Runner
 
