@@ -36,7 +36,10 @@ static uint8_t internal_r(h6280 *c, uint32_t a)
 {
     if (a < 0x1fec00) return c->io_buffer;                                   // PSG
     if (a < 0x1ff000) return (uint8_t)(((c->timer_value >> 10) & 0x7f) | (c->io_buffer & 0x80));
-    if (a < 0x1ff400) return c->io_buffer;                                   // port (no input)
+    if (a < 0x1ff400) {                                                      // port
+        if (c->port_r) c->io_buffer = c->port_r(c->user);
+        return c->io_buffer;
+    }
     switch (a & 3) {                                                         // interrupts
     case 3: {
         uint8_t st = 0;
@@ -58,7 +61,10 @@ static inline void check_irq_lines(h6280 *c)
 static void internal_w(h6280 *c, uint32_t a, uint8_t v)
 {
     c->io_buffer = v;
-    if (a < 0x1fec00) return;                                                // PSG (not emulated)
+    if (a < 0x1fec00) {                                                      // PSG
+        if (c->psg_w) c->psg_w(c->user, (uint8_t)(a & 0x0f), v);
+        return;
+    }
     if (a < 0x1ff000) {                                                      // timer
         if (!(a & 1)) {
             c->timer_load = ((v & 127) + 1) * 1024;
@@ -68,7 +74,10 @@ static void internal_w(h6280 *c, uint32_t a, uint8_t v)
         }
         return;
     }
-    if (a < 0x1ff400) return;                                                // port
+    if (a < 0x1ff400) {                                                      // port
+        if (c->port_w) c->port_w(c->user, v);
+        return;
+    }
     switch (a & 3) {
     case 2: c->irq_mask = v & 7; check_irq_lines(c); break;
     case 3: h6280_set_irq_line(c, H6280_IRQT, H6280_CLEAR); break;
