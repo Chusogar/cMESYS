@@ -13,6 +13,7 @@ GAME    ?= indytemp
 EMCC    ?= emcc
 
 ZX_GAMES := spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion
+include $(M)/drivers/consoles/consoles.mk
 ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
@@ -23,6 +24,8 @@ else ifneq ($(filter $(GAME),c64 lynx amiga),)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),msx1 msx2),)
   D     := $(M)/drivers/computers/msx
+else ifneq ($(filter $(GAME),$(CONSOLES)),)
+  D     := $(M)/drivers/consoles/$(GAME)
 else
   D     := $(M)/drivers/arcades/$(GAME)
 endif
@@ -140,13 +143,21 @@ else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2 amiga),)
   LDFLAGS += -sFORCE_FILESYSTEM=1 \
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
+else ifneq ($(filter $(GAME),$(CONSOLES)),)
+  # the consoles' common frontend (common/cons_sdl.c, its upload bar as the computers')
+  SRC  := $(M)/drivers/consoles/common/cons_sdl.c $(addprefix $(M)/,$(CONS_COMMON) $(CONS_SRC_$(GAME)))
+  DEFS := $(addprefix -D,$(CONS_DEFS_$(GAME)))
+  LDFLAGS += -sFORCE_FILESYSTEM=1 \
+             "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
+             "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2 or amiga)
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga or a console: $(CONSOLES))
 endif
 
 PORTSRC := $(M)/ports/web/sdl_port.c
 GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql \
-           spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga
+           spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga \
+           $(CONSOLES)
 
 $(OUT)/$(GAME).html: $(SRC) $(PORTSRC) $(wildcard $(PP)/*.inc) $(M)/ports/web/shell.html $(M)/ports/web/Makefile
 	@mkdir -p $(OUT)

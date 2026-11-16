@@ -23,7 +23,7 @@ function(cons_sources id var prefix)
     set(${var} ${_out} PARENT_SCOPE)
 endfunction()
 # cons_var(<name> <var>): another line of consoles.mk (CONS_RAM_<id>: the
-# objects the RP2040 / RP2350 runs from RAM), as a list
+# objects the RP2040 / RP2350 runs from RAM; CONS_DEFS_<id>: the defines), as a list
 function(cons_var name var)
     set(_out)
     foreach(_l ${_cons_lines})

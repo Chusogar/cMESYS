@@ -3,7 +3,8 @@
 # main/ports/web/Makefile, the CYD's and the RP2040 / RP2350's CMakeLists.txt
 # and main/ports/android/build_apk.sh. Every console also gets CONS_COMMON
 # and its frontend (common/cons_sdl.c, cons_pico.c, cons_cyd.c, or the
-# Android port's m_cons.c).
+# Android port's m_cons.c). CONS_DEFS_<id>: its defines (without -D), when it has any;
+# CONS_RAM_<id>: the objects the RP2040 / RP2350 run from RAM.
 CONSOLES := sg1000 coleco pv2000 pv1000 sms gamegear nes a2600 a7800 vectrex gameboy pcengine scv wonderswan genesis sega32x snes gba psx
 CONS_COMMON := drivers/consoles/common/cons_util.c machine/zx_inflate.c
 CONS_SRC_sg1000 := drivers/consoles/sg1000/sg1000_core.c cpu/z80dsp/z80dsp.c video/tms9918.c sound/sn76496.c
@@ -20,8 +21,10 @@ CONS_SRC_gameboy := drivers/consoles/gameboy/gb_core.c cpu/lr35902/lr35902.c vid
 CONS_SRC_pcengine := drivers/consoles/pcengine/pce_core.c cpu/h6280/h6280.c video/huc6270.c sound/huc6280_psg.c
 CONS_SRC_scv := drivers/consoles/scv/scv_core.c drivers/consoles/scv/rom_data.c cpu/upd7801/upd7801.c sound/upd1771.c
 CONS_SRC_wonderswan := drivers/consoles/wonderswan/ws_core.c cpu/necv30/nec_v30.c sound/wswan_apu.c
-CONS_SRC_genesis := drivers/consoles/genesis/gen_core.c drivers/consoles/genesis/md_machine.c cpu/z80dsp/z80dsp.c video/sega_315_5313.c sound/sn76496.c sound/ym2612.c sound/fmopn.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c
-CONS_SRC_sega32x := drivers/consoles/sega32x/s32x_core.c drivers/consoles/sega32x/rom_data.c drivers/consoles/genesis/md_machine.c cpu/sh2/sh2.c cpu/z80dsp/z80dsp.c video/sega_315_5313.c sound/sn76496.c sound/ym2612.c sound/fmopn.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c
+CONS_SRC_genesis := drivers/consoles/genesis/gen_core.c drivers/consoles/genesis/md_machine.c cpu/z80dsp/z80dsp.c video/sega_315_5313.c sound/sn76496.c sound/ym2612.c sound/fmopn.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c drivers/consoles/genesis/m68k_tables.c
+CONS_DEFS_genesis := M68K_FLASH_TABLES
+CONS_SRC_sega32x := drivers/consoles/sega32x/s32x_core.c drivers/consoles/sega32x/rom_data.c drivers/consoles/genesis/md_machine.c cpu/sh2/sh2.c cpu/z80dsp/z80dsp.c video/sega_315_5313.c sound/sn76496.c sound/ym2612.c sound/fmopn.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c drivers/consoles/genesis/m68k_tables.c
+CONS_DEFS_sega32x := M68K_FLASH_TABLES
 CONS_SRC_snes := drivers/consoles/snes/snes_core.c cpu/w65c816/w65c816.c cpu/spc700/spc700.c video/snes_ppu.c
 CONS_SRC_gba := drivers/consoles/gba/gba_core.c drivers/consoles/gba/rom_data.c cpu/arm7tdmi/arm7tdmi.c video/gba_ppu.c sound/gba_apu.c
 CONS_SRC_psx := drivers/consoles/psx/psx_core.c drivers/consoles/psx/rom_data.c cpu/psx/r3000a.c cpu/psx/psx_gte.c machine/psx_timers.c machine/psx_dma.c machine/psx_gpu.c machine/psx_cdrom.c machine/psx_xa_adpcm.c machine/psx_joypad.c machine/psx_spu.c machine/psx_mdec.c

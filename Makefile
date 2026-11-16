@@ -182,7 +182,7 @@ else ifeq ($(GAME),scorpion)
 else ifneq ($(filter $(GAME),$(CONSOLES)),)
   D    := $(M)/drivers/consoles/$(GAME)
   SRC  := $(M)/drivers/consoles/common/cons_sdl.c $(addprefix $(M)/,$(CONS_COMMON) $(CONS_SRC_$(GAME)))
-  DEFS :=
+  DEFS := $(addprefix -D,$(CONS_DEFS_$(GAME)))
 else
   $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga or a console: $(CONSOLES))
 endif

@@ -5,7 +5,13 @@
 #include "../common/cons.h"
 #include "m68k.h"
 
-md_machine MD;
+md_machine *md_p;
+
+bool md_alloc(void)
+{
+    if (!md_p) md_p = (md_machine *)calloc(1, sizeof *md_p);
+    return md_p != NULL;
+}
 
 // ---- cartridge formats ----
 static bool looks_like_genesis(const uint8_t *d, size_t n)

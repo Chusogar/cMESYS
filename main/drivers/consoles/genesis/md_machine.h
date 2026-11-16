@@ -62,7 +62,10 @@ typedef struct {
     bool loaded;
 } md_machine;
 
-extern md_machine MD;
+extern md_machine *md_p;          // (on the heap: the RP2350 puts it in the PSRAM)
+#define MD (*md_p)
+
+bool md_alloc(void);                    // before anything else touches MD
 
 void md_init(int region);
 void md_set_region(int region);

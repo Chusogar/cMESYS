@@ -584,8 +584,9 @@ const cons_info cons_machine = {
     kFps, kSampleRate, { "B", "Y", "A", "X" }, "START", "SELECT", CONS_NO_KEYS, 1, NULL,
 };
 
-static snes_m S;
-static uint16_t fb565[kWidth * kHeight];
+static snes_m *Sp;                  // (on the heap: the RP2350 puts it in the PSRAM)
+#define S (*Sp)
+static uint16_t *fb565;
 static int16_t silence[kSampleRate / kFps + 1];
 
 static uint8_t bus_read(void *u, uint32_t a) { return cpu_read((snes_m *)u, a); }
@@ -614,6 +615,9 @@ bool cons_init(void)
         0xcb,0xf4,0xd7,0x00,0xfc,0xd0,0xf3,0xab,0x01,0x10,0xef,0x7e,0xf4,0x10,0xeb,0xba,
         0xf6,0xda,0x00,0xba,0xf4,0xc4,0xf4,0xdd,0x5d,0xd0,0xdb,0x1f,0x00,0x00,0xc0,0xff
     };
+    Sp = (snes_m *)calloc(1, sizeof *Sp);
+    fb565 = (uint16_t *)calloc(kWidth * kHeight, sizeof(uint16_t));
+    if (!Sp || !fb565) return false;
     S.framebuffer_ = (uint32_t *)malloc(kWidth * kHeight * sizeof(uint32_t));
     if (!S.framebuffer_) return false;
     memcpy(S.ipl_, kDefaultIpl, sizeof S.ipl_);

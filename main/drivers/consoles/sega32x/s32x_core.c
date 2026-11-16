@@ -27,7 +27,7 @@ const cons_info cons_machine = {
     MD_FPS_NTSC, MD_RATE, { "A", "B", "C", NULL }, "START", NULL, CONS_NO_KEYS, 2, NULL,
 };
 
-static struct {
+typedef struct {
     sh2 cpu[2];
     const uint8_t *bios_g, *bios_m, *bios_s;
     bool bios_loaded;
@@ -59,7 +59,9 @@ static struct {
     int pwm_acc, pwm_tm;
     int64_t pwm_dc, sh2_debt;
     uint16_t *fb;
-} X;
+} s32x_state;
+static s32x_state *Xp;              // (on the heap: the RP2350 puts it in the PSRAM)
+#define X (*Xp)
 
 static inline uint16_t be16(const uint8_t *p) { return (uint16_t)((p[0] << 8) | p[1]); }
 static inline uint16_t merge(uint16_t o, uint16_t v, uint16_t m) { return (uint16_t)((o & ~m) | (v & m)); }
@@ -655,6 +657,8 @@ static int run_frame(void)
 // ---- the console API ----
 bool cons_init(void)
 {
+    Xp = (s32x_state *)calloc(1, sizeof *Xp);
+    if (!Xp || !md_alloc()) return false;
     X.fb = (uint16_t *)calloc(MD_VDP_W * MD_VDP_H, sizeof(uint16_t));
     if (!X.fb) return false;
     X.bios_g = s32x_rom_bios_g;

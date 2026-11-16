@@ -183,7 +183,7 @@ elseif(GAME STREQUAL "amiga")
 elseif(GAME IN_LIST CONSOLES)
     cons_sources(${GAME} CONS_SRCS ${M}/)
     set(SRCS ${M}/drivers/consoles/common/cons_pico.c ${CONS_SRCS} ${QL_DIR}/ql_sd_pico.c)
-    set(DEFS)
+    cons_var(CONS_DEFS_${GAME} DEFS)
     cons_var(CONS_RAM_${GAME} RAM_CODE)
 elseif(GAME STREQUAL "lynx")
     set(SRCS ${D}/lynx_pico.c ${D}/lynx_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c

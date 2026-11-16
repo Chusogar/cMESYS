@@ -386,12 +386,13 @@ static void to_ram(psx_m *P, uint32_t addr, const uint32_t *buf, int n)
 {
     for (int i = 0; i < n; i++) ram_w32(P, addr + (uint32_t)i * 4, buf[i]);
 }
-static uint32_t dma_buf[0x10000 * 4];
+static uint32_t *dma_buf;             // (on the heap, as the rest)
+#define DMA_BUF_WORDS 0x40000
 static void d_cdrom_to_ram(void *u, uint32_t addr, int n)
 {
     psx_m *P = (psx_m *)u;
     if (n < 0) n = 0;
-    if (n > (int)(sizeof dma_buf / 4)) n = (int)(sizeof dma_buf / 4);
+    if (n > DMA_BUF_WORDS) n = DMA_BUF_WORDS;
     memset(dma_buf, 0, (size_t)n * 4);
     psx_cdrom_dma_read(&P->cdrom_, dma_buf, n);
     to_ram(P, addr, dma_buf, n);
@@ -401,7 +402,7 @@ static void d_spu_to_ram(void *u, uint32_t addr, int n)
 {
     psx_m *P = (psx_m *)u;
     if (n < 0) n = 0;
-    if (n > (int)(sizeof dma_buf / 4)) n = (int)(sizeof dma_buf / 4);
+    if (n > DMA_BUF_WORDS) n = DMA_BUF_WORDS;
     memset(dma_buf, 0, (size_t)n * 4);
     psx_spu_dma_read(&P->spu_, dma_buf, n);
     to_ram(P, addr, dma_buf, n);
@@ -411,7 +412,7 @@ static void d_mdec_to_ram(void *u, uint32_t addr, int n)
 {
     psx_m *P = (psx_m *)u;
     if (n < 0) n = 0;
-    if (n > (int)(sizeof dma_buf / 4)) n = (int)(sizeof dma_buf / 4);
+    if (n > DMA_BUF_WORDS) n = DMA_BUF_WORDS;
     memset(dma_buf, 0, (size_t)n * 4);
     psx_mdec_dma_read(&P->mdec_, dma_buf, n);
     to_ram(P, addr, dma_buf, n);
@@ -465,12 +466,14 @@ const cons_info cons_machine = {
 static psx_m *X;
 static bool have_bios;
 static uint8_t *disc;
-static uint16_t fb565[kMaxFbW * kMaxFbH];
+static uint16_t *fb565;
 
 bool cons_init(void)
 {
     X = (psx_m *)calloc(1, sizeof *X);
-    if (!X) return false;
+    fb565 = (uint16_t *)calloc(kMaxFbW * kMaxFbH, sizeof(uint16_t));
+    dma_buf = (uint32_t *)calloc(DMA_BUF_WORDS, sizeof(uint32_t));
+    if (!X || !fb565 || !dma_buf) return false;
     if (psx_rom_bios) {
         memcpy(X->bios_, psx_rom_bios, sizeof X->bios_);
         have_bios = true;

@@ -24,12 +24,12 @@ const uint8_t kObjSize[3][4][2] = {
     {{8, 16}, {8, 32}, {16, 32}, {32, 64}},
 };
 
-inline uint32_t to_argb(uint16_t c) {
+static inline uint32_t to_argb(uint16_t c) {
     const uint32_t r = c & 31, g = (c >> 5) & 31, b = (c >> 10) & 31;
     return 0xFF000000u | ((r << 3 | r >> 2) << 16) | ((g << 3 | g >> 2) << 8) | (b << 3 | b >> 2);
 }
 
-inline bool in_window(int v, int start, int end, int limit) {
+static inline bool in_window(int v, int start, int end, int limit) {
     if (start <= end) {
         if (end > limit) end = limit;
         return v >= start && v < end;
@@ -37,7 +37,7 @@ inline bool in_window(int v, int start, int end, int limit) {
     return v >= start || v < end;  // the window wraps around the edge
 }
 
-inline uint16_t blend_alpha(uint16_t a, uint16_t b, int eva, int evb) {
+static inline uint16_t blend_alpha(uint16_t a, uint16_t b, int eva, int evb) {
     uint16_t out = 0;
     for (int s = 0; s < 15; s += 5) {
         int v = (((a >> s) & 31) * eva + ((b >> s) & 31) * evb) >> 4;
@@ -47,7 +47,7 @@ inline uint16_t blend_alpha(uint16_t a, uint16_t b, int eva, int evb) {
     return out;
 }
 
-inline uint16_t blend_bright(uint16_t a, int evy, bool up) {
+static inline uint16_t blend_bright(uint16_t a, int evy, bool up) {
     uint16_t out = 0;
     for (int s = 0; s < 15; s += 5) {
         int c = (a >> s) & 31;

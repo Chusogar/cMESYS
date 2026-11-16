@@ -824,9 +824,10 @@ const cons_info cons_machine = {
     GBA_FPS, kSampleRate, { "A", "B", "L", "R" }, "START", "SELECT", CONS_NO_KEYS, 1, NULL,
 };
 
-static gba_m G;
+static gba_m *Gp;                   // (on the heap: the RP2350 puts it in the PSRAM)
+#define G (*Gp)
 static bool have_bios;
-static uint16_t fb565[kWidth * kHeight];
+static uint16_t *fb565;
 
 static uint8_t b_read8(void *u, uint32_t a) { return read8((gba_m *)u, a); }
 static uint16_t b_read16(void *u, uint32_t a, bool c) { return read16((gba_m *)u, a, c); }
@@ -850,6 +851,9 @@ static void request_fifo(void *u, int ch)
 
 bool cons_init(void)
 {
+    Gp = (gba_m *)calloc(1, sizeof *Gp);
+    fb565 = (uint16_t *)calloc(kWidth * kHeight, sizeof(uint16_t));
+    if (!Gp || !fb565) return false;
     G.framebuffer_ = (uint32_t *)malloc(kWidth * kHeight * sizeof(uint32_t));
     if (!G.framebuffer_) return false;
     if (gba_rom_bios) {

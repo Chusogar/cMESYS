@@ -17,7 +17,7 @@ static uint16_t *fb;
 bool cons_init(void)
 {
     fb = (uint16_t *)calloc(MD_VDP_W * MD_VDP_H, sizeof(uint16_t));
-    if (!fb) return false;
+    if (!fb || !md_alloc()) return false;
     MD.fb = fb;
     md_init(MD_USA);
     md_reset();

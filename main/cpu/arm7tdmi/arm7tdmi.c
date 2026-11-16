@@ -34,12 +34,12 @@ static void arm_block_transfer(arm7tdmi *P, uint32_t op);
 static void exec_thumb(arm7tdmi *P, uint16_t op);
 
 
-inline uint32_t ror32(uint32_t value, uint32_t amount) {
+static inline uint32_t ror32(uint32_t value, uint32_t amount) {
     amount &= 31;
     return amount ? (value >> amount) | (value << (32 - amount)) : value;
 }
 
-inline int popcount16(uint32_t v) {
+static inline int popcount16(uint32_t v) {
     int n = 0;
     for (; v; v &= v - 1) n++;
     return n;

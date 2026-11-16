@@ -10,9 +10,9 @@ enum { kQ = 0x100 };
 enum { kM = 0x200 };
 enum { kSrMask = 0x3f3 };
 
-inline uint32_t sext8(uint32_t v) { return (uint32_t)((int32_t)((int8_t)(v))); }
-inline uint32_t sext16(uint32_t v) { return (uint32_t)((int32_t)((int16_t)(v))); }
-inline uint32_t sext12(uint32_t v) { return (v & 0x800) ? (v | 0xfffff000u) : (v & 0xfff); }
+static inline uint32_t sext8(uint32_t v) { return (uint32_t)((int32_t)((int8_t)(v))); }
+static inline uint32_t sext16(uint32_t v) { return (uint32_t)((int32_t)((int16_t)(v))); }
+static inline uint32_t sext12(uint32_t v) { return (v & 0x800) ? (v | 0xfffff000u) : (v & 0xfff); }
 
 // On-chip register offsets from $FFFFFE00.
 enum { kTier = 0x10, kFtcsr = 0x11, kFrcH = 0x12, kFrcL = 0x13, kOcrH = 0x14, kOcrL = 0x15, kTcr = 0x16, kTocr = 0x17 };
