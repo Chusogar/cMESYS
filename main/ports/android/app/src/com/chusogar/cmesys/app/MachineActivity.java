@@ -295,6 +295,10 @@ public final class MachineActivity extends Activity implements KeyboardView.List
         int code = e.getKeyCode();
         boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
         if (e.getAction() == KeyEvent.ACTION_MULTIPLE) return super.dispatchKeyEvent(e);
+        if (code == KeyEvent.KEYCODE_BUTTON_START && machine.padStart() != Machine.NONE) {
+            if (e.getRepeatCount() == 0) padAction(machine.padStart(), down);   // (the consoles' START)
+            return true;
+        }
         if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_MENU || code == KeyEvent.KEYCODE_BUTTON_START
                 || code == KeyEvent.KEYCODE_BUTTON_MODE) {
             if (!down && e.getRepeatCount() == 0) {

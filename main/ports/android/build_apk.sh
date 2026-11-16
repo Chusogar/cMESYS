@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# build_apk.sh - cMESYS's computers for Android: one APK per machine.
+# build_apk.sh - cMESYS's computers and consoles for Android: one APK per machine.
 #
 #   main/ports/android/build_apk.sh [machine ...]       (from anywhere)
 #
-# machines: ql zxspec cpc c64 msx lynx amiga (default: all of them), each one as
+# machines: ql zxspec cpc c64 msx lynx amiga and the consoles of
+# main/drivers/consoles/consoles.mk (default: all of them), each one as
 # dist/<machine>_android.apk (package com.chusogar.cmesys.<machine>).
 #
 # Needs no Android Studio, Gradle or NDK: clang + lld for the core (arm64-v8a
@@ -37,7 +38,8 @@ for tool in clang ld.lld aapt javac keytool zipalign apksigner python3; do
 done
 [ -f "$JAR" ] || { echo "missing android.jar (apt install android-sdk-platform-23)" >&2; exit 1; }
 
-MACHINES="${*:-ql zxspec cpc c64 msx lynx amiga}"
+CONSOLES="$(sed -n 's/^CONSOLES := //p' "$M/drivers/consoles/consoles.mk")"
+MACHINES="${*:-ql zxspec cpc c64 msx lynx amiga $CONSOLES}"
 RES_INC="$(clang -print-resource-dir)/include"
 JDK_INC="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")/include"
 mkdir -p "$OUTBASE" "$ROOT/dist"
@@ -65,11 +67,22 @@ sources() {
         lynx) echo "$C/lynx/lynx_core.c $M/machine/zx_pbuf.c" ;;
         amiga) echo "$C/amiga/amiga_core.c $C/amiga/amiga_chipset.c $C/amiga/m68k_tables.c $M/cpu/m68k/m68kcpu.c
                   $M/cpu/m68k/m68kops.c $M/cpu/m68k/m68kopac.c $M/cpu/m68k/m68kopdm.c $M/cpu/m68k/m68kopnz.c" ;;
-        *) echo "unknown machine: $1 (ql zxspec cpc c64 msx lynx amiga)" >&2; exit 1 ;;
+        *)
+            if is_console "$1"; then
+                local v
+                for v in $(sed -n -e 's/^CONS_COMMON := //p' -e "s/^CONS_SRC_$1 := //p" "$M/drivers/consoles/consoles.mk"); do
+                    echo "$M/$v"
+                done
+            else
+                echo "unknown machine: $1 (ql zxspec cpc c64 msx lynx amiga $CONSOLES)" >&2; exit 1
+            fi ;;
     esac
 }
 
+is_console() { case " $CONSOLES " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+
 jni_file() {
+    if is_console "$1"; then echo m_cons.c; return; fi
     case $1 in zxspec) echo m_zx.c ;; *) echo "m_$1.c" ;; esac
 }
 
@@ -96,7 +109,7 @@ build() {
             clang --target=$triple -O2 -fPIC -ffreestanding -nostdinc -fno-stack-protector \
                 -ffunction-sections -fdata-sections -fvisibility=hidden \
                 -isystem "$RES_INC" -isystem "$HERE/jni/libc" -isystem "$JDK_INC" -isystem "$JDK_INC/linux" \
-                -DM68K_FLASH_TABLES -I"$HERE/jni" -I"$C/$mach" -I"$M/cpu" -I"$M/cpu/m68k" -I"$M/cpu/mcs48" \
+                -DM68K_FLASH_TABLES -I"$HERE/jni" -I"$C/$mach" -I"$M/drivers/consoles/$mach" -I"$M/drivers/consoles/common" -I"$M/cpu" -I"$M/cpu/m68k" -I"$M/cpu/mcs48" \
                 -I"$M/cpu/m6502" -I"$M/cpu/z80" -I"$M/sound" -I"$M/machine" -I"$M/video" -w -c "$f" -o "$o"
             objs="$objs $o"
         done
@@ -118,7 +131,7 @@ build() {
     echo "libcore.so: needs $(echo $syms | tr '\n' ' ')"
 
     # --- 2. assets: the ROMs, the keyboard, the help -----------------------------------
-    python3 "$HERE/tools/android_roms.py" "$mach" "$ROOT/roms" "$OUT/assets"
+    is_console "$mach" || python3 "$HERE/tools/android_roms.py" "$mach" "$ROOT/roms" "$OUT/assets"
     cp -r "$MD/assets/." "$OUT/assets/"
 
     # --- 3. resources, Java, dex -------------------------------------------------------
@@ -126,6 +139,7 @@ build() {
     mkdir -p "$OUT/src/com/chusogar/cmesys/app"
     printf 'package com.chusogar.cmesys.app;\n\n/** Written by build_apk.sh: the machine of this APK. */\nfinal class MachineId {\n    static final String ID = "%s";\n\n    private MachineId() {}\n}\n' \
         "$mach" > "$OUT/src/com/chusogar/cmesys/app/MachineId.java"
+    python3 "$HERE/tools/console_info.py" "$MD/console.txt" > "$OUT/src/com/chusogar/cmesys/app/ConsoleInfo.java"
     aapt package -f -m -J "$OUT/gen" -M "$OUT/AndroidManifest.xml" -S "$MD/res" -S "$HERE/app/res" \
         --auto-add-overlay --custom-package com.chusogar.cmesys.app -I "$JAR" \
         -A "$OUT/assets" --min-sdk-version 21 --target-sdk-version 33 -F "$OUT/apk/base.apk"

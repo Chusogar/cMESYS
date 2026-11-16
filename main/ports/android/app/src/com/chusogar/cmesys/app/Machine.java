@@ -27,7 +27,9 @@ abstract class Machine {
             case "msx": return new Msx();
             case "lynx": return new Lynx();
             case "amiga": return new Amiga();
-            default: throw new IllegalStateException("unknown machine " + MachineId.ID);
+            default:
+                if (ConsoleInfo.TITLE != null) return new Console();
+                throw new IllegalStateException("unknown machine " + MachineId.ID);
         }
     }
 
@@ -119,6 +121,10 @@ abstract class Machine {
 
     /** The action of each pad button (P_*) for a pad setting. */
     abstract int[] padActions(String mode);
+
+    /** A pad's START: an action of the machine's (the consoles' START), or
+     *  NONE: it opens the menu. */
+    int padStart() { return NONE; }
 
     /** The machine's keys for an Android key code (a physical keyboard), or null. */
     int[] keys(int keyCode) {
