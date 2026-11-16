@@ -1,6 +1,6 @@
 // vectrex_core.c - GCE / Milton Bradley Vectrex (1982): a C11 migration of
 // dsp-cpp's drivers/consoles/vectrex (its analog side after jhawthorn's
-// vecx). The 6809 at 1.5 MHz (cpu/mc6809), the 6522 VIA (machine/via6522)
+// vecx). The 6809 at 1.5 MHz (cpu/m6809dsp: dsp-cpp's core and timing), the 6522 VIA (machine/via6522)
 // driving the DAC, the sample & holds, the integrators and the beam, the
 // AY-3-8912 (sound/ay8910) with the four buttons. Every vector the beam
 // traces in a frame is drawn antialiased with its brightness, the last
@@ -11,16 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../common/cons.h"
-#include "../../../cpu/mc6809/mc6809.h"
+#include "../../../cpu/m6809dsp/m6809dsp.h"
 #include "../../../machine/via6522.h"
 #include "../../../sound/ay8910.h"
 #include "rom_data.h"
-#undef X
-#undef Y
-#undef U
-#undef S
-#undef A
-#undef B
 
 #define CPU_CLOCK 1500000
 #define FPS 50
@@ -44,7 +38,7 @@ const cons_info cons_machine = {
 typedef struct { float x0, y0, x1, y1, v; } segment;
 
 static struct {
-    mc6809__t cpu;
+    m6809d cpu;
     via6522 via;
     ay8910 ay;
     uint8_t bios[0x2000];
@@ -68,7 +62,7 @@ static struct {
     uint16_t gray[256];
     uint8_t buttons;
     int8_t joy_x, joy_y;
-    bool via_irq, fault;
+    bool via_irq;
     int16_t audio[1024];
     int naudio;
     uint64_t audio_acc;
@@ -76,9 +70,9 @@ static struct {
 } V;
 
 // ---- the memory ----
-static mc6809byte__t rd(mc6809__t *c, mc6809addr__t a, bool ifetch)
+static uint8_t rd(void *u, uint16_t a)
 {
-    (void)c, (void)ifetch;
+    (void)u;
     if (a < 0x8000) return a < V.cart_size ? V.cart[a] : 0xff;
     if (a >= 0xe000) return V.bios[a & 0x1fff];
     if ((a & 0xe000) == 0xc000) {
@@ -88,9 +82,9 @@ static mc6809byte__t rd(mc6809__t *c, mc6809addr__t a, bool ifetch)
     return 0xff;
 }
 
-static void wr(mc6809__t *c, mc6809addr__t a, mc6809byte__t v)
+static void wr(void *u, uint16_t a, uint8_t v)
 {
-    (void)c;
+    (void)u;
     if (a < 0x8000 || a >= 0xe000) return;
     if ((a & 0xe000) == 0xc000) {
         if (a & 0x0800) V.ram[a & 0x3ff] = v;
@@ -98,7 +92,6 @@ static void wr(mc6809__t *c, mc6809addr__t a, mc6809byte__t v)
     }
 }
 
-static void fault(mc6809__t *c, mc6809fault__t f) { (void)c, (void)f; V.fault = true; }
 
 // ---- the VIA's ports (vecx) ----
 static uint8_t joy_pot(int ch)
@@ -188,7 +181,7 @@ static void pb_out(void *u, uint8_t v)
 }
 
 static void ca2(void *u, bool level) { (void)u; V.zero_active = !level; }
-static void via_irq(void *u, bool on) { (void)u; V.via_irq = on; }
+static void via_irq(void *u, bool on) { (void)u; V.via_irq = on; m6809d_set_irq(&V.cpu, on ? M6809D_ASSERT : M6809D_CLEAR); }
 
 // ---- the beam (vecx alg_sstep) ----
 static inline bool on_screen(float x, float y) { return x > -HALF_X && x < HALF_X && y > -HALF_Y && y < HALF_Y; }
@@ -256,6 +249,8 @@ static void cycles(int c)
         if (V.naudio < 1024) V.audio[V.naudio++] = (int16_t)s;
     }
 }
+
+static void cpu_cycles(void *u, int c) { (void)u; cycles(c); }
 
 // ---- the picture ----
 static inline void plot(int x, int y, float v)
@@ -343,7 +338,7 @@ bool cons_init(void)
     }
     V.cpu.read = rd;
     V.cpu.write = wr;
-    V.cpu.fault = fault;
+    V.cpu.cycles = cpu_cycles;
     V.via.pa_in = pa_in;
     V.via.pb_in = pb_in;
     V.via.pa_out = pa_out;
@@ -373,8 +368,8 @@ void cons_reset(void)
     memset(V.glow, 0, W * H);
     memset(V.fb, 0, W * H * sizeof(uint16_t));
     V.audio_acc = 0;
-    V.via_irq = V.fault = false;
-    if (V.have_bios) mc6809_reset(&V.cpu);
+    V.via_irq = false;
+    if (V.have_bios) m6809d_reset(&V.cpu);
 }
 
 bool cons_load(uint8_t *data, size_t size, const char *name, const char **why)
@@ -434,18 +429,9 @@ int cons_run_frame(const int16_t **audio)
     if (t2 >= 20000 && t2 <= 60000) period = t2;
     int remaining = period - V.frame_carry;
     while (remaining > 0) {
-        V.cpu.irq = V.via_irq;                   // (a level: the 6809 core takes it as a request)
-        const unsigned long before = V.cpu.cycles;
-        mc6809_step(&V.cpu);
-        int ran = (int)(V.cpu.cycles - before);
-        if (ran <= 0) ran = 1;                   // (SYNC / CWAI: the clock still runs)
-        cycles(ran);
+        const int ran = m6809d_run(&V.cpu, remaining < 1000 ? remaining : 1000);
+        if (ran <= 0) break;
         remaining -= ran;
-        if (V.fault) {
-            V.fault = false;
-            cons_reset();
-            break;
-        }
     }
     V.frame_carry = remaining < 0 ? -remaining : 0;
     render_vectors();
