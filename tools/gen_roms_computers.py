@@ -80,6 +80,11 @@ SETS = {
     'gba': [
         ('gba_rom_bios', 0x4000, [('gba_bios.bin', 0x81977335), ('gba.bin', 0x81977335)], False),
     ],
+    'psx': [
+        ('psx_rom_bios', 0x80000, [('scph1001.bin', 0x37157331), ('scph5501.bin', 0x8d8cb7e4), ('scph7001.bin', 0x502224b6),
+                                   ('scph1000.bin', 0x3b601fc8), ('scph5500.bin', 0xff3eeb8c), ('scph5502.bin', 0xd786f0b9),
+                                   ('psx.bin', None), ('bios.bin', None)], False),
+    ],
     'lynx': [
         ('lynx_rom_boot', 0x200, [('lynxboot.img', 0x0d973c9d), ('lynx.bin', None), ('lynxa.bin', None)], True),
     ],
