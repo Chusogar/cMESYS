@@ -360,6 +360,7 @@ void md_init(int region)
 
 void md_reset(void)
 {
+    if (MD.ext_reset) MD.ext_reset();
     memset(MD.ram, 0, sizeof MD.ram);
     memset(MD.z80_ram, 0, sizeof MD.z80_ram);
     memset(MD.io_data, 0, sizeof MD.io_data);
@@ -454,7 +455,7 @@ static void audio_cycles(int cycles)
     }
 }
 
-static void run_m68k(int cycles)
+void md_run_m68k(int cycles)
 {
     const int want = cycles - MD.m68k_debt;
     if (want <= 0) { MD.m68k_debt = -want; return; }
@@ -469,7 +470,7 @@ static void run_m68k(int cycles)
     audio_cycles(done);
 }
 
-static void run_z80(int cycles)
+void md_run_z80(int cycles)
 {
     if (MD.z80_is_reset || !MD.z80_has_bus) return;
     const int want = cycles - MD.z80_debt;
@@ -493,16 +494,16 @@ int md_run_frame(void)
         int pre = m_line / 4;
         if (pre < 1) pre = 1;
         const int post = m_line - pre;
-        run_m68k(pre);
+        md_run_m68k(pre);
         const int zpre = z_line / 4 < 1 ? 1 : z_line / 4;
-        run_z80(zpre);
+        md_run_z80(zpre);
         md_vdp_set_hpos(&MD.vdp, MD.cycles_on_line);
         md_vdp_scanline(&MD.vdp, line);
         if (MD.ext_line) MD.ext_line(line);
         if (line < height && line < MD_VDP_H && MD.fb)
             memcpy(MD.fb + line * MD_VDP_W, MD.vdp.line, MD_VDP_W * sizeof(uint16_t));
-        if (post > 0) run_m68k(post);
-        if (z_line - zpre > 0) run_z80(z_line - zpre);
+        if (post > 0) md_run_m68k(post);
+        if (z_line - zpre > 0) md_run_z80(z_line - zpre);
     }
     md_vdp_eof(&MD.vdp);
     return MD.naudio;

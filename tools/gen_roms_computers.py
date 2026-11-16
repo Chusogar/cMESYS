@@ -72,6 +72,11 @@ SETS = {
     'pv2000': [
         ('pv2000_rom_bios', 0x4000, [('hn613128pc64.bin', 0x8f31f297)], False),
     ],
+    'sega32x': [
+        ('s32x_rom_bios_g', 0x100, [('32x_g_bios.bin', 0x5c12eae8)], False),
+        ('s32x_rom_bios_m', 0x800, [('32x_m_bios.bin', 0xdd9c46b8)], False),
+        ('s32x_rom_bios_s', 0x400, [('32x_s_bios.bin', 0xbfda1fe5)], False),
+    ],
     'lynx': [
         ('lynx_rom_boot', 0x200, [('lynxboot.img', 0x0d973c9d), ('lynx.bin', None), ('lynxa.bin', None)], True),
     ],

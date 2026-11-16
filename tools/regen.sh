@@ -73,7 +73,7 @@ amiga)
 msx1|msx2)
     python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data_$G.c
     exit 0 ;;
-coleco|pv2000|vectrex|scv)
+coleco|pv2000|vectrex|scv|sega32x)
     D=$M/drivers/consoles/$G
     python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data.c
     exit 0 ;;
@@ -81,7 +81,7 @@ trackfld)
     cc -O2 -o $T/gen_roms tools/gen_roms_trackfld.c
     $T/gen_roms roms/trackfld $D/rom_data.c
     exit 0 ;;
-*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|coleco|pv2000|vectrex|scv"; exit 1 ;;
+*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|coleco|pv2000|vectrex|scv|sega32x"; exit 1 ;;
 esac
 # Musashi opcode tables in flash, for this game's CPU type
 cc -O1 -w -I$D -I$M/cpu/m68k -DCYC_CPU=$CYC -o $T/gen_m68k tools/gen_m68k_tables.c $M/cpu/m68k/m68kcpu.c \

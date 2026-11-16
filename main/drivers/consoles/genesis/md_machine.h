@@ -30,6 +30,7 @@ typedef struct {
     bool (*ext_read8)(uint32_t a, uint8_t *v);
     bool (*ext_write8)(uint32_t a, uint8_t v);
     int32_t (*ext_audio)(void);
+    void (*ext_reset)(void);           // before the machine resets
     void (*ext_line)(int line);        // after the VDP drew the line, before it is copied
     uint16_t *fb;                      // MD_VDP_W x MD_VDP_H (set by the caller)
 
@@ -69,6 +70,8 @@ void md_reset(void);
 bool md_load(uint8_t *data, size_t size, const char **why);   // takes `data`
 void md_eject(void);
 int md_run_frame(void);                 // the samples made (MD.audio)
+void md_run_m68k(int cycles);           // (for a machine with its own frame loop: the 32X)
+void md_run_z80(int cycles);
 uint16_t md_read_word(uint32_t a);
 void md_write_word(uint32_t a, uint16_t v);
 uint8_t md_read_byte(uint32_t a);
