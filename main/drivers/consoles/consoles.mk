@@ -4,7 +4,7 @@
 # and main/ports/android/build_apk.sh. Every console also gets CONS_COMMON
 # and its frontend (common/cons_sdl.c, cons_pico.c, cons_cyd.c, or the
 # Android port's m_cons.c).
-CONSOLES := sg1000 coleco pv2000 pv1000 sms gamegear nes a2600 a7800 vectrex gameboy pcengine scv wonderswan genesis sega32x
+CONSOLES := sg1000 coleco pv2000 pv1000 sms gamegear nes a2600 a7800 vectrex gameboy pcengine scv wonderswan genesis sega32x snes
 CONS_COMMON := drivers/consoles/common/cons_util.c machine/zx_inflate.c
 CONS_SRC_sg1000 := drivers/consoles/sg1000/sg1000_core.c cpu/z80dsp/z80dsp.c video/tms9918.c sound/sn76496.c
 CONS_SRC_coleco := drivers/consoles/coleco/coleco_core.c drivers/consoles/coleco/rom_data.c cpu/z80dsp/z80dsp.c video/tms9918.c sound/sn76496.c sound/ay8910.c machine/i2cmem.c
@@ -22,3 +22,4 @@ CONS_SRC_scv := drivers/consoles/scv/scv_core.c drivers/consoles/scv/rom_data.c 
 CONS_SRC_wonderswan := drivers/consoles/wonderswan/ws_core.c cpu/necv30/nec_v30.c sound/wswan_apu.c
 CONS_SRC_genesis := drivers/consoles/genesis/gen_core.c drivers/consoles/genesis/md_machine.c cpu/z80dsp/z80dsp.c video/sega_315_5313.c sound/sn76496.c sound/ym2612.c sound/fmopn.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c
 CONS_SRC_sega32x := drivers/consoles/sega32x/s32x_core.c drivers/consoles/sega32x/rom_data.c drivers/consoles/genesis/md_machine.c cpu/sh2/sh2.c cpu/z80dsp/z80dsp.c video/sega_315_5313.c sound/sn76496.c sound/ym2612.c sound/fmopn.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c
+CONS_SRC_snes := drivers/consoles/snes/snes_core.c cpu/w65c816/w65c816.c cpu/spc700/spc700.c video/snes_ppu.c
