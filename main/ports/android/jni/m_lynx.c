@@ -1,4 +1,4 @@
-// m_lynx.c - the Atari Lynx (drivers/computers/lynx) for the Android port
+// m_lynx.c - the Atari Lynx (drivers/consoles/lynx) for the Android port
 // (core.h). ROMs: [0] the 512-byte boot ROM (optional: dsp-cpp's own loader
 // without it). Media: .lnx / .lyx / .o cartridges. The "keys" are the
 // console's buttons, by bit number of lynx_core.h (A 0, B 1, OPTION 2 2,

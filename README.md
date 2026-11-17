@@ -1,630 +1,68 @@
-# Arcades, ordenadores (Sinclair, Amstrad, Commodore, MSX, Atari Lynx) y consolas para ESP32 CYD (ST7789), RP2040/RP2350-PiZero (HDMI), escritorio (SDL2) y web (Emscripten)
+# cMESYS
 
-Cuarenta y tres máquinas (las 19 consolas de dsp-cpp —ver «Consolas: migración de dsp-cpp»—, once recreativas, el Sinclair QL, seis ZX Spectrum / clones, el Amstrad CPC 6128, el Commodore 64, el MSX, el MSX2, la Atari Lynx y el Commodore Amiga 500) en un único árbol de fuentes, cada una compilable como firmware para la placa ESP32-2432S028 ("Cheap Yellow Display", variante ST7789 240x320 por SPI), como firmware para la Waveshare RP2040-PiZero (salida HDMI), como programa de escritorio con SDL2 o como página web con Emscripten:
+Recreativas, ordenadores y consolas clásicas en C11, en un solo árbol de fuentes. Cada máquina tiene un núcleo independiente de la plataforma (`*_core.c`) y un frontend fino por cada destino:
 
-| Juego | `GAME` | CPUs | Sonido | Origen del driver |
+- **Escritorio** con SDL2: Linux y Windows (MinGW).
+- **Web** con Emscripten.
+- **Android**: un APK por ordenador o consola y una app con todas las recreativas.
+- **ESP32 CYD**: la ESP32-2432S028 "Cheap Yellow Display", variante ST7789 de 240x320 por SPI.
+- **Waveshare RP2040-PiZero y RP2350-PiZero**, con salida HDMI.
+
+Hay **43 máquinas**: 11 recreativas, 12 ordenadores y 20 consolas. Casi todas son migraciones a C de los drivers de [dsp-cpp](https://github.com/Chusogar/dsp-cpp), con los detalles que faltaban comprobados con MAME. Las ROMs y BIOS no están en el repositorio (ver [ROMs y BIOS](#roms-y-bios)).
+
+## Índice
+
+1. [Máquinas](#máquinas)
+2. [Qué corre en cada plataforma](#qué-corre-en-cada-plataforma)
+3. [Estructura del árbol](#estructura-del-árbol)
+4. [Compilar](#compilar)
+5. [Controles](#controles)
+6. [ROMs y BIOS](#roms-y-bios)
+7. [Recreativas: cómo funcionan](#recreativas-cómo-funcionan)
+8. [Ordenadores: notas](#ordenadores-notas)
+9. [Consolas: notas](#consolas-notas)
+10. [Estado y pruebas](#estado-y-pruebas)
+
+## Máquinas
+
+El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh` y `tools/regen.sh`.
+
+### Recreativas (`main/drivers/arcades/`)
+
+| Juego | `GAME` | CPUs | Sonido | Origen |
 |---|---|---|---|---|
 | Indiana Jones and the Temple of Doom (Atari System 1, 1985) | `indytemp` | 68010 + 6502 | YM2151, POKEY, TMS5220 | dsp-cpp `atari_system1.cpp` → `atarisy1/atarisy1_core.c` |
-| Road Runner (Atari System 1, 1985) | `roadrunn` | 68010 + 6502 | YM2151, POKEY, TMS5220 | dsp-cpp `atari_system1.cpp` → `atarisy1/atarisy1_core.c` (el mismo núcleo que Indy) |
-| Gauntlet (Atari, 1985) | `gauntlet` | 68010 + 6502 | YM2151, POKEY, TMS5220C | dsp-cpp `gauntlet.cpp` → `gauntlet/gauntlet_core.c` (detalles verificados con MAME `gauntlet.cpp`) |
-| OutRun (Sega, 1986) | `outrun` | 2 x 68000 + Z80 | YM2151, Sega PCM (315-5218) | dsp-cpp `outrun.cpp` → `outrun/or_core.c` (detalles verificados con MAME `segaorun.cpp`) |
+| Road Runner (Atari System 1, 1985) | `roadrunn` | 68010 + 6502 | YM2151, POKEY, TMS5220 | el mismo núcleo que Indy |
+| Gauntlet (Atari, 1985) | `gauntlet` | 68010 + 6502 | YM2151, POKEY, TMS5220C | dsp-cpp `gauntlet.cpp` + MAME |
+| OutRun (Sega, 1986) | `outrun` | 2 x 68000 + Z80 | YM2151, Sega PCM | dsp-cpp `outrun.cpp` + MAME `segaorun.cpp` |
 | Snow Bros (Toaplan, 1990) | `snowbros` | 68000 + Z80 | YM3812 | `zxtiny/zxm/snowbros.c` |
 | Track & Field (Konami, 1983) | `trackfld` | Konami-1 (6809) + Z80 | SN76489, VLM5030, DAC | `zxtiny/zxm/trackfld.c` |
-| Return of the Invaders (Taito, 1985) | `retofinv` | 3 x Z80 + MC68705P5 | 2 x SN76489 | dsp-cpp `retofinv.cpp` → `retofinv/rv_core.c` (detalles verificados con MAME `retofinv.cpp`) |
-| Pole Position (Namco, 1982) | `polepos` | Z80 + 2 x Z8002 + 4 MCU Namco (51xx-54xx, MB88) | WSG Namco de 8 voces, motor (muestras + filtros), voz 52xx, ruido 54xx | dsp-cpp `polepos.cpp` → `polepos/pp_core.c` (detalles verificados con MAME `namco/polepos.cpp`) |
-| Pole Position II (Namco, 1983) | `polepos2` | igual que Pole Position | igual | el mismo núcleo que `polepos` |
-| RoboCop (Data East, 1988) | `robocop` | 68000 + HuC6280 + 6502 | YM2203, YM3812, OKI M6295 | dsp-cpp `dec0.cpp` → `robocop/rc_core.c` (detalles verificados con MAME `dec0.cpp`) |
-| Sinclair QL (1984, ROM JS) — ordenador | `ql` | 68008 + 8749 (IPC) | altavoz del IPC | dsp-cpp `ql.cpp` → `drivers/computers/ql/ql_core.c` (detalles verificados con MAME `sinclair/ql.cpp`) |
-| ZX Spectrum 48K — ordenador | `spectrum48` | Z80 | beeper | migración de dsp-cpp `spectrum.cpp` (Spectrum48k) → `zxspec/zx48.c` |
-| ZX Spectrum 128K — ordenador | `spectrum128` | Z80 | beeper + 2 AY-3-8912 (turbosound) | dsp-cpp `spectrum_128k.cpp` → `zxspec/zx128.c` (`-DZX_MODEL=ZX_SPEC128`) |
-| ZX Spectrum +3 — ordenador | `plus3` | Z80 | beeper + 2 AY, uPD765 | dsp-cpp `spectrum_3.cpp` + `nec765` → `zxspec/zx128.c` (`ZX_PLUS3`) |
-| Pentagon 128 — clon ZX | `pentagon` | Z80 | beeper + AY, Beta 128 | dsp-cpp `zx_clone.cpp` (ZxClone) → `zxspec/zxclone.c` (`ZX_PENTAGON`) |
-| Pentagon 1024 — clon ZX | `pentagon1024` | Z80 | beeper + AY, Beta 128 | dsp-cpp `zx_clone.cpp` → `zxclone.c` (`ZX_PENTAGON1024`); ROMs en `roms/pentagon1024/` |
-| Scorpion ZS-256 — clon ZX | `scorpion` | Z80 | beeper + AY, Beta 128 | dsp-cpp `zx_clone.cpp` → `zxclone.c` (`ZX_SCORPION`) |
-| Amstrad CPC 6128 (1985) — ordenador | `cpc6128` | Z80 (con las esperas del Gate Array) | AY-3-8912 | dsp-cpp `amstrad_cpc.cpp` → `drivers/computers/cpc/cpc_core.c` (también 464 / 664 en el escritorio) |
-| Commodore 64 (PAL, 1982) — ordenador | `c64` | 6510 (+ 6502 de la 1541) | SID 6581 | dsp-cpp `commodore64.cpp` → `drivers/computers/c64/c64_core.c` |
-| MSX (1983) — ordenador | `msx1` | Z80 | AY-3-8910 (+ SCC) | dsp-cpp `msx1.cpp` → `drivers/computers/msx/msx_core.c` (TMS9918) |
-| MSX2 (1985) — ordenador | `msx2` | Z80 | AY-3-8910 (+ SCC) | dsp-cpp `msx2.cpp` → `drivers/computers/msx/msx_core.c` (V9938) |
-| Atari Lynx (1989) — consola portátil | `lynx` | 65C02 | Mikey (4 canales) | dsp-cpp `atari_lynx.cpp` + `lynx_mikey` + `lynx_suzy` → `drivers/computers/lynx/lynx_core.c` |
-| Commodore Amiga 500 (PAL, OCS, 1987) — ordenador (no en la CYD: necesita PSRAM) | `amiga` | 68000 | Paula (4 canales) | dsp-cpp `amiga.cpp` + `amiga_chipset` + `cia8520` + `amiga_adf` → `drivers/computers/amiga/amiga_core.c` + `amiga_chipset.c` |
-| Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B (FM + ADPCM-A) | nuevo, según MAME `taito_b.cpp`; chips de dsp-cpp (`ym2610`/`fmopn`, `tc0140syt`, `eeprom93c46`) pasados a C |
-
-Cada firmware lleva una sola máquina (el del QL lleva también un cartucho de microdrive; los Spectrum cargan cintas, snapshots, RZX y discos (ver «ZX Spectrum: migración de dsp-cpp») desde microSD, arrastrar-y-soltar, diálogo o barra web, igual que el menú de cartucho del QL). Las ROMs van dentro. No caben todos juntos en los 4 MB de flash (la partición de la aplicación ocupa 0x3F0000 bytes: Puzzle Bobble lleva 2,6 MB de ROMs).
-
-## Estructura
-
-```
-CMakeLists.txt            proyecto ESP-IDF (idf.py -DGAME=<juego> build)
-Makefile                  escritorio SDL2 (make GAME=<juego>; TARGET=windows -> .exe)
-build_all.sh              firmwares CYD (máquinas x SPI 40/80 MHz) -> dist/, y los de escritorio
-build_pico.sh             firmwares RP2040-PiZero -> dist/<juego>_rp2040_pizero.uf2
-build_web.sh              navegador (Emscripten) -> build/web/<juego>.html
-build_windows.sh|.bat     escritorio SDL2 para Windows (MinGW) -> build/win/<juego>.exe
-partitions.csv, sdkconfig.defaults
-main/
-  CMakeLists.txt          elige las fuentes del juego
-  cpu/
-    m68k/                 Musashi (68000/68010); m68kconf.h incluye el m68k_game_conf.h del juego
-    m6502/                6502 (port de dsp-cpp)
-    m6805/                MC6805 HMOS (MC68705P5)
-    mc6809/               6809 / Konami-1
-    h6280/                HuC6280 (port de MAME)
-    mcs48/                MCS-48 (8035/8039/8049/8749) y UPI-41 (port de dsp-cpp / MAME)
-    z80/                  Z80
-    z8002/                Zilog Z8002 (pasado a C con tools/conv_z8002.py desde el de dsp-cpp/MAME;
-                          z8002_hot.h pone en RAM sus funciones más usadas)
-    mb88xx/               Fujitsu MB88xx (las MCU Namco 51xx-54xx)
-  sound/                  ym2151, pokey (+pokey_poly17.inc), tms5220, sn76489, vlm5030, emu8950/ (YM3812),
-                          ym2610 (YM2610/YM2610B y YM2203), segapcm (Sega 315-5218), okim6295 (OKI M6295),
-                          ay8910 (AY-3-8912 del Spectrum 128K / clones),
-                          polepos_snd (WSG Namco y motor de Pole Position)
-  machine/                via6522, slapstic, tc0140syt (buzón Taito 68000 <-> Z80), eeprom93c46,
-                          sega_315_5195 (mapeador de memoria de Sega), taito68705 (MCU de Taito),
-                          zx8302 (periféricos del QL: reloj, enlace con el IPC, interrupciones,
-                          controlador de microdrives), ql_mdv (microdrive del QL, imágenes QLAY),
-                          zx_tape (.tap/.tzx/.cdt/.csw/.pzx), zx_snap (.sna/.z80), zx_rzx (.rzx),
-                          zx_inflate (zlib de CSW y RZX), zx_beta (Beta 128 + WD1793 + .trd/.scl),
-                          zx_nec765 (uPD765 + .dsk), todos de dsp-cpp,
-                          namco5x (MCU Namco 51xx, 52xx, 53xx y 54xx)
-  video/                  atari_mo (objetos móviles Atari, con las SLIP de Gauntlet), tc0180vcu (vídeo del Taito B System),
-                          zx8301 (vídeo del QL: modos 4 y 8)
-  drivers/arcades/
-    atarisy1/             núcleo Atari System 1 compartido por indytemp y roadrunn:
-                          atarisy1_core.c/.h (máquina), atarisy1_roms.c/.h (carga desde directorios)
-    indytemp/             indytemp_cyd.c (frontend CYD), indytemp_sdl.c (frontend SDL2), indytemp_pico.c (RP2040),
-                          rom_data.c (ROMs), m68k_game_conf.h, m68k_tables.c, indytemp.lf (IRAM)
-    roadrunn/             roadrunn_cyd.c, roadrunn_sdl.c, rom_data.c, m68k_game_conf.h,
-                          m68k_tables.c, roadrunn.lf
-    gauntlet/             gauntlet_core.c/.h, gauntlet_cyd.c, gauntlet_sdl.c, rom_data.c,
-                          m68k_game_conf.h, m68k_tables.c, gauntlet.lf
-    outrun/               or_core.c/.h (máquina), or_video.c (imagen), or_sound.c/.h (placa de
-                          sonido), outrun_cyd.c, outrun_sdl.c, rom_data.c, m68k_game_conf.h,
-                          m68k_tables.c, outrun.lf
-    snowbros/             sb_core.c/.h, snowbros_cyd.c, snowbros_sdl.c, rom_data.c,
-                          m68k_game_conf.h, m68k_tables.c, snowbros.lf
-    trackfld/             tf_core.c/.h, trackfld_cyd.c, trackfld_sdl.c, rom_data.c, trackfld.lf
-    pbobble/              pb_core.c/.h, pbobble_cyd.c, pbobble_sdl.c, rom_data.c,
-                          m68k_game_conf.h, m68k_tables.c, pbobble.lf
-    retofinv/             rv_core.c/.h, rv_video.c, retofinv_cyd.c, retofinv_sdl.c, rom_data.c, retofinv.lf
-    polepos/              núcleo Pole Position compartido por polepos y polepos2: pp_core.c/.h (máquina),
-                          pp_video.c (carretera, fondo, sprites con zoom, texto), pp_cyd.inc / pp_sdl.inc /
-                          pp_pico.inc (frontends comunes), polepos_cyd.c, polepos_sdl.c, polepos_pico.c,
-                          rom_data.c, polepos.lf
-    polepos2/             polepos2_cyd.c, polepos2_sdl.c, polepos2_pico.c, rom_data.c, polepos2.lf
-    robocop/              rc_core.c/.h (máquina), rc_video.c (imagen), rc_sound.c/.h (placa de
-                          sonido), robocop_cyd.c, robocop_sdl.c, rom_data.c, m68k_game_conf.h,
-                          m68k_tables.c, robocop.lf
-  drivers/computers/
-    ql/                   ql_core.c/.h (Sinclair QL), ql_view.c/.h (imagen 512x256 en 320x240),
-                          ql_cyd.c, ql_sdl.c, ql_pico.c, ql_cart_host (menú de cartucho),
-                          ql_sd_esp/ql_sd_pico (microSD compartida con zxspec), rom_data.c,
-                          m68k_game_conf.h, m68k_tables.c, ql.lf
-    zxspec/               zxspec_core.c/.h (API, ULA común, imagen, sonido, media), zx48.c, zx128.c
-                          (128K y +3), zxclone.c (Pentagon / Pentagon1024 / Scorpion), zx_internal.h;
-                          -DZX_MODEL=…; zxspec_cyd.c, zxspec_sdl.c, zxspec_pico.c, zxspec_sd.h, zxspec.lf,
-                          rom_data_<modelo>.c (uno por GAME; generado desde roms/<modelo>/)
-  ports/
-    esp32-cyd/            cyd.c/.h (LCD SPI/DMA, táctil XPT2046 y calibración, menú de ajustes en NVS,
-                          diagnóstico de cuelgues, arranque), dac_audio (DAC GPIO26 asíncrono),
-                          nunchuk (I2C), font5x7.h
-    rp2040-pizero/        pico_port.c/.h (HDMI con PicoDVI en el núcleo 1, sonido PWM, teclado y mandos USB),
-                          CMakeLists.txt (proyecto Pico SDK, una máquina por compilación), tusb_config.h
-    sdl2/                 sdl_port.c/.h (ventana, cola de audio, teclado, ritmo, capturas; modo
-                          "ordenador": todas las teclas van a la máquina)
-    web/                  mismo API que sdl2 para Emscripten (USE_SDL=2 + ASYNCIFY); Makefile
-                          que compila todos los *_sdl.c a build/web/<juego>.html; shell.html e
-                          index.html
-tools/
-  regen.sh <juego>        regenera rom_data.c (y m68k_tables.c si aplica)
-  setup_pico.sh           descarga el Pico SDK y PicoDVI (en deps/pico)
-  pico_host.c             la API de la RP2040 en el PC, sin ventana: prueba los frontends *_pico.c
-  pico_hot.py, pico_ram.py  manejadores del 68000 en RAM y memoria usada (RP2040)
-  conv_z8002.py, z8002_hot.py  pasa el Z8002 de dsp-cpp a C; elige sus funciones en RAM (lista en z8002_hot.txt)
-  gen_roms_*.{c,py}, gen_roms_zxspec.py, gen_m68k_tables.c, m68k_stub.c
-roms/                     indytemp, roadrunn, atarisy1, gauntlet, outrun, snowbros, trackfld, pbobble,
-                          retofinv, robocop, polepos, polepos2, ql (.mdv),
-                          spectrum48/, spectrum128/, plus3/, pentagon/, pentagon1024/, scorpion/
-                          (cada modelo Spectrum lee solo su directorio)
-```
-
-
-Los núcleos de los juegos (`*_core.c`) no dependen de la plataforma. El frontend CYD, el SDL2, el RP2040 y el web de cada juego usan exactamente el mismo núcleo (en web se reutiliza el `*_sdl.c` con `ports/web`).
-
-Las funciones del 68000 que van en IRAM (las más usadas, medidas en cada juego) se eligen en el `.lf` del juego. El código de Musashi no se toca. La tabla de ciclos de Musashi también es de cada juego: 68010 en Indy, 68000 en Snow Bros.
-
-## Firmware CYD
-
-### Flashear
-
-```
-esptool.py --chip esp32 -b 921600 write_flash 0x0 dist/<juego>_cyd_st7789_spi40mhz_full.bin
-```
-
-`spi80mhz` pone la pantalla a 80 MHz y da más fps si tu panel lo aguanta. Si ves basura, usa el de 40 MHz. `*_app_0x10000.bin` es solo la aplicación, para escribir en 0x10000.
-
-### Primer arranque (todos los juegos)
-
-1. Calibración del táctil: toca las 3 cruces y, en apaisado, una más.
-2. Menú (6 s, o hasta tocar PLAY): invertir colores, orden RGB/BGR, girar 180°, volumen 0-4, recalibrar, PLAY. Cada juego guarda sus ajustes aparte.
-3. Mantén BOOT al encender para volver al menú y recalibrar. Tras un cuelgue, el menú muestra el motivo y la traza.
-
-Comunes a todos:
-- **BOOT** o **C+Z del Nunchuk**: moneda y START.
-- **Nunchuk Wii**: SDA = GPIO22, SCL = GPIO27, 3,3 V, por el conector CN1. Se puede conectar en caliente.
-- **Puerto serie**: 115200 baudios.
-
-### Controles: Indiana Jones
-
-Táctil en 3x3 zonas sobre la imagen (se muestran 2,5 s al empezar):
-
-| | | |
-|---|---|---|
-| MONEDA + START | ARRIBA | BOTÓN DERECHO (salto) |
-| IZQUIERDA | BOTÓN IZQUIERDO (látigo) | DERECHA |
-| BOTÓN IZQUIERDO (látigo) | ABAJO | BOTÓN DERECHO (salto) |
-
-- Nunchuk: stick = joystick, Z = látigo, C = salto.
-- Serie: `a d w s` mover, `j` látigo, `k` salto, `5` moneda, `1` start.
-- En SELECT: botón derecho = 3 vidas, botón izquierdo = 7 vidas (cuesta un crédito más).
-- Las puntuaciones se guardan en NVS.
-
-### Controles: Road Runner
-
-Táctil en 3x3 zonas sobre la imagen (se muestran 2,5 s al empezar):
-
-| | | |
-|---|---|---|
-| MONEDA + START | ARRIBA | SALTO |
-| IZQUIERDA | SALTO | DERECHA |
-| SALTO | ABAJO | SALTO |
-
-- El joystick del juego es analógico: el táctil y las teclas serie dan la desviación máxima; el **Nunchuk** da la posición real del stick (velocidad variable). Z y C = salto (los dos botones saltan; el izquierdo es también START).
-- Serie: `a d w s` mover, `j` / `k` salto, `5` moneda, `1` start.
-- Las puntuaciones (EEPROM) se guardan en NVS.
-
-### Controles: Gauntlet
-
-Un jugador (el jugador 1, el Guerrero). Táctil en 3x3 zonas sobre la imagen (se muestran 2,5 s al empezar):
-
-| | | |
-|---|---|---|
-| MONEDA + START | ARRIBA | MAGIA |
-| IZQUIERDA | DISPARO | DERECHA |
-| DISPARO | ABAJO | MAGIA |
-
-- Mantener DISPARO dispara; al soltarlo el personaje se mueve. MAGIA usa una poción y también sirve para entrar en la partida tras echar la moneda (es lo que hace MONEDA + START).
-- **Nunchuk**: stick = joystick de 8 direcciones, Z = disparo, C = magia, C+Z = moneda + start.
-- Serie: `a d w s` mover, `j` disparo, `k` magia, `5` moneda, `1` start.
-- La imagen de 336 columnas se recorta 8 por cada lado (320x240). Los ajustes y las puntuaciones (EEPROM 2804) se guardan en NVS.
-
-### Controles: OutRun
-
-Táctil en 3x3 zonas sobre la imagen (se muestran 2,5 s al empezar):
-
-| | | |
-|---|---|---|
-| MONEDA + START | MARCHA | ACELERAR |
-| IZQ. + ACELERAR | ACELERAR | DCHA. + ACELERAR |
-| IZQUIERDA | FRENO | DERECHA |
-
-- El volante es analógico: el táctil y las teclas serie lo giran del todo; el **Nunchuk** da la posición real del stick (X = volante). Z = acelerar, C = frenar, stick arriba = cambiar de marcha (baja/alta), C+Z = moneda + start.
-- Serie: `a` / `d` volante, `w` acelerar, `s` frenar, `g` marcha, `5` moneda, `1` start.
-- La imagen es de 320x224: se centra en la pantalla con 8 líneas negras arriba y abajo.
-- En el CYD no se guardan las puntuaciones (la RAM con batería del juego son 32 KB, demasiados para NVS).
-
-### Controles: Return of the Invaders
-
-Pantalla en vertical (240x320): la imagen del juego (224x288, como el mueble ROT90) arriba y una barra de botones táctiles debajo:
-
-| MONEDA (+ START) | IZQ. + DISPARO | DISPARO | DCHA. + DISPARO |
-|---|---|---|---|
-
-- Tocando la imagen: tercio izquierdo = izquierda, centro = disparo, tercio derecho = derecha.
-- **Nunchuk**: stick izquierda / derecha, Z disparo, C+Z moneda + start. Serie: `a` / `d`, `j` disparo, `5` moneda, `1` start.
-
-### Controles: Pole Position y Pole Position II
-
-En horizontal: la imagen (256x224) centrada y la pantalla táctil dividida en 3x3 zonas (se muestran 2,5 s al arrancar):
-
-| MONEDA | MARCHA | ACELERAR |
-|---|---|---|
-| IZQ. + ACELERAR | ACELERAR | DCHA. + ACELERAR |
-| IZQUIERDA | FRENO | DERECHA |
-
-- La carrera empieza sola al echar la moneda (como en el mueble). MARCHA alterna entre LOW y HIGH a cada pulsación.
-- **Nunchuk**: el stick (eje X) es el volante analógico, stick arriba = marcha, Z acelerar, C frenar, C+Z moneda. BOOT = moneda. Serie: `a` / `d` volante, `w` acelerar, `s` frenar, `g` marcha, `5` moneda.
-
-### Controles: RoboCop
-
-Táctil en 3x3 zonas sobre la pantalla (se muestran 2,5 s al empezar); la imagen de 256x240 va centrada:
-
-| | | |
-|---|---|---|
-| MONEDA + START | ARRIBA | SALTO |
-| IZQUIERDA | ATAQUE | DERECHA |
-| IZQ. + ATAQUE | ABAJO | DCHA. + ATAQUE |
-
-- **Nunchuk**: stick = joystick de 8 direcciones (arriba / abajo apuntan), Z ataque, C salto, C+Z moneda + start.
-- Serie: `a` / `d` / `w` / `s` joystick, `j` ataque, `k` salto, `5` moneda, `1` start.
-
-### Controles: Sinclair QL
-
-El QL arranca en su pantalla de inicio ("F1...monitor  F2...TV"). **MDV** / **BOOT** (pulsación corta) monta o desmonta el cartucho actual en mdv1, reinicia el QL y pulsa F1 por ti: QDOS carga y ejecuta `mdv1_boot` (unos 30 s; el LED rojo se enciende mientras gira el microdrive). **Mantén MDV o BOOT** para el menú de cartucho: lista los `.mdv` de la microSD (FAT32, raíz o carpeta `mdv/`; SPI CS=GPIO5), el cartucho del firmware y «Eyectar».
-
-Táctil en 4x3 zonas invisibles sobre la imagen (se muestran al empezar; mantén VIEW un segundo para volver a verlas):
-
-| | | | |
-|---|---|---|---|
-| MDV | F1 | F2 | VIEW |
-| IZQUIERDA | ARRIBA | ABAJO | DERECHA |
-| ESC | ESPACIO | ENTER | F3 |
-
-- **VIEW**: imagen entera (512x256 reducida a 320x240 promediando, se lee bien) o a 1:1 (las 320 columnas de la izquierda o de la derecha).
-- **Nunchuk**: stick = cursores, Z = ENTER, C = ESPACIO, C+Z = ESC.
-- **Puerto serie** (115200): se escribe en el teclado del QL (mayúsculas y símbolos con su SHIFT, flechas, ESC, `ESC O P`..`S` = F1..F4, Retroceso = CTRL+IZQUIERDA).
-
-### Controles: Snow Bros
-
-```
-+----+------------------------------------+----+
-| CN |  tocar arriba: andar + saltar      | ▲  |
-+----+                                    +----+
-| ST |   mitad izq. = ◀    mitad der. = ▶ | ▼  |
-+----+                                    +----+
-| SH |        imagen del juego 256x224    | JP |
-+----+------------------------------------+----+
- CN = moneda  ST = start  SH = disparar nieve  JP = saltar
-```
-
-- Nunchuk: stick = 4 direcciones, Z = disparar nieve, C = saltar.
-- Serie: `a d w s`, `j` disparo, `k` salto, `5`, `1`.
-
-### Controles: Track & Field
-
-```
-+-----+------------------------------------+-----+
-| CN  |   mitad izquierda = CORRER          |  J  |
-| ST  |   mitad derecha   = SALTAR          |  M  |
-| RUN |        imagen del juego 256x224    |  P  |
-+-----+------------------------------------+-----+
-```
-
-- Correr: cada toque nuevo pulsa el *otro* botón de carrera (RUN 1 / RUN 2). Saltar/lanzar: mantén pulsado para el ángulo.
-- Nunchuk: stick izquierda/derecha = RUN 1 / RUN 2 (agítalo), Z = el otro botón de carrera en cada pulsación, C = salto.
-- Serie: `c` RUN 1, `z` RUN 2, `x` salto, `5`, `1`.
-
-### Controles: Puzzle Bobble
-
-Táctil en 3x3 zonas sobre la imagen (se muestran 2,5 s al empezar):
-
-| | | |
-|---|---|---|
-| MONEDA + START | DISPARAR | DERECHA |
-| IZQUIERDA | DISPARAR | DERECHA |
-| IZQUIERDA | DISPARAR | DERECHA |
-
-- Izquierda / derecha giran el lanzador mientras se mantienen.
-- Nunchuk: stick izquierda/derecha = apuntar, Z o C = disparar.
-- Serie: `a d` apuntar, `j` (o `w`, espacio) disparar, `5` moneda, `1` start, `2` start del jugador 2.
-- La EEPROM del juego (ajustes y récords) se guarda en NVS.
-- Imagen 320x224 a pantalla completa (franja negra de 8 líneas arriba y abajo).
-
-### Compilar
-
-ESP-IDF 5.3:
-
-```
-. $IDF_PATH/export.sh
-idf.py -B build/indytemp -DGAME=indytemp build       # o … / polepos / polepos2 / ql / spectrum48 / spectrum128 / plus3 / pentagon / pentagon1024 / scorpion
-LCD_SPI_MHZ=80 idf.py -B build/indytemp-80 -DGAME=indytemp build
-./build_all.sh                                       # todo -> dist/
-```
-
-Prueba sin pantalla en QEMU (imprime un hash de la imagen cada 300 frames, comparable con la versión de PC): `CYD_HEADLESS_TEST=1 idf.py -B build/q-<juego> -DGAME=<juego> build`.
-
-## Escritorio (SDL2)
-
-```
-make GAME=indytemp        # o … / polepos / polepos2 / ql / spectrum48 / … / scorpion / cpc6128 / c64 / lynx / msx1 / msx2 / amiga; "make all" -> build/sdl/<juego>
-./build/sdl/indytemp      # ROMs incluidas; Indy acepta también: ./build/sdl/indytemp <dir indytemp> <dir atarisy1>
-./build/sdl/roadrunn      # igual: ./build/sdl/roadrunn <dir roadrunn> <dir atarisy1>
-./build/sdl/gauntlet      # ROMs incluidas
-./build/sdl/outrun        # ROMs incluidas
-./build/sdl/retofinv      # ROMs incluidas
-./build/sdl/robocop       # ROMs incluidas
-./build/sdl/ql            # ROMs y cartucho incluidos; o ./build/sdl/ql <cartucho.mdv>
-```
-
-### Windows (MinGW)
-
-Mismos fuentes y `Makefile`; salida en `build/win/<juego>.exe`. En [MSYS2](https://www.msys2.org/) (shell **MinGW64**):
-
-```
-pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-SDL2 make
-./build_windows.sh              # todos -> build/win/*.exe
-./build_windows.sh robocop ql   # algunos
-# o desde cmd.exe: build_windows.bat
-```
-
-También sirve para cruzar desde Linux/macOS con `mingw-w64` y un SDL2 MinGW (`SDL2DIR` al prefijo `x86_64-w64-mingw32` del zip de [libsdl.org](https://libsdl.org/download-2.0.php), o `*-sdl2-config` en el PATH). Copia `SDL2.dll` junto al `.exe` para ejecutarlo.
-
-Teclas comunes: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset, P pausa, ESC salir.
-- **Indy**: Z látigo, X salto. La EEPROM se guarda en `indytemp.eep`.
-- **Road Runner**: cursores = joystick (desviación máxima), Z / X salto. La EEPROM se guarda en `roadrunn.eep`.
-- **Gauntlet**: jugador 1; Z disparo, X magia (`1` también es magia, para entrar en la partida). La EEPROM se guarda en `gauntlet.eep`.
-- **OutRun**: izquierda / derecha volante, arriba o Z acelerar, abajo o X frenar, C / Espacio cambiar de marcha. La RAM con batería (puntuaciones) se guarda en `outrun.nv`.
-- **Snow Bros**: Z disparo, X salto.
-- **Track & Field**: C = RUN 1, Z = RUN 2 (altérnalos), X = salto.
-- **Return of the Invaders**: izquierda / derecha, Z disparo. Se ve en vertical (224x288, como el mueble ROT90).
-- **Pole Position / Pole Position II**: izquierda / derecha volante, arriba o Z acelerar, abajo o X frenar, C / Espacio cambiar de marcha (LOW / HIGH). La carrera empieza sola tras la moneda.
-- **RoboCop**: cursores = joystick (arriba / abajo apuntan), Z ataque (disparo / puñetazo), X salto.
-- **Puzzle Bobble**: cursores izquierda/derecha apuntan, Z dispara. La EEPROM se guarda en `pbobble.eep`.
-- **Sinclair QL**: el teclado del PC es el del QL (las teclas comunes de arriba no se aplican: ESC es el ESC del QL; Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1 monta / desmonta** el cartucho actual; **F9** abre el menú (abrir `.mdv` del disco con zenity/kdialog, cartucho del firmware, eyectar); también **arrastra un `.mdv`** a la ventana (en web: barra «Upload» o drag&drop). **F6** es el F1 del QL (F2-F5 los suyos), F12 reinicia. `QL_MOUNT_AT=n` pulsa F1 en el frame n.
-- **ZX Spectrum / clones** (`spectrum48`, `spectrum128`, `plus3`, `pentagon`, `pentagon1024`, `scorpion`): teclado del PC = matriz Spectrum (Ctrl = Symbol Shift, cursores = Caps+5/6/7/8, Retroceso = DELETE, teclado numérico = Kempston). **F9** menú de media (abrir cualquier fichero admitido); **F1** o **F6** play/pausa de cinta; **F3** reset; **F5** botón mágico (NMI) en Pentagon / Scorpion; **F12 TURBO** como en dsp-cpp (sin límite de velocidad, sin sonido, se dibuja uno de cada 4 frames; «[TURBO]» en el título); arrastrar un fichero a la ventana (web: barra Upload). En CYD: mantener **MEDIA**/BOOT = menú microSD (FAT32; raíz, `mdv/` o `tape/`; nombres largos), con «TURBO on/off»; toque corto = play/pausa; por la consola serie F12 o Ctrl-T = TURBO, F5 = botón mágico. En RP2040: F9 lista la microSD por UART, las mismas teclas F; audio PWM en GPIO4.
-
-**Opciones de línea de comandos** (todas las máquinas, Linux y Windows; van antes o después de los argumentos propios de cada driver, como el `.mdv` del QL o el fichero del Spectrum):
-
-| Opción | Efecto |
-|---|---|
-| `--mute` (o `-m`) | sin sonido (no se abre el dispositivo de audio) |
-| `--sound` | con sonido (por defecto) |
-| `--scale N` (o `--scale=N`, `-s N`) | ventana = imagen × N, de 1 a 10 (por defecto 2, o lo que pida el driver); la ventana sigue pudiéndose redimensionar |
-| `--help` | muestra las opciones |
-
-Por ejemplo `./build/sdl/robocop --mute --scale 3`, `spectrum128.exe --scale 1 juego.tzx`. Con `SDL_PORT_VERBOSE=1` se escribe el tamaño de ventana y si hay sonido.
-
-Para pruebas: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<juego>` guarda el frame 1200 en `shot.ppm`.
-
-## Web (Emscripten)
-
-Mismo frontend `*_sdl.c` y mismos núcleos; el puerto está en `main/ports/web/` (API idéntica a `ports/sdl2`, SDL2 de Emscripten + ASYNCIFY para el bucle).
-
-```
-source "$EMSDK/emsdk_env.sh"          # emcc en el PATH
-tools/regen.sh <juego>                # ROMs en rom_data.c, como en escritorio
-./build_web.sh                        # o: make -C main/ports/web GAME=robocop
-python3 -m http.server --directory build/web 8080
-# http://localhost:8080/  → index; http://localhost:8080/robocop.html
-```
-
-Controles: los mismos que en SDL2. En el QL: barra «Upload», drag&drop de un `.mdv` o F9. En Spectrum, CPC, C64, MSX y Lynx: barra «Upload» (todos sus formatos), drag&drop o F9; F12 = TURBO. En el Amiga: barra «Upload» o drag&drop de un `.adf` (a DF0), F11 menú, F12 TURBO, y un clic en la imagen captura el ratón (*pointer lock*; el botón central lo suelta). `?frames=n` en la URL corta tras n frames.
-
-## Android (ordenadores, consolas y arcades)
-
-Los drivers de ordenadores como apps de Android, una por máquina, todas con la interfaz de Hataroid del QL (menú de iconos inferior, ajustes, medios desde los archivos del teléfono, *Abrir con*) y con el teclado en pantalla de dsp-cpp (la foto del QL, el 48K, el CPC 464, el C64 con sus PETSCII; MSX y la Lynx dibujados al mismo estilo; el Amiga, la foto de un A500 español, con la imagen como trackpad del ratón). Y los 11 arcades en una app, **cMESYS Arcade**, con la lista de juegos como MAME para Android, cada juego con su frontend de escritorio tal cual (sobre `sdl_port.h` para Android) y controles en pantalla: joystick de bola roja, los botones del juego, START y un monedero con la animación de la moneda. Se compilan sin Android Studio ni NDK; ver `main/ports/android/README.md`.
-
-```
-main/ports/android/build_apk.sh       # → dist/{ql,zxspec,cpc,c64,msx,lynx,amiga,<consolas>}_android.apk (arm64-v8a y x86_64)
-main/ports/android/build_arcade.sh    # → dist/arcade_android.apk (los 11 arcades)
-```
-
-## RP2040-PiZero (HDMI)
-
-Firmware para la [Waveshare RP2040-PiZero](https://www.waveshare.com/wiki/RP2040-PiZero) (RP2040 a 252 MHz, 264 KB de RAM, 16 MB de flash, HDMI). Cada juego tiene su frontend `<juego>_pico.c` sobre el mismo núcleo que el CYD y el escritorio; lo común está en `main/ports/rp2040-pizero/pico_port.c`, basado en el puerto `rp2040-pizero` de dsp-cpp.
-
-| Función | Conexión | Notas |
-|---|---|---|
-| HDMI | D0 26/27, D1 24/25, D2 22/23, CLK 28/29 | 640x480 a 60 Hz desde una imagen de 320x240 (cada píxel doble). No hay frame buffer: el núcleo 1 le pide al juego su imagen por franjas de 4 líneas (2 en OutRun y Puzzle Bobble) mientras salen y las codifica en TMDS. Si una franja no llega a tiempo sale una línea roja. Todo lo que hace el núcleo 1 está en RAM; las ROM gráficas se leen de la flash, que comparte con el núcleo 0 (un 68000 la usa sin parar), así que cuando le quedan pocas líneas preparadas el núcleo 1 para al núcleo 0 un momento (una interrupción que espera desde la RAM) hasta ponerse al día: la imagen tiene prioridad sobre la velocidad del juego |
-| Mandos | puerto USB-C nativo (marcado USB) | teclado USB y/o mando HID, también por un hub; alimenta la placa y el mando con un cable OTG / Y |
-| Sonido | GPIO4 | PWM de 10 bits, mono; pon un filtro RC (p. ej. 1 kΩ + 10 nF) antes del amplificador |
-| microSD | ranura de la placa: SPI0 SCK 18, MOSI 19, MISO 20, CS 21 | FAT16/FAT32; la usan el QL y los Spectrum |
-| Log | UART0: TX GPIO0 | 115200 baudios: fps cada 5 s |
-
-Teclas (teclado USB): `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl = botón 1, `X`/Alt = botón 2, `C`/Espacio = botón 3, F3 reset. Mando: cruceta o stick, A/B/X = botones 1/2/3, SELECT moneda, START start, SELECT+START reset. Cada juego usa los mismos botones que en el escritorio. En la imagen: los de 336 de ancho (Indy, Road Runner, Gauntlet) muestran las 320 columnas centrales; Return of the Invaders (224x288, vertical) quita una de cada 6 líneas; el resto va centrado.
-
-**Sinclair QL**: la RP2040 no llega a la velocidad del QL (unos 20 frames/s de 50): la pantalla «F1...monitor / F2...TV» tarda unos 5 s en salir, en negro hasta entonces. La imagen entera (512x256 promediada a 320x240) la dibuja el núcleo 1 mientras sale por el HDMI, con tablas por planos de color desde la RAM. El teclado USB es el del QL (Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £). **F1** monta / desmonta el cartucho actual; **F9** abre el menú en pantalla (microSD FAT: `.mdv` en la raíz o en `mdv/`; cartucho del firmware; eyectar; cursores, RePág/AvPág, Enter, Esc), también en el log del UART. **F6** es el F1 del QL, F11 cambia la vista, F12 reinicia. Audio PWM en GPIO4; microSD en la ranura de la placa. Mando: cursores, A = ESPACIO, B = ENTER.
-
-**ZX Spectrum / clones**: teclado USB = matriz Spectrum. **F1**/**F6** cinta play/pausa, **F9** menú en pantalla con los ficheros de la microSD (todos los formatos; cursores, RePág/AvPág, Enter carga, Esc vuelve; si no carga, dice por qué), cinta play/pausa y TURBO, **F3** reset, **F5** botón mágico, **F12 TURBO** (sin sonido ni límite de velocidad). Audio PWM en GPIO4; microSD en la ranura de la placa. Mando = Kempston.
-
-### Compilar y flashear
-
-```
-sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi cmake python3   # (Debian/Ubuntu)
-tools/setup_pico.sh                       # una vez: Pico SDK 2.1.1 y PicoDVI en deps/pico
-./build_pico.sh                           # las 12 máquinas -> dist/<juego>_rp2040_pizero.uf2
-./build_pico.sh robocop ql                # algunas
-```
-
-Con las ROMs ya generadas (`tools/regen.sh <juego>`, como para el CYD). Para flashear: mantén BOOT al enchufar el USB-C, aparece la unidad `RPI-RP2` y se copia el `.uf2`.
-
-### Memoria y velocidad
-
-Con 264 KB de RAM, cada juego tiene que caber entero: su RAM de la placa original (OutRun y Puzzle Bobble necesitan casi 180 KB), la emulación y las líneas del HDMI (`tools/pico_ram.py` dice cuánta RAM estática queda para el resto). Los códigos más usados van en RAM, porque la caché de la flash es de sólo 16 KB: el bucle de Musashi, los manejadores del 68000 más usados de cada juego (los mismos que en IRAM en el CYD, sacados de su `.lf` por `tools/pico_hot.py`; Musashi no se toca) y, cuando caben, las CPU y chips de sonido de la placa. Las pilas van en los bancos SCRATCH de 4 KB.
-
-El RP2040 (Cortex-M0+) es bastante más lento que el ESP32, así que las máquinas pesadas no llegan a la velocidad real; la imagen y el sonido van al ritmo que dé la emulación. Velocidad estimada en el simulador rp2040js (sin la espera de la flash ni el reparto del bus con el HDMI, así que en la placa será algo menor): ver la tabla de abajo. **No está probado en una placa real.**
-
-| Máquina | Velocidad real | Estimada en el simulador (a 252 MHz) |
-|---|---|---|
-| Return of the Invaders | 60,6 fps | sobra (unas 2 veces la real) |
-| Track & Field | 60 fps | ~63 fps |
-| Puzzle Bobble | 60 fps | ~80 fps (en la demo) |
-| Gauntlet | 59,9 fps | ~58 fps |
-| Road Runner | 59,9 fps | ~53 fps |
-| Indiana Jones | 59,9 fps | ~51 fps |
-| Sinclair QL | 50,1 fps | ~41 fps |
-| Snow Bros | 60 fps | ~38 fps |
-| OutRun | 60,1 fps | ~28 fps |
-| RoboCop | 57,4 fps | ~26 fps |
-| Pole Position / II | 60,6 fps | ~17 fps (tres CPU de 3 MHz y cuatro MCU: va a cámara lenta) |
-
-### Pruebas sin la placa
-
-- `make GAME=<juego> PORT=picohost` compila el frontend `<juego>_pico.c` para el PC con `tools/pico_host.c` (la misma API sin ventana): `PICO_FRAMES=1200 PICO_SHOT=600,1200 PICO_KEYS=1@300:10,4@400:10 build/picohost/<juego>` guarda `shot_600.ppm`… dibujados con el mismo callback que usa el núcleo 1 (y dice cuánta memoria pide el juego).
-- `PICO_HEAP_KB=n` limita el montón a n KB, como en las placas, para probar los «out of memory».
-- Los ordenadores leen la microSD de una carpeta del PC con `PICO_SD=<carpeta>`, y `PICO_PRESS=66@150,40@155` pulsa F9 y Enter (usos HID) en esos frames: así se prueban el menú y la carga.
-- `cmake -S main/ports/rp2040-pizero -B build/picoemu-<juego> -DGAME=<juego> -DPICO_EMU_TEST=ON` hace un firmware para el simulador [rp2040js](https://github.com/wokwi/rp2040js) (un solo núcleo: sin HDMI, USB ni sonido) que escribe los frames por la UART.
-
-## RP2350-PiZero (HDMI)
-
-Firmware para la [Waveshare RP2350-PiZero](https://www.waveshare.com/wiki/RP2350-PiZero) (RP2350B, dos Cortex-M33 a 252 MHz, 520 KB de RAM, 8 MB de PSRAM, 16 MB de flash, HDMI): los mismos frontends `<juego>_pico.c` y `pico_port.c` que la RP2040 (`-DPIZERO=2350`), con lo que cambia en la placa tomado del puerto `rp2350-pizero` de dsp-cpp (pines, PSRAM, PIO-USB).
-
-| Función | Conexión | Notas |
-|---|---|---|
-| HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz desde una imagen de 320x240. Aquí la imagen se guarda entera (150 KB, y otra de 150 KB si cabe en la SRAM dejando 48 KB libres; las líneas TMDS siempre en SRAM, nunca en la PSRAM): las filas salen al HDMI desde la interrupción de su DMA (un callback de línea en el `DVI` de pico_lib, `rp2350/hdmi`), y el núcleo 1 dibuja con el mismo callback de la RP2040 la imagen siguiente en la de atrás; se cambian arriba de la pantalla. Un juego que dibuja despacio enseña menos imágenes por segundo, nunca líneas rojas ni cortes. Si no caben dos (OutRun, Puzzle Bobble, el QL), dibuja sobre la que se ve: alguna línea de corte, como en el CYD |
-| Mandos | puerto PIO-USB: D+ 28, D- 29 | teclado USB y/o mando HID (también por un hub). El USB-C nativo es para alimentar y flashear. El frame de 1 ms del PIO-USB va en `rp2350/usb_frame.c`, con un arreglo para la errata RP2350-E9 (con las entradas siempre activas las líneas D+/D- se quedan altas y no se ve el teclado; afecta a las revisiones A2 y A3). `USB=native ./build_pico2.sh` → `dist/<juego>_rp2350_pizero_usbc.uf2`: el teclado en el USB-C nativo, como en la RP2040 (alimentando la placa con un cable OTG/Y) |
-| Sonido | por el HDMI (la tele) | 44,1 kHz en las *data islands* del HDMI (pico_lib de Shuichi Takano / Frank Hoedemakers, MIT); el sonido del juego se remuestrea y va igual a los dos canales |
-| microSD | ranura de la placa: SPI1 SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; el QL, los Spectrum, el CPC, el C64, los MSX y la Lynx cargan de ella con el menú en pantalla (F9), el Amiga sus `.adf` (F11) |
-| PSRAM | QMI CS1 = GPIO47 | la placa trae solo el hueco para soldarla (la de prueba no la tiene: "PSRAM: 0 KB" al arrancar). Si hay una, el heap sigue en ella cuando se llena la SRAM. Los ordenadores usan una sola imagen de 150 KB (no dos) para dejar RAM a discos y cintas; los .trd/.scl se leen de la tarjeta pista a pista. **El Amiga la necesita** (su chip y slow RAM, 1 MB, y cada disco, 880 KB, van en ella; sin PSRAM avisa en pantalla) |
-| Log | UART0: TX GPIO0 | 115200 baudios |
-
-Las teclas y los menús son los de la RP2040 (arriba). Para compilar: `tools/setup_pico.sh` (ahora también baja Pico-PIO-USB) y `./build_pico2.sh` (todas) o `./build_pico2.sh ql spectrum128` → `dist/<juego>_rp2350_pizero.uf2`. Para flashear: BOOT al enchufar el USB-C nativo, aparece la unidad `RP2350` y se copia el `.uf2`. **No está probado en una placa real** (como el de dsp-cpp): compila con el SDK 2.1.1, pero el simulador rp2040js no emula el RP2350.
-
-## ROMs
-
-Para regenerar las ROMs compiladas (`rom_data.c`) a partir de `roms/`: `tools/regen.sh <juego>`. En Indy, Road Runner, Gauntlet, OutRun, Snow Bros, Puzzle Bobble, RoboCop y el QL también regenera las tablas de Musashi.
-
-Road Runner usa el set de MAME `roadrunn` (rev 2: `136040-228.11c` ... `136040-231.13a` y el resto de `136040-*`) en `roms/roadrunn/` y la BIOS `atarisy1` en `roms/atarisy1/`, como Indy.
-
-Gauntlet usa el set de MAME `gauntlet` (rev 14): `136037-1307.9a`, `1308.9b`, `205.10a`, `206.10b`, `1409.7a`, `1410.7b`, `120.16r`, `119.16s`, `104.6p` y `111.1a` ... `118.2mn` en `roms/gauntlet/` (`tools/gen_roms_gauntlet.py` comprueba tamaños y CRC; las PROM no hacen falta).
-
-OutRun usa el set de MAME `outrun` (rev B): `epr-10380b.133`, `epr-10381b.132`, `epr-10382b.118`, `epr-10383b.117`, `epr-10327a.76` ... `epr-10330a.57`, `epr-10187.88`, los `opr-*` (tiles, carretera, PCM) y los `mpr-10371.9` ... `mpr-10378.16` (sprites) en `roms/outrun/` (`tools/gen_roms_outrun.py` comprueba tamaños y CRC).
-
-Return of the Invaders usa el set de MAME `retofinv`: `a37__01.ic72` ... `a37__05.ic17`, `a37__09.ic37` (MC68705P5), `a37__10` ... `a37__16.gfxboard` y las PROM `a37-06` ... `a37-08`, `a37-17` ... `a37-20` en `roms/retofinv/`.
-
-Pole Position usa el set de MAME `polepos` (World) entero (`pp3_9.6h` y `pp1_10b.5h` del Z80, `pp3_1.8m`, `pp3_2.8l`, `pp3_5.4m`, `pp3_6.4l` de los Z8002, gráficos, carretera, PROM, motor y voz) más las MCU `51xx.bin`, `52xx.bin`, `53xx.bin`, `54xx.bin` (de `namco51.zip` ... `namco54.zip`) en `roms/polepos/`. Pole Position II usa el set `polepos2` con las mismas MCU en `roms/polepos2/`. `tools/gen_roms_polepos.py` comprueba tamaños y CRC y descodifica los gráficos (un byte por píxel).
-
-RoboCop usa el set de MAME `robocop` (World, revision 4): `ep05-4.11c`, `ep01-4.11b`, `ep04-3`, `ep00-3` (68000), `ep03-3` (6502), `en_24_mb7124e.a2` (HuC6280), `ep02` (OKI) y `ep06` ... `ep23` (gráficos) en `roms/robocop/` (`tools/gen_roms_robocop.py` comprueba tamaños y CRC; las PROM no hacen falta).
-
-El Sinclair QL usa el set de MAME `ql` (ROM JS): `ql.js 0000.ic33`, `ql.js 8000.ic34` e `ipc8049.ic24` en `roms/ql/`, más el cartucho que se quiera llevar en el firmware: el primer `*.mdv` (imagen QLAY de 174930 bytes) de `roms/ql/` (`tools/gen_roms_ql.py` comprueba tamaños y CRC; `python3 tools/gen_roms_ql.py roms/ql main/drivers/computers/ql/rom_data.c otro.mdv` elige otro).
-
-Los ZX Spectrum / clones comparten el núcleo en `main/drivers/computers/zxspec/`, pero **cada modelo tiene su propio directorio de ROMs y su propio `rom_data_<modelo>.c`**:
-
-| `GAME` / `tools/regen.sh …` | Lee solo | Genera | Set de MAME (el `.zip` tal cual o descomprimido) | Bancos de ROM resultantes |
+| Return of the Invaders (Taito, 1985) | `retofinv` | 3 x Z80 + MC68705P5 | 2 x SN76489 | dsp-cpp `retofinv.cpp` + MAME |
+| Pole Position (Namco, 1982) | `polepos` | Z80 + 2 x Z8002 + 4 MCU Namco | WSG de 8 voces, motor, voz, ruido | dsp-cpp `polepos.cpp` + MAME |
+| Pole Position II (Namco, 1983) | `polepos2` | igual | igual | el mismo núcleo que `polepos` |
+| RoboCop (Data East, 1988) | `robocop` | 68000 + HuC6280 + 6502 | YM2203, YM3812, OKI M6295 | dsp-cpp `dec0.cpp` + MAME |
+| Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B | nuevo, según MAME `taito_b.cpp` |
+
+### Ordenadores (`main/drivers/computers/`)
+
+| Máquina | `GAME` | CPU | Sonido | Driver |
 |---|---|---|---|---|
-| `spectrum48` | `roms/spectrum48/` | `…/zxspec/rom_data_spectrum48.c` | `spectrum.zip`: `spectrum.rom` | BASIC 48K |
-| `spectrum128` | `roms/spectrum128/` | `rom_data_spectrum128.c` | `spec128.zip`: `128-0.rom`, `128-1.rom` | 0 editor 128K, 1 BASIC 48K |
-| `plus3` | `roms/plus3/` | `rom_data_plus3.c` | `plus3.zip`: `plus3-0.rom` … `plus3-3.rom` (v4.0) | 0-3 (el 3 es el BASIC 48K) |
-| `pentagon` | `roms/pentagon/` | `rom_data_pentagon.c` | `pentagon.zip`: `128p-0.rom`, `128p-1.rom`, `trd503.rom` | 0 128K, 1 48K, 3 TR-DOS 5.03 |
-| `pentagon1024` | `roms/pentagon1024/` | `rom_data_pentagon1024.c` | `pent1024.zip`: `128p-0.rom`, `128p-1.rom`, `gluk63r.rom`, `trd503.rom` | 0 128K, 1 48K, 2 Gluk 6.3r, 3 TR-DOS 5.03 |
-| `scorpion` | `roms/scorpion/` | `rom_data_scorpion.c` | `scorpio.zip`: `scorp294.rom` (V2.94, la BIOS por defecto de MAME; también `scorpion.rom` V2.92 o `scorp0..3.rom`) | 0 128K, 1 48K, 2 servicio, 3 TR-DOS |
+| Sinclair QL (1984, ROM JS) | `ql` | 68008 + 8749 (IPC) | altavoz del IPC | `ql/ql_core.c` |
+| ZX Spectrum 48K | `spectrum48` | Z80 | beeper | `zxspec/zx48.c` |
+| ZX Spectrum 128K | `spectrum128` | Z80 | beeper + 2 AY (turbosound) | `zxspec/zx128.c` |
+| ZX Spectrum +3 | `plus3` | Z80 | beeper + 2 AY, uPD765 | `zxspec/zx128.c` |
+| Pentagon 128 | `pentagon` | Z80 | beeper + AY, Beta 128 | `zxspec/zxclone.c` |
+| Pentagon 1024 | `pentagon1024` | Z80 | beeper + AY, Beta 128 | `zxspec/zxclone.c` |
+| Scorpion ZS-256 | `scorpion` | Z80 | beeper + AY, Beta 128 | `zxspec/zxclone.c` |
+| Amstrad CPC 6128 (también 464 / 664 en el escritorio) | `cpc6128` | Z80 | AY-3-8912 | `cpc/cpc_core.c` |
+| Commodore 64 (PAL) | `c64` | 6510 (+ 6502 de la 1541) | SID 6581 | `c64/c64_core.c` |
+| MSX | `msx1` | Z80 | AY-3-8910 (+ SCC) | `msx/msx_core.c` (TMS9918) |
+| MSX2 | `msx2` | Z80 | AY-3-8910 (+ SCC) | `msx/msx_core.c` (V9938) |
+| Commodore Amiga 500 (PAL, OCS) | `amiga` | 68000 | Paula | `amiga/amiga_core.c` + `amiga_chipset.c` |
 
-`tools/gen_roms_zxspec.py` comprueba los CRC de MAME (si no coinciden solo avisa) y sigue aceptando los nombres antiguos (`48.rom`, `128.rom`, `pentagon.rom` de 32 KB…).
+### Consolas (`main/drivers/consoles/`)
 
-**TR-DOS**: en el Pentagon, el Pentagon 1024 y el Scorpion la ROM de TR-DOS (banco 3) entra al ejecutar en 3D00-3DFF con el BASIC 48K seleccionado y sale al ejecutar desde la RAM, y la interfaz Beta 128 (WD1793) lee y escribe discos `.trd` / `.scl` (ver más abajo). **Scorpion ZS-256**: su ROM comprueba los 256 KB de RAM al arrancar y se para si no están. En el escritorio y la web son 256 KB reales; en la RP2040 (y en el CYD si no queda memoria) los 128 KB altos se guardan «dispersos», en bloques de 256 bytes que solo ocupan memoria mientras no son todos del mismo valor: la prueba de la ROM los deja casi vacíos (unos 3 KB) y el software de 128K no los usa. Es idéntico, frame a frame, a tener los 256 KB; un programa que llene los 256 KB se quedaría sin memoria en la placa. **Pentagon 1024**: 1 MB de RAM (64 páginas, puerto #DFFD) en el escritorio y la web; en las placas, 128 KB. Como en la máquina real (y en MAME y dsp-cpp), los bits 6-7 de #7FFD eligen páginas altas: un juego de 128K que escribe basura en ellos (p. ej. Out Run de OLN, que manda #D0) se cuelga y reinicia en el Pentagon 1024; en el Pentagon 128 (`pentagon`) va bien.
-
-### ZX Spectrum: migración de dsp-cpp
-
-Los seis modelos son una migración a C de los drivers de [dsp-cpp](https://github.com/Chusogar/dsp-cpp) (`spectrum`, `spectrum_128k`, `spectrum_3`, `zx_clone`) con su Z80 (`cpu/z80dsp/`, el de dsp-cpp con los ganchos que necesita su ULA) y sus módulos de `machine/`:
-
-| | 48K | 128K | +3 | Pentagon / Pentagon 1024 / Scorpion |
-|---|---|---|---|---|
-| Reloj, T/línea × líneas | 3,5 MHz, 224 × 312 | 3,5469 MHz, 228 × 311 | igual que el 128K | 3,5 MHz, 224 × 320 |
-| Contención | Fuse: memoria, puertos y T internos | tabla del 128K (14361, 6-5-4-3-2-1-0-0), puertos | memoria (sin puertos) | ninguna |
-| Bus flotante | Fuse | el de spectrum_128k.pas | igual | — |
-| Sonido | beeper ±8192 | beeper ±4096 + 2 AY 1,7734 MHz (turbosound) | igual | beeper ±4096 + AY 1,75 MHz |
-| Extras | ULA+ | ULA+, cartuchos Interface 2 | ULA+, paginación #1FFD, disquetera uPD765 | Beta 128 / TR-DOS, #DFFD (1 MB) o #1FFD, Gluk, botón mágico |
-
-**Borde y sonido como en dsp-cpp**: el color del borde se guarda por cada T-state (dos líneas de 228 T, no un frame entero) y cada línea se dibuja al salir el haz, con el borde izquierdo tomado de los últimos T de la línea anterior (T 200-223; 203-226 en el 128K/+3) y el derecho de T 128-151; el papel usa los latches de la ULA tomados cada 4 T (multicolor 8×1). El beeper y los AY se muestrean a 44.100 Hz en el escritorio y la web (22.050 Hz en las placas) con el mismo acumulador que dsp-cpp. Comprobado contra el propio dsp-cpp compilado: con las mismas ROMs, cintas y snapshots, el 48K, el 128K y el +3 dan **la misma imagen y el mismo sonido frame a frame**; los clones, el mismo sonido (dsp-cpp redibuja a veces la imagen del clon al final del frame y deja sin pintar su última línea; aquí se dibuja siempre al paso del haz, como en sus otros drivers).
-
-**Ficheros** (por extensión o, sin ella, por contenido):
-
-| Tipo | Extensiones | Modelos |
-|---|---|---|
-| Cinta | `.tap`, `.tzx`, `.cdt` (todos los bloques de dsp-cpp: 0x10-0x15, 0x18 CSW, 0x19 generalizado, saltos, bucles, llamadas, 0x2B nivel, 0x4B…), `.csw` (v1 y v2, RLE o zlib), `.pzx` | todos |
-| Snapshot | `.sna` (48K y 128K), `.z80` (v1, v2, v3) | todos |
-| Grabación | `.rzx` (snapshot embebido + entradas, zlib) | todos |
-| Disco TR-DOS | `.trd`, `.scl` | Pentagon, Pentagon 1024, Scorpion |
-| Disco +3 | `.dsk`, `.dsk` extendido (con los parches de protección de dsp-cpp) | +3 (solo lectura, como en dsp-cpp) |
-| Cartucho | `.rom`, `.bin`, `.if2` (Interface 2, 16 o 32 KB; reinicia la máquina) | 128K, +3 |
-
-**RZX**: la interrupción de cada frame se toma justo al acabarse la cuenta de fetches del anterior, si IFF1 está activo (aunque venga de un EI), y se pierde si no, como en Fuse y SPIN; con la ventana de 32 T de una máquina real la grabación se desincroniza (Zorro se reiniciaba a los ~58 s). **Disco**: si un programa espera INTRQ con una orden de lectura/escritura a medias sin mover los datos, el WD1793 la termina con LOST DATA, como el real (el cargador de Bruce Lee RX se quedaba esperando).
-
-La cinta se arranca sola cuando la ROM entra en LD-BYTES (como en dsp-cpp); F6/F1 la pausan o la siguen. Un bloque «stop the tape» la deja en pausa en el bloque siguiente (dsp-cpp la rebobina), así que los juegos multicarga siguen. Para arrancar un disco: en el Pentagon 128, menú → TR-DOS y `RUN` (R + ENTER); en el Pentagon 1024, «GLUK BOOT» y el fichero; en el Scorpion, «128 TR-DOS»; en el +3, «Loader».
-
-**Memoria en las placas**: la imagen es de 320×240 a 4 bits (38 KB, el `set_picture_limit` de dsp-cpp; con ULA+ se ven los colores de su primer banco). Las cintas (`.tap` `.tzx` `.cdt` `.csw` `.pzx`) y los `.dsk` del +3 se quedan en la microSD y se leen a páginas de 256 bytes según se usan, con una caché de 2 KB (`machine/zx_pbuf`): valen de cualquier tamaño (en el CYD con 128 KB de RAM emulada solo quedan ~100 KB libres, y el mayor bloque es de ~60 KB). El resto se lee por trozos a páginas, sin necesitar un bloque del tamaño del fichero, y las páginas de un solo byte no se guardan; un `.trd`/`.scl` solo guarda sus pistas con datos. Con el menú de la microSD abierto la emulación se detiene, y si un fichero no se puede cargar el motivo sale en la tercera línea del menú, con la memoria libre / el mayor bloque libre en KB (la segunda línea los muestra siempre). CSW y el piloto de los bloques 0x19 se reproducen desde sus longitudes, sin expandirlos.
-
-No hay directorio compartido `roms/spectrum`: regenerar un modelo no pisa el `rom_data` de otro. Sin ROMs reales el árbol compila con stubs vacíos (`python3 tools/gen_roms_zxspec.py --stub-all main/drivers/computers/zxspec`).
-
-Puzzle Bobble usa el set de MAME `pbobble` (Taito B System, versión japonesa): `pb-ic18.ic18`, `pb-ic2.ic2`, `pb-ic27.ic27`, `pb-ic14.ic14`, `pb-ic9.ic9`, `pb-ic15.ic15` en `roms/pbobble/` (el script comprueba tamaños y CRC). No sirve el Puzzle Bobble de Neo Geo.
-
-## Amstrad CPC 6128, Commodore 64 y Atari Lynx: migración de dsp-cpp
-
-Tres drivers más de [dsp-cpp](https://github.com/Chusogar/dsp-cpp) pasados a C11, con frontends para el escritorio (Linux / Windows), la web, la RP2350-PiZero y el CYD. Lo que comparten los frontends está en `main/drivers/computers/common/`: `comp_sdl.h` (menú F9 sobre la imagen, diálogo de fichero —zenity/kdialog en Linux, el de Windows en Windows—, arrastrar y soltar, barra web), `comp_pico.h` (menú F9 de la microSD en la RP2350), `comp_cyd.h` (tareas, zonas táctiles, menú de la SD, consola serie y un «mecanógrafo» que teclea órdenes) y `comp_sd.h` (ficheros de la tarjeta a páginas de `zx_pbuf`: cintas, discos y cartuchos se quedan en la tarjeta y se leen según se usan).
-
-**Núcleos nuevos o ampliados**: `cpu/m6502/m65xx` (el 6502 de dsp-cpp en C, también 65C02: C64, 1541 y Lynx), `machine/mos6526` (CIA), `video/mos6569` (VIC-II, una línea cada vez), `sound/sid6581`, `machine/c1541` (la disquetera con su 6502 y dos VIA: `.d64`, `.g64`, mapa de errores), `machine/via6522` (con callbacks de IRQ/CA2), `cpu/z80dsp` (tablas de tiempos sustituibles, `irq_ack` e `irq_align` para las esperas del CPC) y `sound/ay8910` (`ay8910_set_amplitude`).
-
-| | Amstrad CPC 6128 | Commodore 64 | Atari Lynx |
-|---|---|---|---|
-| Ficheros | `.dsk` / `.edsk` (AMSDOS, uPD765), cintas `.cdt` `.tzx` `.csw` (el reproductor del Spectrum), `.sna` | `.d64` / `.g64` (1541 real), `.tap`, `.prg` y `.t64` (se meten en la RAM y RUN; un `.t64` se convierte en disco si está la 1541) | `.lnx` (con cabecera), `.lyx` / `.o` (BS93, carga rápida) |
-| Imagen | 400×312 (escritorio/web); 320×240 centrados (placas) | 384×270; 320×240 (placas: el borde se recorta) | 160×102 (×2 en pantalla) |
-| Sonido | 44,1 kHz (22,05 en placas) | igual | igual |
-| ROMs (`roms/<GAME>/`) | `cpc6128.rom` (32 KB: SO + BASIC) y `cpcados.rom` (AMSDOS), set de MAME `cpc6128` | set de MAME `c64` (kernal `901227-03.u4`, BASIC `901226-01.u3`, caracteres `901225-01.u5`) + DOS de la 1541 `325302-01.uab4` y `901229-05 ae.uab5` / `901229-06 aa.uab5` / `901229-03.uab5` (sin estas dos no hay disquetera: los `.d64` cargan su primer PRG directamente) | `lynxboot.img` / `lynx.bin` (512 bytes); sin ella, el pequeño cargador propio de dsp-cpp (solo sirve con cartuchos sin cifrar) |
-
-`tools/regen.sh cpc6128|c64|lynx` genera `rom_data.c` (`tools/gen_roms_computers.py`; en el repositorio solo hay stubs vacíos: `python3 tools/gen_roms_computers.py --stub <GAME> <salida.c>`).
-
-**Teclas en el escritorio / web** (también en la RP2350 con teclado USB, que se mapea igual):
-
-- **CPC**: el teclado del PC es el del CPC (Alt = COPY, Supr = CLR, teclado numérico = f0-f9). F9 menú, F6 cinta play/pausa, F3 reset, F8 cursores + Espacio/Alt como joystick, F10 monitor verde, F12 TURBO. `--464` / `--664` eligen otro modelo (solo escritorio). Para cargar: disco → `CAT` y `RUN"nombre`; cinta → `|TAPE` y `RUN"` (la cinta va con el motor).
-- **C64**: Esc = RUN/STOP, Tab / Ctrl = CTRL, Alt izq. = C=, Inicio = CLR/HOME, AvPág = RESTORE, F1/F3/F5/F7 (F2/F4/F6 con mayúsculas), cursores (izquierda/arriba con SHIFT). Joystick en el teclado numérico (8 4 6 2, 0/5 disparo; en la RP2350 también Ctrl dcho.). F9 menú, F11 cinta, F10 reset, F8 puerto 1/2, F12 TURBO. Para cargar: `LOAD"*",8,1` y `RUN`; cinta: `LOAD` y F11.
-- **Lynx**: cursores = cruceta, Z / Ctrl = A, X / Alt = B, 1 / 2 = OPTION 1 / 2, Enter / P = PAUSE. F9 menú, F3 reset, F12 TURBO.
-
-En la RP2350 un mando USB es el joystick (en el C64, en el puerto elegido con F8; en la Lynx, la cruceta y A/B, SELECT = OPTION 1, START = PAUSE). El menú F9 lista los ficheros de la microSD y las órdenes de cada máquina (cinta, puerto del joystick, monitor verde, reset, TURBO).
-
-**CYD**: zonas táctiles (mantén MEDIA para el menú de la SD; pulsación corta = cinta play/pausa, PAUSE en la Lynx; HELP las muestra):
-
-| | fila 1 | fila 2 | fila 3 |
-|---|---|---|---|
-| CPC | MEDIA · 1 · 2 · HELP | ← ↑ ↓ → (cursores y joystick) | COPY · ESPACIO · ENTER · FUEGO |
-| C64 | MEDIA · F1 · RUN/STOP · HELP | ← ↑ ↓ → (joystick) | ESPACIO · RETURN · 1 · FUEGO |
-| Lynx | MEDIA · OPTION 1 · OPTION 2 · HELP | ← ↑ ↓ → | PAUSE · B · A · A |
-
-Como el CYD no tiene teclado, el menú de la SD también **teclea** por ti: en el CPC `|TAPE` + `RUN"` (y la pulsación que pide), `CAT` y `|CPM`; en el C64 `LOAD"*",8,1` + `RUN` (el RUN va al búfer de teclado del KERNAL, que se lee al acabar la carga) y `LOAD` + PLAY para cintas. Lo que se escribe en la consola serie (115200 baudios) se teclea en la máquina (en la Lynx: w a s d cruceta, k = A, j = B, p = PAUSE). Nunchuk: joystick, Z disparo, C segundo botón (ESPACIO en el C64, B en la Lynx).
-
-**Velocidad de la Lynx**: Mikey ya no se avanza instrucción a instrucción. Sus temporizadores y canales de audio se cuentan en ticks enteros, solo cuando uno vence o cuando la CPU toca Mikey o Suzy. La CPU corre en tramos hasta el siguiente vencimiento, y la RAM se lee y escribe directamente, sin pasar por las rutinas de acceso. En el PC, unas 2,8 veces menos trabajo por imagen (de 7,1 a 1,8 millones de instrucciones); en QEMU el CYD pasa de 43-46 fps con el núcleo lleno a 60 fps con un 60 %.
-
-**Carga rápida del C64**: el `LOAD` del KERNAL desde el dispositivo 8 de un fichero del `.d64` que hay en la disquetera se hace de golpe (como las *traps* de VICE): con la 1541 a su velocidad real un juego de 40 KB tarda dos minutos y parece colgado. La 1541 sigue ahí para todo lo demás (`LOAD"$"`, cargadores rápidos de los juegos, un fichero que no está, discos `.g64`); `c64_set_fast_load(m, false)` la deja a la velocidad real. Además, en su bucle de espera (motor apagado, sin ATN) la 1541 se «duerme» a los 50 ms y no se emula hasta que el C64 mueve una línea del bus, así que con un disco metido el C64 va casi tan rápido como sin disquetera.
-
-**TURBO (F12)**: sin límite de velocidad y sin sonido; además los núcleos dejan de generar sonido (SID, AY, Mikey) y el C64 dibuja solo una imagen de cada 8, para que en las placas el tiempo vaya a la emulación (cargas de cinta y cargadores rápidos).
-
-**Memoria y velocidad en las placas**: el CPC guarda la RAM en páginas de 16 KB (el ESP32 no tiene un bloque libre de 128 KB) y la imagen como registros de línea, dibujados desde la RAM al sacarlos (no hay frame buffer de 400×312). El C64 guarda la imagen recortada a 4 bits por píxel (38 KB). **En las placas la 1541 se enciende con el primer disco que se carga** (se lleva un tercio del tiempo del C64): sin disco, `LOAD"*",8` da DEVICE NOT PRESENT; en el escritorio y la web siempre está encendida. Con QEMU (que no reproduce los tiempos reales del ESP32) el CPC va a 50 fps con un 40 % del núcleo, y el C64 y la Lynx a 40-47 fps con el núcleo lleno: en el CYD real el C64 y la Lynx pueden ir algo por debajo de la velocidad real. En la RP2350 (Cortex-M33 a 252 MHz, código caliente en RAM) deberían ir a su velocidad. **Ninguno de los tres está probado en una placa real**: comprobados en el escritorio (CPC: BASIC 1.1, `CAT` de un disco; C64: BASIC V2, `LOAD"*",8,1` de un `.d64` con la 1541 y `RUN`; Lynx: la ROM de arranque real descifra y arranca un cartucho `.lnx` hecho con cc65, que dibuja con Suzy, y un `.o` BS93), con el frontend de la RP2350 en el PC (`PORT=picohost`, cargando de la «microSD» con el menú) y el del CYD en QEMU (arranca y emula sin pantalla). No se han compilado aquí las versiones web (falta `emcc`); usan el mismo `*_sdl.c` que el escritorio. Solo para la RP2350 (no RP2040).
-
-## MSX y MSX2: migración de dsp-cpp
-
-Los dos MSX de dsp-cpp (`msx1.cpp`, `msx2.cpp` con `msx_mapper`, `msx_dsk`, `rp5c01`, `tms9918` y `v9938`) en un solo núcleo C11, `drivers/computers/msx/msx_core.c`, compilado como `msx1` o `msx2` (cada uno con sus ROMs dentro). Frontends para escritorio (Linux / Windows), web, RP2350-PiZero y CYD, con los comunes de `drivers/computers/common/`.
-
-**Piezas nuevas**: `video/tms9918` (MSX1: modos de texto, gráficos I/II y multicolor, sprites con 5.º sprite y colisiones), `video/v9938` (MSX2: SCREEN 0-8, paleta, páginas, scroll vertical, sprites modo 2, interrupción de línea y el motor de comandos HMMC/YMMM/HMMM/HMMV/LMMC/LMCM/LMMM/LMMV/LINE/SRCH/PSET/POINT), `machine/msx_cart` (cartuchos: ROM simple de 8-64 KB y los megaROM ASCII 8/16, Konami, Konami SCC con su sonido, R-Type, Cross Blaim, Harry Fox, Game Master 2, Holy Quran, Super Lode Runner, Super Pierrot, Zemina, Koei, Halnote, ESE-RAM, MegaRAM DDX y Manbow 2, detectados por el nombre y por las escrituras del código, como openMSX) y `machine/msx_disk` (discos `.dsk` de 360 / 720 KB y el WD2793 de la ROM de disco; lo escrito se guarda en memoria).
-
-| | MSX | MSX2 |
-|---|---|---|
-| Memoria | 64 KB (slot 3) | mapper de 256 KB (escritorio/web), 64 KB (RP2350 y CYD), slot 3 expandido |
-| VDP | TMS9918, 16 KB | V9938, 128 KB (64 KB en el CYD: la BIOS lo detecta) |
-| Disco | con la ROM de disco y **un disco metido** (slot 2; sin disco no se monta, porque los juegos de cinta quieren esa memoria) | siempre (slot 3-2) |
-| ROMs (`roms/msx1/`, `roms/msx2/`) | `MSX.ROM` (32 KB), `DISK.ROM` (opcional) | `MSX2.ROM` (32 KB), `MSX2EXT.ROM` (16 KB), `DISK.ROM` (opcional) |
-
-Las ROMs salen de [RetroPieBIOS](https://github.com/archtaurus/RetroPieBIOS/tree/master/BIOS). `tools/regen.sh msx1|msx2` genera `rom_data_msx1.c` / `rom_data_msx2.c` (en el repositorio solo hay stubs).
-
-**Cinta**: a diferencia de dsp-cpp, la cinta se sirve a través de la BIOS: sus llamadas TAPION / TAPIN / TAPIOF se contestan desde el fichero, como hace fMSX. Así funcionan los `.cas` y los bloques MSX (0x4B) de los `.tsx` / `.tzx`, al instante. Al cargar una cinta se teclea en el búfer de teclado de la BIOS, cuando BASIC espera una tecla, lo que corresponde según el primer bloque: `CLOAD` + `RUN`, `RUN"CAS:"` o `BLOAD"CAS:",R`. No se puede grabar en cinta. Un MSX2 con un cartucho japonés (`(J)`, `(Japan)`… en el nombre) dice a 60 Hz que es japonés, como hace dsp-cpp para Metal Gear.
-
-**Teclas** (escritorio, web y RP2350 con teclado USB): el teclado del PC es el del MSX por posición (distribución internacional; la BIOS europea del MSX2 tiene alguna tecla muerta). F1-F5 son los del MSX; F6 = SELECT, Fin = STOP, Alt izq. = GRAPH, Alt dcho. = CODE, Inicio / Insert / Supr = HOME / INS / DEL. F9 menú, F10 reset, F11 sacar el cartucho, F8 cursores + Espacio / M como joystick 1, F12 TURBO. Teclado numérico 8 4 6 2 + 0 / 5 = joystick 1. En la RP2350 un mando USB es el joystick 1.
-
-**CYD**: zonas MEDIA (mantener: menú de la SD; toque corto: ESPACIO) · F1 · STOP · HELP / ← ↑ ↓ → (cursores y joystick) / ESPACIO · RETURN · ESC · FUEGO; Nunchuk = joystick (Z disparo A, C disparo B); consola serie = teclado.
-
-**Placas**: al cargar un fichero se libera antes el cartucho o la cinta que sustituye (no caben dos). La VRAM del TMS9918 solo se reserva en el MSX1. En la RP2350 (sin PSRAM, 280 KB de montón) el MSX2 escribe sus líneas directamente en la imagen de la HDMI (`pico_port_fb_row`, nuevo), sin imagen propia. Un cartucho que no cabe en la memoria se lee de la microSD según se usa, con tanta caché como quepa, de 32 KB (16 KB en el CYD) para abajo (`zx_pb_open_lazy_n`, nuevo). Con 64 KB de RAM y 128 KB de VRAM, al MSX2 de la RP2350 le quedan unos 50 KB: casi todos los megaROM van por la tarjeta. En la pantalla de 320×240 los modos de 512 puntos (SCREEN 6, 7 y WIDTH 80) se muestran a media anchura (de cada pareja de puntos, el que no es fondo): WIDTH 80 no se lee bien. En QEMU el CYD va a 49 fps con el 40-47 % de un núcleo.
-
-**Probado** (escritorio y frontend de la RP2350 en el PC): arranque de MSX BASIC 1.0 y 2.1 con Disk BASIC; SCREEN 2, 5, 7 y 8 y WIDTH 80 desde BASIC; cartuchos homebrew (Corridor Runner 32 KB, Rally 48 KB desde $0000, Go Penguin ASCII16 de 288 KB, demos de SCREEN 5 y sprites para MSX2); cintas `.cas` ASCII y binaria; un `.dsk` de 720 KB con AUTOEXEC.BAS y un fichero en la pista 78, en MSX y MSX2. Un disco japonés (Block Breaker) termina en «Out of DATA» con estas BIOS internacionales. **No probado en placas reales**; la web no se ha compilado aquí (falta `emcc`).
-
-## Commodore Amiga 500: migración de dsp-cpp
-
-El Amiga 500 de dsp-cpp (`amiga.cpp`, `amiga_chipset`, `cia8520`, `amiga_adf`) pasado a C sobre Musashi: `drivers/computers/amiga/amiga_core.c` (el 68000, el mapa de memoria, las dos CIA 8520, las disqueteras, teclado, ratón y joystick, los filtros de sonido del A500) y `amiga_chipset.c` (Agnus, Denise y Paula: copper, blitter con modo línea y relleno, bitplanos lores / hires, dual playfield, HAM, EHB, los 8 sprites, DMA de disco y los cuatro canales de audio). Frontends para escritorio (Linux / Windows), web, RP2350-PiZero (no RP2040 ni CYD: no tienen dónde poner 1 MB de RAM) y Android.
-
-| | |
-|---|---|
-| Máquina | A500 PAL: 68000 a 7,09 MHz, 512 KB de chip RAM + 512 KB de slow RAM (`$C00000`), 313 líneas de 454 ciclos, 50 Hz |
-| Kickstart (`roms/amiga/`) | el set `a500` de MAME tal cual (el `.zip` vale): `315093-02.u2` (1.3) se mete en `rom_data.c` con `tools/regen.sh amiga`. En el escritorio, `--kick fichero.rom` arranca con otro (1.2, 2.04 y 3.1 probados); en Android se elige en los ajustes |
-| Discos | `.adf` (11 sectores por pista, 80 cilindros, una o dos caras) en DF0 y DF1 (la unidad externa, que aparece al meterle un disco). Solo lectura |
-| Imagen | 320×256 (la ventana PAL), RGB565 |
-
-**Lo añadido a dsp-cpp**: el **teclado** (dsp-cpp no tiene): el procesador del teclado del A500 manda cada código por el puerto serie de la CIA-A (rotado e invertido, con la interrupción SP) y espera el *handshake* del Amiga antes del siguiente; Caps Lock se queda bloqueada y Ctrl + Amiga + Amiga hace reset. El **DMA de disco** empieza donde está el disco girando (300 rpm) y, con WORDSYNC (ADKCON bit 10; dsp-cpp miraba el bit 8), justo después de la palabra de sincronía: sin eso los cargadores propios de muchos juegos (Shadow of the Beast) no pasan de la primera pista. **HPOS** (VHPOSR) sale del ciclo de la CPU en la línea (dsp-cpp da siempre `$80` y el Kickstart 3.1 se queda esperando). Las CIA y Paula se ponen al día con la CPU antes de cada acceso a ellas y al final de cada tramo de un cuarto de línea; las interrupciones cambian entre instrucciones.
-
-**Teclas** (escritorio, web y RP2350 con teclado USB): por posición (la distribución del A500 español es la del PC español). F1-F10 son los del Amiga; Windows izq. / RePág = Amiga izq., Windows dcha. / Menú / AvPág = Amiga dcha., Fin = HELP, Insert = `\ |`, Bloq Num / Bloq Despl = `(` `)` del bloque numérico. Joystick (puerto 2): teclado numérico 8 4 6 2 (7 9 1 3 diagonales), disparo 0 / 5 / Ctrl dcho. (en el menú se cambia a las teclas del bloque numérico). **F11** menú (disco en DF0 / DF1, expulsar, reset, teclado numérico), **F12** TURBO. **Ratón**: en el escritorio un clic en la ventana lo captura (modo relativo) y el botón central lo suelta; en la RP2350 un ratón USB; en Android la imagen es un trackpad (un dedo mueve, toque = clic, toque + toque y mover = arrastrar, segundo dedo = botón derecho). En la RP2350 un mando USB es el joystick.
-
-Probado en el escritorio con el Kickstart 1.3 (pantalla del disquete; 2.04 y 3.1 con `--kick`), **Shadow of the Beast** (disco 1: menú del *trainer* con el ratón, cargador propio, la intro con sus imágenes y la petición del disco 2 con el disparo del joystick), **North & South** (selección de idioma con el ratón, presentación, el mapa) y un disco de prueba que lee el teclado. Pruebas sin ventana: `AMIGA_INPUT="900:m0/100,920:b1,930:b0,6000:j16"` (fotograma: `j` joystick, `k`/`u` tecla abajo/arriba en hex, `m` movimiento del ratón, `b` botones) con `SDL_PORT_FRAMES` / `SDL_PORT_SHOT`. En la RP2350 compila (`./build_pico2.sh amiga`, la chip RAM y los discos en la PSRAM, el Kickstart en la flash, los 120 manejadores de 68000 más usados en RAM: `amiga.lf`, medidos con Beast y North & South) y funciona con `PORT=picohost`, pero **no está probado en la placa**: puede no llegar a 50 fps. La versión web no se ha compilado aquí (falta `emcc`).
-
-## Consolas: migración de dsp-cpp
-
-Las 19 consolas de [dsp-cpp](https://github.com/Chusogar/dsp-cpp) pasadas a C11 en `main/drivers/consoles/<id>/`, todas con la misma API (`common/cons.h`: `cons_init`, `cons_load`, `cons_run_frame`, `cons_frame` en RGB565, `cons_pad`, `cons_key`) y un único frontend por plataforma: `common/cons_sdl.c` (escritorio y web), `cons_pico.c` (RP2040 / RP2350), `cons_cyd.c` (CYD) y `jni/m_cons.c` (Android). El manifiesto `drivers/consoles/consoles.mk` (`CONSOLES`, y por consola `CONS_SRC_<id>`, `CONS_DEFS_<id>`, `CONS_RAM_<id>`) lo leen el Makefile, el de la web, los CMakeLists de la CYD y de las placas y `build_apk.sh`.
-
-| Consola | `GAME` | CPU | Vídeo / sonido | BIOS (`tools/regen.sh <id>`) |
+| Consola | `GAME` | CPU | Vídeo / sonido | BIOS en `roms/<GAME>/` |
 |---|---|---|---|---|
 | Sega SG-1000 | `sg1000` | Z80 | TMS9918 / SN76489 | — |
 | ColecoVision | `coleco` | Z80 | TMS9918 / SN76489 (+ AY del SGM) | `coleco.rom` |
@@ -635,95 +73,468 @@ Las 19 consolas de [dsp-cpp](https://github.com/Chusogar/dsp-cpp) pasadas a C11 
 | NES | `nes` | 2A03 (6502) | 2C02 / APU | — |
 | Atari 2600 | `a2600` | 6507 | TIA + RIOT | — |
 | Atari 7800 | `a7800` | 6502 | MARIA / TIA | — |
-| Vectrex | `vectrex` | 6809 (el núcleo de dsp-cpp, `cpu/m6809dsp`) | haz vectorial / AY-3-8912 | `exec_rom.bin` (o como cartucho) |
+| Vectrex | `vectrex` | 6809 (`cpu/m6809dsp`) | haz vectorial / AY-3-8912 | `exec_rom.bin` (o como cartucho) |
 | Game Boy / Color | `gameboy` | LR35902 | PPU / APU | — |
 | PC Engine | `pcengine` | HuC6280 | HuC6270 + HuC6260 / PSG | — |
 | Super Cassette Vision | `scv` | uPD7801 | EPOCH TV-1 / uPD1771 | `upd7801g.s01` + `epochtv.chr` |
 | WonderSwan / Color | `wonderswan` | V30MZ | propio | — |
-| Mega Drive / Genesis | `genesis` | 68000 (Musashi) + Z80 | 315-5313 / YM2612 + SN76489 | — |
-| 32X | `sega32x` | 2 x SH-2 + lo del Mega Drive | frame buffers / PWM | `32x_g_bios.bin`, `32x_m_bios.bin`, `32x_s_bios.bin` |
-| Super Nintendo | `snes` | 65C816 + SPC700 | S-PPU (modos 0-7) / sin DSP aún (como dsp-cpp) | — (IPL del SPC700 incluido) |
+| Mega Drive / Genesis | `genesis` | 68000 + Z80 | 315-5313 / YM2612 + SN76489 | — |
+| 32X | `sega32x` | 2 x SH-2 + Mega Drive | frame buffers / PWM | `32x_g_bios.bin`, `32x_m_bios.bin`, `32x_s_bios.bin` |
+| Super Nintendo | `snes` | 65C816 + SPC700 | S-PPU (modos 0-7) / sin DSP aún, como dsp-cpp | — (IPL del SPC700 incluido) |
 | Game Boy Advance | `gba` | ARM7TDMI | PPU (modos 0-5) / APU + FIFO | `gba_bios.bin` |
-| PlayStation | `psx` | R3000A + GTE | GPU / SPU, CD-ROM (XA), MDEC (según ProjectPSX, MIT) | `scph1001.bin` u otra de 512 KB; el disco, una imagen `.bin` |
+| PlayStation | `psx` | R3000A + GTE | GPU / SPU, CD-ROM (XA), MDEC | `scph1001.bin` u otra de 512 KB |
+| Atari Lynx | `lynx` | 65C02 | Suzy / Mikey (4 canales) | `lynxboot.img` / `lynx.bin` (512 bytes, opcional) |
 
-Las BIOS nunca van a git: `rom_data.c` es un stub NULL; con `tools/regen.sh <id>` (BIOS en `roms/<id>/`) se meten en la compilación, y GBA y PlayStation también aceptan la BIOS como primer fichero que se abre. Cada núcleo se ha comparado con dsp-cpp con programas de prueba propios (0 píxeles distintos) y cada CPU nueva con el original C++ instrucción a instrucción (más de un millón de instrucciones aleatorias, ciclos, registros y memoria idénticos).
+Las 19 primeras usan la API común de consolas (`common/cons.h`). La Lynx es un driver aparte con sus propios frontends (ver [Atari Lynx](#atari-lynx)).
 
-Mandos (escritorio y web): cursores, Z X C V (o Ctrl / Alt) = botones 1-4, ENTER = START, Retroceso o Mayús derecha = SELECT; segundo mando en el teclado numérico; F9 menú (abrir / sacar cartucho), F3 reset, F12 TURBO. Las consolas con teclas (ColecoVision, SCV, WonderSwan) las leen además del teclado del PC; el PV-2000 usa el teclado entero (botones con Ctrl / Alt). Android: un APK por consola (`main/ports/android/build_apk.sh <id>`, ficheros de cada app con `tools/gen_consoles_android.py`). Placas: `./build_pico.sh <id>`, `./build_pico2.sh <id>`, `./build_all.sh` (CYD). Memoria: Mega Drive (≈ 0,4 MB), SNES (≈ 0,4 MB), 32X (≈ 0,9 MB), GBA (≈ 0,8 MB) y PlayStation (≈ 10 MB) tienen su estado en el heap: en la RP2350 va a la PSRAM, y donde no cabe la consola lo dice en pantalla («OUT OF MEMORY FOR THIS CONSOLE»). La PlayStation no cabe ni en los 8 MB de PSRAM de la RP2350.
+## Qué corre en cada plataforma
 
-## Atari System 1: Indy y Road Runner
+| | Escritorio / Windows | Web | Android | CYD | RP2040 | RP2350 |
+|---|---|---|---|---|---|---|
+| Recreativas | todas | todas | todas, en una app | todas | todas | todas |
+| QL y Spectrum | sí | sí | sí | sí | sí | sí |
+| CPC, C64, MSX, MSX2 | sí | sí | sí | sí | — | sí |
+| Amiga 500 | sí | sí | sí | — (necesita 1 MB de RAM) | — | sí, con PSRAM |
+| Lynx | sí | sí | sí | sí | — | sí |
+| Las 19 consolas de la API común | sí | sí | sí | sí¹ | sí¹ | sí¹ |
 
-Los dos juegos usan el mismo núcleo (`drivers/arcades/atarisy1/`, port en C del `atari_system1.cpp` de dsp-cpp, elegido el juego con el `game` de sus ROMs). Lo propio de Road Runner, como en dsp-cpp y MAME:
+¹ Se compilan todas, pero las que no caben avisan en pantalla con «OUT OF MEMORY FOR THIS CONSOLE». Mega Drive, SNES, 32X, GBA y PlayStation guardan su estado en el heap; en la RP2350 va a la PSRAM. La PlayStation (unos 10 MB) no cabe en ninguna placa.
 
-- Programa en sus posiciones absolutas ($10000-$7FFFF), SLAPSTIC 108, 3 MB de gráficos (bancos 1-6).
-- **INT3**: la interrupción de línea marcada por los objetos móviles con 0xFFFF (lista enlazada del banco actual), que el juego usa para reutilizar sprites a media pantalla. Igual que las actualizaciones parciales de MAME, los objetos de cada franja de líneas se toman de la RAM tal como está cuando esa franja se termina (cambios de banco, de prioridad o de un objeto del banco activo, este último con el +2 de MAME).
-- Joystick analógico en los canales 6/7 del ADC (X invertido).
-- Atajos con el mismo resultado (imagen y audio bit a bit con y sin ellos): el bucle de espera del 68010 en `$1482C` (avanza la semilla aleatoria en `$400C5E`) y el bucle de sondeo del 6502 en `$80EC` (el mismo código que el de Indy en `$40F1`).
-- Paleta IRGB como el `palette_device::IRGB_4444` de MAME (en dsp-cpp, con una tabla de intensidad antigua, los colores de poca intensidad salían demasiado claros: el interior de los túneles se veía gris). También cambia, para bien, algunos tonos oscuros de Indy.
-- Verificado contra MAME en la demo: imagen idéntica con un frame de desfase (el mismo que en Indy) salvo el parpadeo de un texto; audio con las mismas notas. En QEMU el firmware da las mismas huellas de imagen que el PC.
+Cada firmware lleva una sola máquina con sus ROMs dentro. No caben todas juntas: la partición de aplicación del CYD es de 0x3F0000 bytes, y solo Puzzle Bobble lleva 2,6 MB de ROMs.
 
-## Gauntlet: cómo funciona
+## Estructura del árbol
 
-- **Hardware** (MAME `gauntlet.cpp`): 68010 a 7,16 MHz tras un SLAPSTIC 104, 6502 a 1,79 MHz con YM2151, POKEY y TMS5220C, EEPROM 2804 de 512 bytes (se desbloquea para una escritura). Vídeo: plano de 64x64 tiles de 8x8 (512x512, scroll X/Y y banco de tiles), objetos móviles enlazados en listas SLIP por franjas de 8 líneas, y texto de 64x31 encima.
-- Del driver de dsp-cpp se toman la carga de ROMs, el mapa de memoria y el reparto de tiempo (4 tramos por línea entre 68010 y 6502). De MAME se toman los detalles que dsp-cpp simplifica: los espejos de direcciones, el pen 1 de los objetos móviles como **sombra** (oscurece el plano en vez de pintarlo), el bit 15 del plano como volteo X, las SLIP, la IRQ del 6502 en las líneas 32/96/160/224 (se borra solo con su acuse), los dos LS259 (reset de la CPU de sonido, reset del YM2151, /WS y /RS del TMS5220 y el "squeak") y el mezclador de volúmenes.
-- `video/atari_mo` tiene ahora `atari_mo_draw_slip` (el modo SLIP del `atarimo.cpp` de MAME), con recorte por línea para dibujar por franjas.
-- Los ciclos que Musashi corre de más al final de cada tramo se descuentan del siguiente (sin eso el 68010 iba un 3 % rápido y la demo se adelantaba 9 frames respecto a MAME).
-- **Atajos con el mismo resultado** (imagen y audio bit a bit con y sin ellos, en demo y en partida):
-  - Bucle de espera del vblank del 68010 en `$40C22` (`tst.w (A2) / bne / clr.w (A3) / bra`) y el retardo `subq.l #1,D0 / bne` en `$47F0` (preparación de la EEPROM al arrancar).
-  - Bucle de sondeo del 6502 en `$4104`: sus 12 instrucciones se hacen en C (mismas lecturas, escrituras, registros, flags y ciclos) y pueden pararse en cualquiera, porque el 6502 corre un cuarto de línea cada vez; se devuelve el control al núcleo justo antes de la instrucción que saldría del bucle.
-- **Verificación contra MAME**: imagen idéntica píxel a píxel en la demo y en partida con las mismas entradas (2 frames de desfase en el arranque). El audio tiene la misma forma: la música (YM2151) y los efectos (POKEY) suenan unas 1,5 veces más altos que en MAME y la voz (TMS5220) al mismo nivel, para que no sature. En QEMU el firmware da las mismas huellas de imagen que el PC.
+```
+CMakeLists.txt, partitions.csv, sdkconfig.defaults   proyecto ESP-IDF del CYD
+Makefile                     escritorio SDL2 (make GAME=<id>; TARGET=windows → .exe; PORT=picohost)
+build_all.sh                 firmwares del CYD (SPI 40 y 80 MHz) → dist/
+build_pico.sh, build_pico2.sh  firmwares RP2040 / RP2350 → dist/<id>_rp2040_pizero.uf2, <id>_rp2350_pizero.uf2
+build_web.sh                 Emscripten → build/web/<id>.html
+build_windows.sh|.bat        MinGW → build/win/<id>.exe
+main/
+  CMakeLists.txt             elige las fuentes de la máquina en el CYD
+  cpu/                       m68k (Musashi), m6502 (6502 / 65C02 / 6510), m6805, mc6809, m6809dsp, h6280,
+                             mcs48, z80, z80dsp, z8002, mb88xx, lr35902, w65c816, spc700, sh2, arm7tdmi,
+                             necv30 (V30MZ), upd7801, psx (R3000A + GTE)
+  sound/                     ym2151, ym2413, ym2610 (YM2610/B, YM2203), ym2612, emu8950 (YM3812), pokey,
+                             tms5220, vlm5030, sn76489, sn76496, ay8910, sid6581, segapcm, okim6295,
+                             polepos_snd, nes_apu, gb_apu, gba_apu, huc6280_psg, wswan_apu, upd1771
+  video/                     atari_mo, tc0180vcu, zx8301, mos6569, tms9918, v9938, sega_vdp,
+                             sega_315_5313, nes_ppu, gb_ppu, gba_ppu, snes_ppu, huc6270, maria, tia
+  machine/                   via6522, mos6526, mos6532, slapstic, tc0140syt, eeprom93c46, i2cmem,
+                             sega_315_5195, taito68705, namco5x, zx8302, ql_mdv, zx_tape, zx_snap,
+                             zx_rzx, zx_inflate, zx_beta, zx_nec765, zx_pbuf, c1541, msx_cart,
+                             msx_disk, psx_* (CD-ROM, DMA, GPU, MDEC, SPU, timers, mandos)
+  drivers/
+    arcades/<id>/            núcleo, frontends <id>_cyd.c / _sdl.c / _pico.c, rom_data.c,
+                             m68k_game_conf.h y m68k_tables.c (68000), <id>.lf (código en IRAM)
+    computers/<id>/          ql, zxspec, cpc, c64, msx, amiga; common/ con los frontends compartidos
+                             (comp_sdl.h, comp_pico.h, comp_cyd.h, comp_sd.h)
+    consoles/<id>/           las 19 consolas de la API común y la Lynx
+    consoles/common/         cons.h, cons_sdl.c, cons_pico.c, cons_cyd.c
+    consoles/consoles.mk     manifiesto: CONSOLES y, por consola, CONS_SRC_, CONS_DEFS_, CONS_RAM_
+  ports/
+    sdl2/                    ventana, audio, teclado, ritmo, capturas
+    web/                     la misma API que sdl2 sobre Emscripten (USE_SDL=2 + ASYNCIFY)
+    android/                 build_apk.sh, build_arcade.sh, JNI y Java (ver su README)
+    esp32-cyd/               LCD SPI/DMA, táctil XPT2046, menú de ajustes en NVS, DAC, Nunchuk
+    rp2040-pizero/           pico_port.c (HDMI, sonido, USB), CMakeLists.txt (RP2040 y RP2350), rp2350/
+tools/
+  regen.sh <id>              mete las ROMs de roms/<id>/ en rom_data.c (y regenera las tablas de Musashi)
+  gen_roms_*.py              un generador por familia; --stub deja un rom_data.c vacío
+  setup_pico.sh              baja Pico SDK 2.1.1, PicoDVI y Pico-PIO-USB a deps/pico
+  pico_host.c, pico_hot.py, pico_ram.py, conv_z8002.py, z8002_hot.py, gen_m68k_tables.c
+roms/<id>/                   las ROMs de cada máquina (no se suben a git)
+```
 
-## OutRun: cómo funciona
+El núcleo de cada máquina no depende de la plataforma. El CYD, el escritorio, la RP2040/RP2350 y Android usan el mismo núcleo; la web reutiliza el frontend `*_sdl.c` sobre `ports/web`.
 
-- **Hardware** (MAME `segaorun.cpp`): dos 68000 a 10 MHz (principal y secundario: el secundario calcula la carretera), Z80 a 4 MHz con YM2151 y el PCM 315-5218 (16 voces), mapeador de memoria 315-5195, i8255, ADC0804 (volante, acelerador, freno). Vídeo: dos planos de tiles estilo System 16B (16 páginas, scroll por fila y por columna, páginas alternativas), capa de texto, generador de carretera y sprites con zoom; 320x224 a 60,05 Hz.
-- Del driver de dsp-cpp se toman la estructura, la carga de ROMs y el reparto entre CPUs. De MAME se toman los detalles: el mapeador como componente propio (`machine/sega_315_5195`, regiones configurables por el programa), las prioridades de la carretera, las sombras de los sprites (pen 0xA), la paleta con sombra/brillo por redes de resistencias, el doble búfer de sprites y de carretera, las IRQ2 en el hblank de las líneas 65/129/193, el motor de la cabina (su posición se lee en el ADC y en el i8255) y el ADC con su tiempo de conversión.
-- **Dos 68000 con un solo Musashi**: cada CPU guarda su contexto y corren por turnos en tramos de 4 líneas (las líneas con interrupciones o latches cortan el tramo).
-- **La placa de sonido va aparte** (`or_sound.c`): el 68000 principal solo le escribe (el latch del mapeador y el reset del Z80), así que recibe esos eventos con marca de tiempo y se pone al día cuando se le pide. En el escritorio corre en el mismo hilo; en el CYD corre entero en el núcleo 0, con el mismo resultado.
-- **Atajos con el mismo resultado** (imagen y audio bit a bit con y sin ellos, en demo y en partida): las esperas del principal en `$7DDA` y `$7964` y del secundario en `$1182` (esperan a que cambie una palabra de RAM que en ese tramo nadie puede tocar), y el sondeo del temporizador del YM2151 por el Z80 en `$0A61` (se hace en C instrucción a instrucción y se para donde haga falta).
-- En el CYD, las 37 páginas de 1 KB de programa más usadas (el secundario corre de 5) se copian a RAM, parte en IRAM (se leen siempre de 32 en 32 bits).
-- **Verificación contra MAME**: imagen idéntica píxel a píxel en la demo y en partida con las mismas entradas (volante, acelerador, moneda, start), sin desfase de frames; solo cambia el indicador de marcha que MAME dibuja como decorado (no es parte de la imagen del juego). Audio con el mismo espectro y nivel (±10 %). En QEMU el firmware da las mismas huellas de imagen que el PC y emula unos 60 fps; no está probado en una placa real (allí el acceso a flash será más lento, y con el LCD a 40 MHz la pantalla no pasa de unos 30 fps: mejor el binario de 80 MHz).
+`consoles.mk` lo leen el `Makefile`, el de la web, `main/CMakeLists.txt`, el CMake de las placas (vía `consoles.cmake`), los `build_*.sh` y `build_apk.sh`. Para añadir una consola basta con añadirla al manifiesto.
 
-## Return of the Invaders: cómo funciona
+## Compilar
 
-- **Hardware** (MAME `taito/retofinv.cpp`): tres Z80 a 3,072 MHz (principal, secundario de vídeo y sonido), un MC68705P5 con la conexión estándar de Taito (`machine/taito68705`, con el núcleo `cpu/m6805` nuevo), un latch LS259 con las máscaras de IRQ y los reset, dos SN76489A y NMI de sonido a 120 Hz. Imagen de 288x224 girada (ROT90), dos tilemaps de 36x28 y 64 sprites.
-- Verificado contra MAME: imagen idéntica en la demo y en partida, audio con la misma envolvente, y QEMU da las mismas huellas que el PC.
+Antes de compilar con ROMs reales: `tools/regen.sh <id>` (ver [ROMs y BIOS](#roms-y-bios)). Sin ellas todo compila con los stubs del repositorio.
 
-## Pole Position: cómo funciona
+### Escritorio (Linux)
 
-- **Hardware** (MAME `namco/polepos.cpp`): un Z80 y dos Z8002 a 3,072 MHz, el bus Namco 06xx con cuatro MCU MB88 (51xx: entradas y monedas; 52xx: muestras de voz; 53xx: volante y DIP; 54xx: ruido), el WSG Namco de 8 voces (con entradas externas de la 52xx / 54xx) y el sonido del motor (muestras con tres filtros analógicos). 264 líneas de 192 ciclos, 60,606 fps; imagen de 256x224: fondo en mosaico arriba, carretera abajo, 64 sprites con zoom y la capa de texto.
-- Ejecución: en porciones de 16 ciclos el Z80, luego cada Z8002; las MCU (un ciclo por cada 12 del Z80) se ponen al día antes de cada flanco del 06xx, de cada acceso del Z80 al 06xx o al latch, y al final de cada línea. Los bucles de espera de la 51xx (su temporizador) y la 52xx (su pin de IRQ) se cuentan sin ejecutarlos (`mb88_set_idle_loop`), con el mismo resultado. Las CPU arrastran lo que se pasan en la última instrucción a la siguiente porción (sin eso iban un 37 % más rápidas). La imagen se dibuja línea a línea desde la RAM (`pp_render`), en cualquier núcleo y por franjas.
-- Componentes nuevos: `cpu/z8002` (Z8002 de dsp-cpp/MAME pasado a C por `tools/conv_z8002.py`; tabla de decodificación en dos niveles de 18 KB, en RAM), `cpu/mb88xx`, `machine/namco5x` y `sound/polepos_snd`. En el CYD los programas de las tres CPU se copian a RAM; en la RP2040 también, y las funciones del Z8002 más usadas van a RAM (`z8002_hot.h`; el núcleo entero ocupa ~100 KB).
-- DIP como los de MAME: `polepos` usa los de `poleposa` (mph, demo sin sonido), `polepos2` los de `polepos2j` (km/h).
-- Verificado contra MAME: la secuencia de arranque (RAM OK / ROM OK, rejilla, título) coincide frame a frame; Pole Position II da la misma imagen en el frame 600; la demo y la partida (clasificación, curvas, choques) se ven igual. QEMU da las mismas huellas que el PC en los dos juegos. No está probado en una placa real: es la máquina más pesada del árbol en CPU (tres CPU y cuatro MCU), así que en el CYD puede no llegar a 60 fps; el log serie da la velocidad cada 5 s.
+```
+make GAME=robocop            # → build/sdl/robocop; "make all" compila todas
+./build/sdl/robocop --scale 3
+./build/sdl/ql juego.mdv     # los ordenadores y las consolas aceptan un fichero en la línea de órdenes
+```
 
-## RoboCop: cómo funciona
+Opciones comunes:
 
-- **Hardware** (MAME `dataeast/dec0.cpp`, placa DEC0): 68000 a 10 MHz con tres BAC06 (texto 8x8 y dos planos 16x16, scroll por fila y por columna, tres formas de mapa) y los sprites MXC06; un HuC6280 a 1,34 MHz que ejecuta la protección (el 68000 le sube rutinas y datos por una RAM de doble puerto MB8421 con buzón de interrupciones); placa de sonido con un 6502 a 1,5 MHz, YM2203, YM3812 y OKI M6295. Imagen de 256x240 a 57,44 Hz.
-- Componentes nuevos: `cpu/h6280` (HuC6280 pasado de MAME, con el flag T, transferencias de bloque, modo lento/rápido, temporizador y controlador de interrupciones), `sound/okim6295` (OKI M6295) y el modo YM2203 de `sound/ym2610` (3 canales FM + SSG, prescaler programable). El YM3812 es el `emu8950` que ya usaba Snow Bros.
-- Prioridades como MAME: el plano de fondo opaco, el de delante transparente, los sprites (que pueden quedar detrás del plano de delante según el registro de prioridad y su color) y el texto encima; los sprites se dibujan en el orden de MAME (la lista al revés, cada píxel tapado por un sprite ya no lo tapa otro).
-- **El HuC6280 sólo habla con el buzón**: se pone al día con el 68000 cada vez que éste lo toca, así que el orden de todos los mensajes entre los dos es el exacto.
-- **La placa de sonido va aparte** (`rc_sound.c`): el 68000 sólo le escribe el latch, así que recibe esas escrituras con marca de tiempo. Los temporizadores, el estado y la IRQ de los dos Yamaha siguen a ymfm (MAME) sobre los ciclos del 6502; las escrituras de registros van directas a los sintetizadores. En el escritorio corre en el mismo hilo; en el CYD corre entera en el núcleo 0.
-- **Atajos con el mismo resultado** (imagen y audio bit a bit con y sin ellos, en demo y en partida): las dos esperas del 68000 a la interrupción de vblank en `$17BA` / `$17E8` (que además cuentan sus vueltas en `$FF8008`), la espera del 6502 en `$8091` (`JMP $8091`) y su bucle de retardo después de cada orden al OKI en `$8F5F`; todos se paran antes de la vuelta en la que vence un temporizador del YM.
-- En el CYD, las 32 páginas de 1 KB más usadas del programa del 68000 (98,5 % de las instrucciones) se copian a RAM.
-- **CYD / pantalla negra tras el menú**: con `sound_async` el 68000 no debe hacer busy-wait si la cola del latch está llena (cede el turno al núcleo 0 para que drene eventos); la paleta va en DRAM normal (no IRAM) y hay recuperación si el candado de vídeo se queda pillado.
-- **Verificación contra MAME**: imagen idéntica píxel a píxel en la demo y en partida con las mismas entradas (andar, disparar, saltar, moneda, start): 108 capturas comparadas, todas iguales (con un frame de desfase constante en la numeración). Audio con el mismo espectro y nivel (±5 %), salvo alguna nota del YM3812 cuya envolvente hace `emu8950` algo distinta de ymfm. En QEMU el firmware da las mismas huellas de imagen que el PC y emula a 57,4 fps con unos 45-55 fps mostrados.
+| Opción | Efecto |
+|---|---|
+| `--mute` / `-m` | sin sonido |
+| `--scale N` / `-s N` | ventana de N veces la imagen (1-10; por defecto 2) |
+| `--help` | lista de opciones |
 
-## Sinclair QL: cómo funciona
+Para pruebas sin ventana: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<id>` guarda el frame 1200 en `shot.ppm`. `SDL_PORT_VERBOSE=1` dice el tamaño de ventana y si hay sonido.
 
-- **Hardware** (MAME `sinclair/ql.cpp`): 68008 a 7,5 MHz, 128 KB de RAM en $20000 (la pantalla en $20000 o $28000), ROM JS de 48 KB; ZX8301 (vídeo 512x256 en modo 4, o 256x256 de 8 colores con parpadeo en modo 8; registro en $18063); ZX8302 (reloj de tiempo real, enlace serie con el IPC, registro de interrupciones y controlador de los microdrives); IPC 8749 a 11 MHz (teclado, altavoz, IPL del 68008 y el enlace con el ZX8302); dos microdrives a 100 kbit/s. 50,08 Hz.
-- Componentes nuevos, pasados a C desde dsp-cpp: `cpu/mcs48` (8749 y familia), `machine/zx8302`, `machine/ql_mdv` (la cinta como sucesión de pares de bytes: cabecera, hueco, bloque, hueco; un sector escrito recibe su copia en RAM, la imagen se lee de flash) y `video/zx8301`.
-- **Reparto del tiempo como dsp-cpp**: el 68008 (Musashi, ciclos de 68000) corre en tramos de 128 ciclos y, tras cada uno, el IPC, el reloj BAUDx4 del enlace serie y el reloj de bits del microdrive avanzan lo que les toca; una orden al IPC lo hace correr 64 ciclos en el acto. Con tramos de 32 ciclos el resultado es idéntico (mismas huellas de imagen durante la carga y la partida).
-- **Montar = reiniciar + F1**: `ql_mount()` mete (o saca) el cartucho, reinicia y pulsa F1 en el frame 110, cuando el QL ya muestra la pantalla de inicio; con un cartucho en mdv1, QDOS ejecuta su `BOOT`.
-- **CYD**: la RAM en 4 bloques de 32 KB (no hay 128 KB contiguos), las ROMs y el cartucho en flash, y sólo se redibujan las franjas de la pantalla cuyas líneas ha escrito el 68008 (todas al cambiar de modo, de pantalla o de vista).
-- **Verificación**: la pantalla de inicio es idéntica píxel a píxel a la de MAME, y la de SuperBASIC tras F1 también (salvo el cursor, que parpadea con otra fase). Psion Chess carga desde el microdrive en unos 32 s (en MAME no llegó a cargar en 160 s con `-utap1`) y responde al teclado; `BEEP` suena. En QEMU el firmware da las mismas huellas de imagen que el PC durante toda la carga y emula a unos 45 fps; no está probado en una placa real.
+### Windows (MinGW)
 
-## Puzzle Bobble: cómo funciona
+En [MSYS2](https://www.msys2.org/), shell MinGW64:
 
-- **Hardware** (MAME `taito_b.cpp`, máquina `pbobble`): 68000 a 12 MHz, Z80 a 8 MHz, YM2610B a 8 MHz, vídeo TC0180VCU (dos planos de 64x64 tiles de 16x16 con scroll por bloques, texto de 64x32 de 8x8 y sprites con zoom en un frame buffer), entradas TC0640FIO, buzón TC0140SYT, EEPROM 93C46 y control de volumen MB87078.
-- **Planificación**: el 68000 corre por tramos entre los eventos de interrupción (INTH = IRQ3 al empezar el vblank, INTL = IRQ5 8 líneas después); el Z80 le alcanza al final de cada tramo y también cada vez que el 68000 toca el buzón (MAME sincroniza ahí). Los temporizadores del YM2610B y los fines de muestra ADPCM-A se cuentan en ciclos del Z80, exactos a la instrucción.
-- **Frame buffer de sprites**: con el borrado activado (como lo usa el juego) cada página solo contiene los sprites dibujados en el último vblank, así que en vez de 2 x 128 KB se guarda la lista de sprites resuelta y se dibuja al componer (mismo resultado, mismo retraso de un frame que el hardware).
-- **Atajos con el mismo resultado** (comprobado frame a frame, imagen y audio bit a bit, con y sin ellos):
-  - Bucle de espera del 68000 en `$1706`: entre interrupciones el juego hace avanzar su generador aleatorio sin parar (de ahí salen los colores de las burbujas). Las pasadas enteras se calculan en C con el mismo resultado (semilla, D0, flags y ciclos).
-  - Bucle principal del Z80 en `$0152` sin órdenes pendientes: se saltan pasadas enteras hasta el siguiente evento del YM2610B.
-- **Sonido**: YM2610B sintetizado a partir de las escrituras de registros con marca de tiempo (27 778 Hz en el CYD, 55 555 Hz en el escritorio), FM de 6 canales con LFO, ADPCM-A como ymfm de MAME; el volumen del MB87078 se aplica como en MAME.
-- **Verificación contra MAME** (mismas entradas): imagen idéntica en los 800 primeros frames salvo un frame de desfase en la demo (el 68000 de MAME cuenta ciclos algo distinto); como el generador aleatorio depende del tiempo de CPU, la partida diverge después, como es de esperar. El audio coincide en espectro y nivel.
+```
+pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-SDL2 make
+./build_windows.sh              # todas → build/win/*.exe
+./build_windows.sh robocop ql   # algunas (o build_windows.bat desde cmd.exe)
+```
 
+Desde Linux o macOS se cruza con `mingw-w64` y el SDL2 MinGW de [libsdl.org](https://libsdl.org/download-2.0.php): `SDL2DIR` apunta al prefijo `x86_64-w64-mingw32` del zip. Copia `SDL2.dll` junto al `.exe`.
+
+### Web (Emscripten)
+
+```
+source "$EMSDK/emsdk_env.sh"
+./build_web.sh                        # o: make -C main/ports/web GAME=robocop
+python3 -m http.server --directory build/web 8080
+```
+
+`http://localhost:8080/` abre el índice. En la URL, `?frames=n` corta tras n frames. Los ordenadores, la Lynx y las consolas cargan ficheros con la barra «Upload» o arrastrándolos.
+
+### Android
+
+Sin Android Studio ni NDK (clang, lld, aapt, dx y el `android.jar` del SDK de Debian). Detalles en [`main/ports/android/README.md`](main/ports/android/README.md).
+
+```
+main/ports/android/build_apk.sh             # todos → dist/<máquina>_android.apk (arm64-v8a y x86_64)
+main/ports/android/build_apk.sh lynx snes   # algunos
+main/ports/android/build_arcade.sh          # → dist/arcade_android.apk (las 11 recreativas)
+```
+
+- **Ordenadores** (`ql`, `zxspec`, `cpc`, `c64`, `msx`, `amiga`) y **Lynx**: una app por máquina con la interfaz de Hataroid (menú de iconos, ajustes, *Abrir con*) y el teclado en pantalla de dsp-cpp. En el Amiga la imagen hace de trackpad.
+- **Consolas**: un APK por consola, con sus ficheros generados por `tools/gen_consoles_android.py`.
+- **cMESYS Arcade**: las 11 recreativas en una app con lista de juegos como MAME para Android, joystick en pantalla, botones, START y monedero.
+
+### ESP32 CYD
+
+Con ESP-IDF 5.3:
+
+```
+. $IDF_PATH/export.sh
+idf.py -B build/robocop -DGAME=robocop build
+LCD_SPI_MHZ=80 idf.py -B build/robocop-80 -DGAME=robocop build
+./build_all.sh                                   # todas, a 40 y 80 MHz → dist/
+esptool.py --chip esp32 -b 921600 write_flash 0x0 dist/<id>_cyd_st7789_spi40mhz_full.bin
+```
+
+- `spi80mhz` da más fps si el panel lo aguanta; si ves basura, usa el de 40 MHz.
+- `*_app_0x10000.bin` es solo la aplicación, para escribir en 0x10000.
+- Prueba sin pantalla en QEMU, que imprime un hash de la imagen cada 300 frames, comparable con el del PC: `CYD_HEADLESS_TEST=1 idf.py -B build/q-<id> -DGAME=<id> build`.
+
+**Primer arranque**:
+
+1. Calibra el táctil: toca las 3 cruces y, en apaisado, una más.
+2. Aparece el menú de ajustes durante 6 s, o hasta tocar PLAY: invertir colores, RGB/BGR, girar 180°, volumen 0-4 y recalibrar. Cada máquina guarda sus ajustes en NVS.
+3. Mantén BOOT al encender para volver al menú. Tras un cuelgue, el menú muestra el motivo y la traza.
+
+**Conexiones**: Nunchuk de Wii en CN1 (SDA GPIO22, SCL GPIO27, 3,3 V; se puede conectar en caliente), microSD FAT32 (CS GPIO5), puerto serie a 115200 baudios. Las funciones del 68000 más usadas de cada juego van en IRAM, elegidas en su `.lf`, sin tocar Musashi.
+
+### RP2040-PiZero
+
+[Waveshare RP2040-PiZero](https://www.waveshare.com/wiki/RP2040-PiZero): RP2040 a 252 MHz, 264 KB de RAM, 16 MB de flash, HDMI.
+
+```
+sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi cmake python3
+tools/setup_pico.sh                # una vez
+./build_pico.sh                    # recreativas, QL, Spectrum y consolas → dist/<id>_rp2040_pizero.uf2
+./build_pico.sh robocop ql         # algunas
+```
+
+Para flashear, mantén BOOT al enchufar el USB-C; aparece la unidad `RPI-RP2` y se copia el `.uf2`.
+
+| Función | Conexión | Notas |
+|---|---|---|
+| HDMI | D0 26/27, D1 24/25, D2 22/23, CLK 28/29 | 640x480 a 60 Hz desde 320x240. Sin frame buffer: el núcleo 1 pide la imagen por franjas de 4 líneas y las codifica en TMDS. Si una franja no llega a tiempo sale una línea roja |
+| Mandos | USB-C nativo | teclado USB y/o mando HID, también por un hub; alimentación con cable OTG / Y |
+| Sonido | GPIO4 | PWM de 10 bits, mono; pon un filtro RC (p. ej. 1 kΩ + 10 nF) |
+| microSD | SPI0: SCK 18, MOSI 19, MISO 20, CS 21 | FAT16/FAT32 |
+| Log | UART0 TX GPIO0 | 115200 baudios; fps cada 5 s |
+
+Con 264 KB de RAM, cada máquina tiene que caber entera: OutRun y Puzzle Bobble necesitan casi 180 KB solo de RAM de placa. `tools/pico_ram.py` dice cuánta queda. El código más usado va en RAM porque la caché de la flash es de 16 KB: el bucle de Musashi, los manejadores calientes de cada juego (sacados de su `.lf` por `tools/pico_hot.py`) y, cuando caben, las CPU y chips de sonido.
+
+Velocidad estimada en el simulador rp2040js a 252 MHz, sin esperas de flash ni el reparto del bus con el HDMI, así que en la placa será algo menor:
+
+| Máquina | Velocidad real | Estimada |
+|---|---|---|
+| Return of the Invaders | 60,6 fps | sobra (unas 2 veces) |
+| Track & Field | 60 fps | ~63 fps |
+| Puzzle Bobble | 60 fps | ~80 fps en la demo |
+| Gauntlet | 59,9 fps | ~58 fps |
+| Road Runner | 59,9 fps | ~53 fps |
+| Indiana Jones | 59,9 fps | ~51 fps |
+| Sinclair QL | 50,1 fps | ~41 fps |
+| Snow Bros | 60 fps | ~38 fps |
+| OutRun | 60,1 fps | ~28 fps |
+| RoboCop | 57,4 fps | ~26 fps |
+| Pole Position / II | 60,6 fps | ~17 fps |
+
+**Pruebas sin la placa**:
+
+- `make GAME=<id> PORT=picohost` compila el frontend `<id>_pico.c` para el PC sobre `tools/pico_host.c`. Por ejemplo, `PICO_FRAMES=1200 PICO_SHOT=600,1200 PICO_KEYS=1@300:10 build/picohost/<id>` guarda `shot_600.ppm` y `shot_1200.ppm`.
+- `PICO_HEAP_KB=n` limita el heap a n KB, como en las placas.
+- `PICO_SD=<carpeta>` hace de microSD; `PICO_PRESS=66@150,40@155` pulsa F9 y Enter (usos HID) en esos frames.
+- `-DPICO_EMU_TEST=ON` en CMake hace un firmware para [rp2040js](https://github.com/wokwi/rp2040js) que escribe los frames por la UART.
+
+### RP2350-PiZero
+
+[Waveshare RP2350-PiZero](https://www.waveshare.com/wiki/RP2350-PiZero): dos Cortex-M33 a 252 MHz, 520 KB de RAM, hueco para 8 MB de PSRAM, 16 MB de flash, HDMI. Usa los mismos frontends `<id>_pico.c` que la RP2040 (`-DPIZERO=2350`). Lo propio de la placa (pines, PSRAM, PIO-USB) viene del puerto `rp2350-pizero` de dsp-cpp.
+
+```
+./build_pico2.sh                   # todas → dist/<id>_rp2350_pizero.uf2
+./build_pico2.sh lynx amiga        # algunas
+USB=native ./build_pico2.sh        # teclado en el USB-C nativo → <id>_rp2350_pizero_usbc.uf2
+```
+
+Para flashear, mantén BOOT al enchufar el USB-C nativo; aparece la unidad `RP2350`.
+
+| Función | Conexión | Notas |
+|---|---|---|
+| HDMI | D0 36/37, D1 34/35, D2 32/33, CLK 38/39 | 640x480 a 60 Hz con imagen completa de 320x240 en SRAM, y otra para doble búfer si cabe. Una máquina lenta enseña menos imágenes por segundo, nunca líneas rojas |
+| Mandos | PIO-USB: D+ 28, D- 29 | teclado, mando y ratón USB, también por un hub; incluye el arreglo de la errata RP2350-E9 |
+| Sonido | por el HDMI | 44,1 kHz en las *data islands* (pico_lib, MIT) |
+| microSD | SPI1: SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; los ordenadores y las consolas cargan con el menú F9 (el Amiga, F11) |
+| PSRAM | QMI CS1 = GPIO47 | la placa trae el hueco; si hay una, el heap sigue en ella cuando se llena la SRAM. **La necesitan el Amiga** (1 MB de RAM y 880 KB por disco) **y las consolas grandes** |
+| Log | UART0 TX GPIO0 | 115200 baudios |
+
+## Controles
+
+### Escritorio, web y RP2040/RP2350 con teclado USB
+
+Comunes a las recreativas: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl botón 1, `X`/Alt botón 2, `C`/Espacio botón 3, F3 reset, P pausa, ESC salir. En las placas, un mando USB usa la cruceta, A/B/X como botones 1/2/3, SELECT moneda, START start y SELECT+START reset.
+
+| Recreativa | Botones |
+|---|---|
+| Indy | Z látigo, X salto; EEPROM en `indytemp.eep` |
+| Road Runner | joystick a desviación máxima, Z / X salto; EEPROM en `roadrunn.eep` |
+| Gauntlet | jugador 1; Z disparo, X magia (`1` también es magia); EEPROM en `gauntlet.eep` |
+| OutRun | izquierda / derecha volante, arriba o Z acelerar, abajo o X frenar, C marcha; RAM con batería en `outrun.nv` |
+| Snow Bros | Z disparo, X salto |
+| Track & Field | C = RUN 1, Z = RUN 2 (altérnalos), X salto |
+| Return of the Invaders | izquierda / derecha, Z disparo; imagen vertical (224x288) |
+| Pole Position / II | como OutRun; la carrera empieza sola tras la moneda |
+| RoboCop | cursores (arriba / abajo apuntan), Z ataque, X salto |
+| Puzzle Bobble | izquierda / derecha apuntan, Z dispara; EEPROM en `pbobble.eep` |
+
+En los **ordenadores** el teclado del PC es el de la máquina, así que las teclas comunes no se aplican. F9 abre el menú de ficheros (zenity/kdialog o el diálogo de Windows, arrastrar y soltar, barra «Upload» en la web). F12 es TURBO: sin límite de velocidad ni sonido.
+
+| Ordenador | Teclas |
+|---|---|
+| Sinclair QL | Alt = ALT, Retroceso = CTRL+IZQUIERDA, Supr = CTRL+DERECHA, `` ` `` = £. F1 monta o desmonta el cartucho, F9 menú, F6 es el F1 del QL (F2-F5 los suyos), F12 reinicia, F11 cambia la vista en las placas. `QL_MOUNT_AT=n` pulsa F1 en el frame n |
+| Spectrum y clones | Ctrl = Symbol Shift, cursores = Caps+5/6/7/8, Retroceso = DELETE, teclado numérico = Kempston. F1 o F6 cinta play/pausa, F3 reset, F5 botón mágico (Pentagon / Scorpion), F12 TURBO |
+| CPC | Alt = COPY, Supr = CLR, teclado numérico = f0-f9. F6 cinta, F3 reset, F8 cursores como joystick, F10 monitor verde, F12 TURBO; `--464` / `--664` en el escritorio. Disco: `CAT` y `RUN"nombre`; cinta: `\|TAPE` y `RUN"` |
+| C64 | Esc = RUN/STOP, Tab / Ctrl = CTRL, Alt izq. = C=, Inicio = CLR/HOME, AvPág = RESTORE. Joystick en el teclado numérico (8 4 6 2, 0/5 disparo). F11 cinta, F10 reset, F8 puerto 1/2, F12 TURBO. `LOAD"*",8,1` y `RUN` |
+| MSX / MSX2 | por posición. F1-F5 los del MSX, F6 = SELECT, Fin = STOP, Alt izq. = GRAPH, Alt dcho. = CODE. F10 reset, F11 saca el cartucho, F8 cursores como joystick, F12 TURBO |
+| Amiga 500 | por posición (distribución española). Windows izq. / RePág = Amiga izq., Windows dcha. / AvPág = Amiga dcha., Fin = HELP. Joystick en el teclado numérico, disparo 0 / 5 / Ctrl dcho. F11 menú (DF0 / DF1, expulsar, reset), F12 TURBO. Un clic captura el ratón; el botón central lo suelta. `--kick fichero.rom` arranca con otro Kickstart |
+
+**Consolas** (las 19 de la API común): cursores, Z X C V (o Ctrl / Alt) botones 1-4, ENTER = START, Retroceso o Mayús dcha. = SELECT; segundo mando en el teclado numérico. F9 menú (abrir / sacar cartucho), F3 reset, F12 TURBO. ColecoVision, SCV y WonderSwan leen además sus teclas del teclado del PC; el PV-2000 usa el teclado entero (botones con Ctrl / Alt).
+
+**Lynx**: cursores = cruceta, Z / Ctrl = A, X / Alt = B, 1 / 2 = OPTION 1 / 2, Enter / P = PAUSE. F9 menú, F3 reset, F12 TURBO. Con mando USB en la RP2350: cruceta y A/B, SELECT = OPTION 1, START = PAUSE.
+
+### CYD
+
+En todas las máquinas BOOT o C+Z del Nunchuk echan moneda y pulsan START. Las recreativas reparten la pantalla en zonas táctiles invisibles que se muestran 2,5 s al empezar.
+
+| Recreativa | Zonas táctiles (filas de arriba abajo) | Nunchuk |
+|---|---|---|
+| Indy | MONEDA+START · ARRIBA · SALTO / IZQ. · LÁTIGO · DCHA. / LÁTIGO · ABAJO · SALTO | Z látigo, C salto |
+| Road Runner | MONEDA+START · ARRIBA · SALTO / IZQ. · SALTO · DCHA. / SALTO · ABAJO · SALTO | stick analógico real; Z / C salto |
+| Gauntlet | MONEDA+START · ARRIBA · MAGIA / IZQ. · DISPARO · DCHA. / DISPARO · ABAJO · MAGIA | Z disparo, C magia |
+| OutRun | MONEDA+START · MARCHA · ACELERAR / IZQ.+ACEL. · ACELERAR · DCHA.+ACEL. / IZQ. · FRENO · DCHA. | X volante, Z acelerar, C frenar, arriba marcha |
+| Pole Position / II | como OutRun, con MONEDA arriba a la izquierda | igual que OutRun |
+| RoboCop | MONEDA+START · ARRIBA · SALTO / IZQ. · ATAQUE · DCHA. / IZQ.+ATAQUE · ABAJO · DCHA.+ATAQUE | Z ataque, C salto |
+| Puzzle Bobble | MONEDA+START · DISPARAR · DCHA. / IZQ. · DISPARAR · DCHA. / IZQ. · DISPARAR · DCHA. | Z o C dispara |
+| Return of the Invaders | vertical: barra inferior MONEDA · IZQ.+DISPARO · DISPARO · DCHA.+DISPARO; sobre la imagen, tercios izq. / disparo / dcha. | Z disparo |
+| Snow Bros | columnas laterales: moneda, start, nieve / arriba, abajo, saltar; mitades de la imagen = izquierda / derecha | Z nieve, C saltar |
+| Track & Field | mitad izquierda CORRER (alterna RUN 1 / RUN 2), mitad derecha SALTAR (mantén para el ángulo) | agita el stick; Z correr, C salto |
+
+Por el puerto serie: `a d w s` mover, `j` / `k` botones, `g` marcha, `5` moneda, `1` start.
+
+**Ordenadores y Lynx**: mantener MEDIA abre el menú de la microSD (FAT32, raíz o `mdv/` / `tape/`, nombres largos); una pulsación corta es cinta play/pausa, o PAUSE en la Lynx. HELP muestra las zonas. El menú también teclea las órdenes de carga (`|TAPE` + `RUN"` en el CPC, `LOAD"*",8,1` + `RUN` en el C64…). Lo que se escribe por el puerto serie llega al teclado de la máquina.
+
+| | fila 1 | fila 2 | fila 3 |
+|---|---|---|---|
+| QL | MDV · F1 · F2 · VIEW | ← ↑ ↓ → | ESC · ESPACIO · ENTER · F3 |
+| CPC | MEDIA · 1 · 2 · HELP | ← ↑ ↓ → | COPY · ESPACIO · ENTER · FUEGO |
+| C64 | MEDIA · F1 · RUN/STOP · HELP | ← ↑ ↓ → | ESPACIO · RETURN · 1 · FUEGO |
+| MSX | MEDIA · F1 · STOP · HELP | ← ↑ ↓ → | ESPACIO · RETURN · ESC · FUEGO |
+| Lynx | MEDIA · OPTION 1 · OPTION 2 · HELP | ← ↑ ↓ → | PAUSE · B · A · A |
+
+En el QL, MDV monta el cartucho, reinicia y pulsa F1, y QDOS ejecuta `mdv1_boot`; mantenerlo abre el menú de cartuchos. VIEW alterna entre la imagen entera (512x256 reducida promediando) y 1:1. En los Spectrum el menú incluye «TURBO on/off»; por el puerto serie, F12 o Ctrl-T = TURBO y F5 = botón mágico.
+
+## ROMs y BIOS
+
+**Las ROMs y BIOS no se suben nunca a git.** Cada `rom_data.c` del repositorio es un stub vacío (punteros NULL). Para compilar con ROMs reales se copian a `roms/<id>/` y se ejecuta `tools/regen.sh <id>`, que genera `rom_data.c` y, en las máquinas con 68000, las tablas de Musashi. Los generadores comprueban tamaños y CRC. Antes de hacer commit se restauran los stubs:
+
+```
+python3 tools/gen_roms_computers.py --stub <id> <ruta>/rom_data.c        # ordenadores, Lynx y consolas
+python3 tools/gen_roms_zxspec.py --stub-all main/drivers/computers/zxspec
+```
+
+### Recreativas (sets de MAME)
+
+| `GAME` | Set | Notas |
+|---|---|---|
+| `indytemp`, `roadrunn` | `indytemp`, `roadrunn` (rev 2) | más la BIOS `atarisy1` en `roms/atarisy1/` |
+| `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
+| `outrun` | `outrun` (rev B) | |
+| `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
+| `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
+| `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |
+| `pbobble` | `pbobble` (Taito B, japonesa) | no sirve el de Neo Geo |
+
+### Ordenadores
+
+| `GAME` | Ficheros en `roms/<GAME>/` |
+|---|---|
+| `ql` | set `ql` de MAME (`ql.js 0000.ic33`, `ql.js 8000.ic34`, `ipc8049.ic24`) y, opcional, el primer `*.mdv` como cartucho del firmware |
+| `spectrum48` | `spectrum.zip`: `spectrum.rom` |
+| `spectrum128` | `spec128.zip`: `128-0.rom`, `128-1.rom` |
+| `plus3` | `plus3.zip`: `plus3-0.rom` … `plus3-3.rom` (v4.0) |
+| `pentagon` | `pentagon.zip`: `128p-0.rom`, `128p-1.rom`, `trd503.rom` |
+| `pentagon1024` | `pent1024.zip`: lo del Pentagon más `gluk63r.rom` |
+| `scorpion` | `scorpio.zip`: `scorp294.rom` (o `scorpion.rom`, `scorp0..3.rom`) |
+| `cpc6128` | set `cpc6128` de MAME: `cpc6128.rom` y `cpcados.rom` |
+| `c64` | set `c64` de MAME (kernal, BASIC, caracteres) y el DOS de la 1541 (`325302-01.uab4` y `901229-0x.uab5`); sin la 1541, los `.d64` cargan su primer PRG directamente |
+| `msx1` | `MSX.ROM`, `DISK.ROM` opcional ([RetroPieBIOS](https://github.com/archtaurus/RetroPieBIOS/tree/master/BIOS)) |
+| `msx2` | `MSX2.ROM`, `MSX2EXT.ROM`, `DISK.ROM` opcional |
+| `amiga` | set `a500` de MAME: `315093-02.u2` (Kickstart 1.3) |
+
+Cada modelo Spectrum lee solo su directorio y genera su propio `rom_data_<modelo>.c`, así que regenerar uno no pisa otro.
+
+### Consolas
+
+Las BIOS están en la tabla de [Consolas](#consolas-maindriversconsoles). Las consolas que no la necesitan llevan un `rom_data.c` vacío. La GBA y la PlayStation aceptan también la BIOS como primer fichero que se abre. La Lynx funciona sin BIOS con el pequeño cargador de dsp-cpp, pero entonces solo arranca cartuchos sin cifrar.
+
+## Recreativas: cómo funcionan
+
+Todas se han comparado con MAME con las mismas entradas, y en QEMU el firmware del CYD da las mismas huellas de imagen que el PC. Varias usan **atajos con el mismo resultado**: bucles de espera o de sondeo que se calculan en C de golpe, con imagen y audio idénticos bit a bit con y sin ellos.
+
+### Atari System 1: Indy y Road Runner
+
+Un solo núcleo (`atarisy1/`), elegido el juego por sus ROMs. Road Runner añade su programa en posiciones absolutas, el SLAPSTIC 108 y 3 MB de gráficos. Tiene la **INT3** que marcan los objetos móviles con 0xFFFF para reutilizar sprites a media pantalla, tomados de la RAM por franjas como las actualizaciones parciales de MAME. El joystick es analógico (ADC 6/7). La paleta IRGB es la de MAME; con la de dsp-cpp los túneles salían grises. Imagen idéntica a MAME con un frame de desfase.
+
+### Gauntlet
+
+68010 tras un SLAPSTIC 104, 6502 con YM2151, POKEY y TMS5220C, EEPROM 2804. De MAME vienen los espejos de direcciones, el pen 1 de los objetos móviles como sombra, las listas SLIP (`atari_mo_draw_slip`), la IRQ del 6502 en las líneas 32/96/160/224 y los dos LS259. Los ciclos que Musashi corre de más se descuentan del tramo siguiente; sin eso el 68010 iba un 3 % rápido. Imagen idéntica a MAME en demo y partida.
+
+### OutRun
+
+Dos 68000 con un solo Musashi, por turnos en tramos de 4 líneas, Z80 con YM2151 y Sega PCM, mapeador 315-5195, carretera y sprites con zoom. La placa de sonido va aparte (`or_sound.c`), con eventos con marca de tiempo; en el CYD corre entera en el núcleo 0. Las 37 páginas de programa más usadas se copian a RAM. Imagen idéntica a MAME sin desfase; audio con el mismo espectro (±10 %).
+
+### Return of the Invaders
+
+Tres Z80, un MC68705P5 (`machine/taito68705` con `cpu/m6805`), dos SN76489A, imagen ROT90 de 288x224. Imagen idéntica a MAME.
+
+### Pole Position y Pole Position II
+
+Un Z80 y dos Z8002 a 3,072 MHz, el bus Namco 06xx con cuatro MCU MB88 (entradas, voz, volante, ruido), WSG de 8 voces y motor con tres filtros analógicos. Las CPU corren en porciones de 16 ciclos y las MCU se ponen al día en cada flanco del 06xx; sus bucles de espera se cuentan sin ejecutarlos. `cpu/z8002` se generó con `tools/conv_z8002.py`. Es la máquina más pesada del árbol: en el CYD puede no llegar a 60 fps.
+
+### RoboCop
+
+68000 con tres BAC06 y sprites MXC06. Un HuC6280 ejecuta la protección a través de una RAM de doble puerto y se pone al día cada vez que el 68000 toca el buzón. La placa de sonido (6502, YM2203, YM3812, OKI M6295) va aparte, como en OutRun. 108 capturas idénticas a MAME; audio con el mismo espectro (±5 %).
+
+### Puzzle Bobble
+
+68000, Z80 y YM2610B; vídeo TC0180VCU. El frame buffer de sprites se guarda como lista resuelta en vez de 2 x 128 KB, con el mismo resultado. Imagen idéntica a MAME en los 800 primeros frames; después la partida diverge porque el generador aleatorio depende del tiempo de CPU.
+
+### Snow Bros y Track & Field
+
+Vienen de `zxtiny/zxm`, con el YM3812 de `emu8950` y el VLM5030 respectivamente.
+
+## Ordenadores: notas
+
+Los frontends comunes de los ordenadores están en `main/drivers/computers/common/`:
+
+- `comp_sdl.h`: menú F9, diálogo de ficheros, arrastrar y soltar, barra web.
+- `comp_pico.h`: menú F9 de la microSD en la RP2350.
+- `comp_cyd.h`: zonas táctiles, menú de la SD y «mecanógrafo» de órdenes.
+- `comp_sd.h`: ficheros que se quedan en la tarjeta y se leen por páginas de `zx_pbuf`.
+
+### Sinclair QL
+
+68008 a 7,5 MHz, ZX8301 (vídeo), ZX8302 (reloj, enlace con el IPC, microdrives) e IPC 8749. El reparto de tiempo es el de dsp-cpp: el 68008 corre en tramos de 128 ciclos y tras cada uno avanzan el IPC, el enlace serie y el microdrive. Montar un cartucho reinicia la máquina y pulsa F1 en el frame 110. En el CYD la RAM va en 4 bloques de 32 KB y solo se redibujan las franjas escritas. Pantallas de inicio idénticas a MAME; Psion Chess carga del microdrive en unos 32 s.
+
+### ZX Spectrum y clones
+
+Seis modelos sobre el Z80 de dsp-cpp (`cpu/z80dsp`):
+
+| | 48K | 128K / +3 | Pentagon / Pentagon 1024 / Scorpion |
+|---|---|---|---|
+| Reloj, T/línea × líneas | 3,5 MHz, 224 × 312 | 3,5469 MHz, 228 × 311 | 3,5 MHz, 224 × 320 |
+| Contención | memoria, puertos y T internos (Fuse) | tabla del 128K; el +3 sin puertos | ninguna |
+| Extras | ULA+ | ULA+, Interface 2; +3: #1FFD y uPD765 | Beta 128 / TR-DOS, #DFFD (1 MB) o #1FFD, Gluk, botón mágico |
+
+| Tipo | Extensiones | Modelos |
+|---|---|---|
+| Cinta | `.tap`, `.tzx`, `.cdt`, `.csw`, `.pzx` | todos |
+| Snapshot | `.sna`, `.z80` | todos |
+| Grabación | `.rzx` | todos |
+| Disco TR-DOS | `.trd`, `.scl` | Pentagon, Pentagon 1024, Scorpion |
+| Disco +3 | `.dsk` y `.dsk` extendido (solo lectura) | +3 |
+| Cartucho | `.rom`, `.bin`, `.if2` | 128K, +3 |
+
+El borde se guarda por T-state y cada línea se dibuja al salir el haz. El 48K, el 128K y el +3 dan **la misma imagen y el mismo sonido frame a frame** que dsp-cpp con las mismas ROMs y cintas. La cinta arranca sola cuando la ROM entra en LD-BYTES. En las placas, cintas y discos se quedan en la microSD y se leen por páginas de 256 bytes. En la RP2040, y en el CYD si no hay memoria, los 128 KB altos del Scorpion se guardan dispersos; el Pentagon 1024 tiene 128 KB en las placas.
+
+### Amstrad CPC 6128 y Commodore 64
+
+| | CPC 6128 | C64 |
+|---|---|---|
+| Ficheros | `.dsk` / `.edsk`, cintas `.cdt` `.tzx` `.csw`, `.sna` | `.d64` / `.g64` (1541 real), `.tap`, `.prg`, `.t64` |
+| Imagen | 400×312 (320×240 en placas) | 384×270 (320×240 en placas) |
+
+El C64 hace **carga rápida**: un `LOAD` del dispositivo 8 de un fichero del `.d64` se resuelve de golpe, como las *traps* de VICE. La 1541 sigue emulada para todo lo demás y se «duerme» cuando está ociosa. En las placas se enciende con el primer disco; sin disco, `LOAD"*",8` da DEVICE NOT PRESENT. El CPC guarda la RAM en páginas de 16 KB y la imagen como registros de línea.
+
+### MSX y MSX2
+
+Un solo núcleo (`msx/msx_core.c`) con `video/tms9918`, `video/v9938` (con el motor de comandos), `machine/msx_cart` (ROM simple y más de veinte megaROM, detectados como en openMSX) y `machine/msx_disk` (`.dsk` de 360 / 720 KB). La cinta (`.cas` y bloques MSX de `.tsx` / `.tzx`) se sirve a través de las llamadas de la BIOS, como en fMSX, y la orden de carga se teclea sola. El MSX2 tiene un mapper de 256 KB en el escritorio y de 64 KB en las placas. En la RP2350 escribe directamente en la imagen del HDMI, y un megaROM que no cabe se lee de la microSD según se usa.
+
+### Commodore Amiga 500
+
+68000 a 7,09 MHz, 512 KB de chip RAM y 512 KB de slow RAM. `amiga_chipset.c` contiene Agnus, Denise y Paula: copper, blitter, bitplanos, dual playfield, HAM, EHB, sprites, DMA de disco y audio. Discos `.adf` en DF0 y DF1, solo lectura.
+
+Sobre dsp-cpp se añadieron:
+
+- el teclado, por la línea serie de la CIA-A con *handshake*;
+- el DMA de disco con WORDSYNC, necesario para los cargadores propios;
+- HPOS real, que pide el Kickstart 3.1.
+
+Probado con Shadow of the Beast y North & South. En la RP2350 la chip RAM y los discos van en la PSRAM.
+
+## Consolas: notas
+
+Las 19 consolas de la API común están en `main/drivers/consoles/<id>/`. Usan `common/cons.h` (`cons_init`, `cons_load`, `cons_run_frame`, `cons_frame` en RGB565, `cons_pad`, `cons_key`) y un único frontend por plataforma:
+
+| Plataforma | Frontend |
+|---|---|
+| Escritorio y web | `common/cons_sdl.c` |
+| RP2040 / RP2350 | `common/cons_pico.c` |
+| CYD | `common/cons_cyd.c` |
+| Android | `jni/m_cons.c` |
+
+Cada núcleo se ha comparado con dsp-cpp con programas de prueba propios, con **0 píxeles distintos**. Cada CPU nueva se comparó con el original C++ instrucción a instrucción: más de un millón de instrucciones aleatorias con ciclos, registros y memoria idénticos. Entre las CPU nuevas están:
+
+- `lr35902`, `w65c816`, `spc700`, `sh2`, `arm7tdmi`, `necv30`, `upd7801` y `psx`;
+- `m6809dsp`: la Vectrex usa el 6809 de dsp-cpp porque sus ciclos difieren de los de `mc6809` y torcían el texto.
+
+La PlayStation sigue a ProjectPSX (MIT). La imagen de disco es un `.bin`.
+
+### Atari Lynx
+
+`main/drivers/consoles/lynx/`, migrada de dsp-cpp `atari_lynx.cpp` + `lynx_mikey` + `lynx_suzy` con el 65C02 de `cpu/m6502/m65xx`. No usa la API común. Tiene sus propios frontends (`lynx_sdl.c`, `lynx_pico.c`, `lynx_cyd.c`), construidos sobre los comunes de los ordenadores (`computers/common/comp_*.h`), y en Android usa `jni/m_lynx.c` con su app al estilo de las de ordenador. Corre en escritorio, web, Android, CYD y RP2350, pero no en la RP2040.
+
+- Ficheros: `.lnx` con cabecera, y `.lyx` / `.o` (BS93) con carga rápida.
+- Imagen: 160×102, ampliada ×2.
+- Velocidad: los temporizadores y canales de Mikey se cuentan en ticks enteros y solo se avanzan cuando uno vence o cuando la CPU toca Mikey o Suzy. Eso supone unas 2,8 veces menos trabajo por imagen; en QEMU el CYD pasa de 43-46 fps a 60 fps con un 60 % del núcleo.
+- Probada en el escritorio: la ROM de arranque real descifra y arranca un `.lnx` hecho con cc65 que dibuja con Suzy, y también un `.o` BS93.
+
+## Estado y pruebas
+
+- **Escritorio** (Linux y Windows): todas las máquinas compilan; es donde se han probado y comparado con MAME y dsp-cpp.
+- **Android**: todos los APK compilan (los 6 de ordenador, el de la Lynx, los 19 de consola y el de recreativas).
+- **CYD**: todas compilan; las recreativas, el QL y los Spectrum se han comprobado en QEMU. Las consolas grandes avisan de que no caben.
+- **RP2040 / RP2350**: todas compilan y los frontends se han probado en el PC con `PORT=picohost`. **Nada está probado en una placa real**; el simulador rp2040js no emula el RP2350.
+- **Web**: usa los mismos `*_sdl.c` que el escritorio, pero no se ha compilado en este entorno (falta `emcc`).

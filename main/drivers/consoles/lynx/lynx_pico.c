@@ -11,8 +11,8 @@
 #include "pico_port.h"
 #include "lynx_core.h"
 #include "rom_data.h"
-#include "../common/comp_sd.h"
-#include "../common/comp_pico.h"
+#include "../../computers/common/comp_sd.h"
+#include "../../computers/common/comp_pico.h"
 
 #define TOP ((PICO_H - LYNX_H * 2) / 2)
 

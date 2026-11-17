@@ -11,8 +11,8 @@
 // w a s d the pad, k = A, j = B, p = PAUSE, 1 / 2 the options.
 #include "lynx_core.h"
 #include "rom_data.h"
-#include "../common/comp_sd.h"
-#include "../common/comp_cyd.h"
+#include "../../computers/common/comp_sd.h"
+#include "../../computers/common/comp_cyd.h"
 
 #define TOP ((240 - LYNX_H * 2) / 2)
 

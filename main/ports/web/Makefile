@@ -20,7 +20,9 @@ else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   D     := $(M)/drivers/computers/zxspec
 else ifeq ($(GAME),cpc6128)
   D     := $(M)/drivers/computers/cpc
-else ifneq ($(filter $(GAME),c64 lynx amiga),)
+else ifeq ($(GAME),lynx)
+  D     := $(M)/drivers/consoles/lynx
+else ifneq ($(filter $(GAME),c64 amiga),)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),msx1 msx2),)
   D     := $(M)/drivers/computers/msx

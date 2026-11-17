@@ -64,7 +64,7 @@ sources() {
                   $M/machine/mos6526.c $M/machine/c1541.c $M/machine/via6522.c $M/machine/zx_pbuf.c" ;;
         msx) echo "$C/msx/msx_core.c $M/cpu/z80dsp/z80dsp.c $M/video/tms9918.c $M/video/v9938.c
                   $M/sound/ay8910.c $M/machine/msx_cart.c $M/machine/msx_disk.c $M/machine/zx_pbuf.c" ;;
-        lynx) echo "$C/lynx/lynx_core.c $M/machine/zx_pbuf.c" ;;
+        lynx) echo "$M/drivers/consoles/lynx/lynx_core.c $M/machine/zx_pbuf.c" ;;
         amiga) echo "$C/amiga/amiga_core.c $C/amiga/amiga_chipset.c $C/amiga/m68k_tables.c $M/cpu/m68k/m68kcpu.c
                   $M/cpu/m68k/m68kops.c $M/cpu/m68k/m68kopac.c $M/cpu/m68k/m68kopdm.c $M/cpu/m68k/m68kopnz.c" ;;
         *)

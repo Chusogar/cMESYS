@@ -29,7 +29,7 @@ else ifeq ($(GAME),c64)
 else ifeq ($(GAME),amiga)
   D     := $(M)/drivers/computers/amiga
 else ifeq ($(GAME),lynx)
-  D     := $(M)/drivers/computers/lynx
+  D     := $(M)/drivers/consoles/lynx
 else ifneq ($(filter $(GAME),msx1 msx2),)
   D     := $(M)/drivers/computers/msx
 else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
