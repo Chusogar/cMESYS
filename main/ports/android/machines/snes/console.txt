@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from snes's cons_machine.
+title = Super Nintendo
+media = Cartucho
+exts = .sfc .smc .swc .fig
+buttons = B Y A X
+start = START
+select = SELECT
+keys = 0
+aspect = 1.3333

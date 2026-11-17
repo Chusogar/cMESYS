@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from pv2000's cons_machine.
+title = Casio PV-2000
+media = Cartucho
+exts = .bin .rom
+buttons = ATTACK 0 ATTACK 1 - -
+start = -
+select = -
+keys = 2
+aspect = 1.3333

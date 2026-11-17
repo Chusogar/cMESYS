@@ -21,6 +21,11 @@ typedef struct h6280 {
     uint8_t (*read)(void *user, uint32_t addr);         // 21-bit physical address
     void (*write)(void *user, uint32_t addr, uint8_t value);
     void *user;
+    // Optional (the PC Engine): the internal PSG's registers and the I/O port
+    // ($1FE800 / $1FF000 physical); NULL: unrouted (Data East's boards)
+    void (*psg_w)(void *user, uint8_t offset, uint8_t value);
+    uint8_t (*port_r)(void *user);
+    void (*port_w)(void *user, uint8_t value);
     const uint8_t *bank_r[256];                         // direct 8 KB banks (NULL: handler)
     uint8_t *bank_w[256];
 

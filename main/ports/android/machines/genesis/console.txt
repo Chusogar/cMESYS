@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from genesis's cons_machine.
+title = Sega Mega Drive / Genesis
+media = Cartucho
+exts = .md .gen .bin .smd
+buttons = A B C -
+start = START
+select = -
+keys = 0
+aspect = 1.3333

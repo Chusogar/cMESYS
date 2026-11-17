@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from psx's cons_machine.
+title = Sony PlayStation
+media = Disco
+exts = .bin .img
+buttons = X O SQUARE TRIANGLE
+start = START
+select = SELECT
+keys = 0
+aspect = 1.3333

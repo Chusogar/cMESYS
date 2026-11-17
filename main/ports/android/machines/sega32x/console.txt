@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from sega32x's cons_machine.
+title = Sega 32X
+media = Cartucho
+exts = .32x .bin
+buttons = A B C -
+start = START
+select = -
+keys = 0
+aspect = 1.3333

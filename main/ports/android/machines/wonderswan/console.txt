@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from wonderswan's cons_machine.
+title = Bandai WonderSwan / Color
+media = Cartucho
+exts = .ws .wsc .pc2
+buttons = A B - -
+start = START
+select = -
+keys = 1
+aspect = 0

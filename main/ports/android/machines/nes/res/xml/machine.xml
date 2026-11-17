@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The settings of this machine (MachineActivity / SettingsActivity: then res/xml/preferences.xml). -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="@string/pc_system">
+        <CheckBoxPreference android:key="autoload_last" android:title="Abrir el último cartucho al empezar"
+            android:defaultValue="false" />
+        <ListPreference android:key="pad" android:title="@string/pref_pad" android:summary="%s"
+            android:entries="@array/pad_entries" android:entryValues="@array/pad_values" android:defaultValue="pad" />
+    </PreferenceCategory>
+</PreferenceScreen>

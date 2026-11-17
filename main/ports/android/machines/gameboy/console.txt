@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from gameboy's cons_machine.
+title = Nintendo Game Boy / Color
+media = Cartucho
+exts = .gb .gbc .cgb .sgb
+buttons = A B - -
+start = START
+select = SELECT
+keys = 0
+aspect = 0

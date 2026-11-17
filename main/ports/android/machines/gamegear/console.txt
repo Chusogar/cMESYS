@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from gamegear's cons_machine.
+title = Sega Game Gear
+media = Cartucho
+exts = .gg .bin
+buttons = 1 2 - -
+start = START
+select = -
+keys = 0
+aspect = 0

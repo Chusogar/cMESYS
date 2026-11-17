@@ -1,0 +1,5 @@
+# The consoles without their own <id>.lf: the CPU cores stay in flash.
+[mapping:cons_hot]
+archive: libmain.a
+entries:
+    cons_util (noflash)

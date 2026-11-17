@@ -5,7 +5,8 @@ Usage:
   tools/gen_roms_computers.py <machine> <romdir> <out.c>
   tools/gen_roms_computers.py --stub <machine> <out.c>
 
-<machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga. <romdir> is roms/<machine>/, unzipped or the
+<machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga, or a console of
+main/drivers/consoles with a BIOS (coleco, ...). <romdir> is roms/<machine>/, unzipped or the
 MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   cpc6128  cpc6128.rom (32 KB: OS + BASIC), amsdos.rom | cpcados.rom (16 KB)
   c64      901227-03.u4 | kernal.rom (kernal 8 KB), 901226-01.u3 | basic.rom (8 KB),
@@ -56,6 +57,33 @@ SETS = {
     'amiga': [
         ('amiga_rom_kick', 0x40000, [('315093-02.u2', 0xc4f0f55f), ('kick13.rom', None), ('kick34005.a500', None),
                                      ('315093-01.u2', 0xa6ce1636), ('kick.rom', None), ('kickstart.rom', None)], True),
+    ],
+    # consoles (main/drivers/consoles): their BIOS, all optional
+    'coleco': [
+        ('coleco_rom_bios', 0x2000, [('coleco.rom', 0x3aa93ef3), ('313 10031-4005 73108a.u2', 0x3aa93ef3), ('313_10031-4005_73108a.u2', 0x3aa93ef3)], False),
+    ],
+    'scv': [
+        ('scv_rom_bios', 0x1000, [('upd7801g.s01', 0x7ac06182)], False),
+        ('scv_rom_chr', 0x400, [('epochtv.chr', 0xdb521533)], False),
+    ],
+    'vectrex': [
+        ('vectrex_rom_bios', 0x2000, [('exec_rom.bin', 0xba13fb57)], False),
+    ],
+    'pv2000': [
+        ('pv2000_rom_bios', 0x4000, [('hn613128pc64.bin', 0x8f31f297)], False),
+    ],
+    'sega32x': [
+        ('s32x_rom_bios_g', 0x100, [('32x_g_bios.bin', 0x5c12eae8)], False),
+        ('s32x_rom_bios_m', 0x800, [('32x_m_bios.bin', 0xdd9c46b8)], False),
+        ('s32x_rom_bios_s', 0x400, [('32x_s_bios.bin', 0xbfda1fe5)], False),
+    ],
+    'gba': [
+        ('gba_rom_bios', 0x4000, [('gba_bios.bin', 0x81977335), ('gba.bin', 0x81977335)], False),
+    ],
+    'psx': [
+        ('psx_rom_bios', 0x80000, [('scph1001.bin', 0x37157331), ('scph5501.bin', 0x8d8cb7e4), ('scph7001.bin', 0x502224b6),
+                                   ('scph1000.bin', 0x3b601fc8), ('scph5500.bin', 0xff3eeb8c), ('scph5502.bin', 0xd786f0b9),
+                                   ('psx.bin', None), ('bios.bin', None)], False),
     ],
     'lynx': [
         ('lynx_rom_boot', 0x200, [('lynxboot.img', 0x0d973c9d), ('lynx.bin', None), ('lynxa.bin', None)], True),

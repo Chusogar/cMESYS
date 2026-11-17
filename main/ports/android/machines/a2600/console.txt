@@ -1,0 +1,9 @@
+# Written by tools/gen_consoles_android.py from a2600's cons_machine.
+title = Atari 2600
+media = Cartucho
+exts = .a26 .bin .rom
+buttons = FIRE - LEFT DIFF. RIGHT DIFF.
+start = RESET
+select = SELECT
+keys = 0
+aspect = 1.3333

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS PlayStation</h1>
+<p>Sony PlayStation (Sony, 1994) con el núcleo del driver de consola de cMESYS, migrado del emulador
+<a href="https://github.com/Chusogar/dsp-cpp">dsp-cpp</a>: el mismo código que el de escritorio, la web y las placas.</p>
+<h2>Disco</h2>
+<p>Menú → <b>Abrir disco</b>: un fichero <code>.bin</code>, <code>.img</code> (o dentro de un <code>.zip</code>). <b>Sacar disco</b> lo expulsa
+y <b>Reset</b> reinicia la consola. Necesita la BIOS de la PlayStation (<code>scph1001.bin</code> u otra de 512 KB; o ábrela como fichero antes del disco): va dentro de la app si se compiló con ella (<code>tools/regen.sh psx</code>); las BIOS no se distribuyen con cMESYS.</p>
+<h2>Mandos</h2>
+<table>
+<tr><td>Pantalla</td><td>la cruceta y los botones táctiles: Cruceta, X, O, SQUARE, TRIANGLE; START = START; SELECT = SELECT</td></tr>
+<tr><td>Mando físico</td><td>cruceta, A / B / X / Y, START y SELECT</td></tr>
+<tr><td>Teclado físico</td><td>cursores; Z X C V = botones 1 a 4, ENTER = START</td></tr>
+</table>
+
+<h2>Ajustes</h2>
+<p>Escala de la imagen, el mando en pantalla y abrir el último disco al empezar.</p>
+<h2>Créditos</h2>
+<p>cMESYS: Chusogar. dsp-cpp: Chusogar, a partir del emulador DSP de Leniad.
+Los chips de la PlayStation siguen a ProjectPSX (Pedro Cortés, licencia MIT).</p>
+</body></html>
