@@ -99,8 +99,8 @@ void ql_sd_unmount(void)
 static FILE *open_listed(const char *name)
 {
     static const char *const dirs[] = { "", "/mdv", "/tape" };
-    char path[96];
-    for (int i = 0; i < 3; i++) {
+    char path[192];
+    for (int i = 0; i < (strchr(name, '/') ? 1 : 3); i++) {
         snprintf(path, sizeof path, SD_MOUNT "%s/%s", dirs[i], name);
         FILE *f = fopen(path, "rb");
         if (f) return f;
@@ -151,6 +151,20 @@ int ql_sd_list_ext(ql_sd_entry *out, int max, const char *const *exts)
     n = add_dir(SD_MOUNT "/mdv", out, max, n, exts);
     n = add_dir(SD_MOUNT "/tape", out, max, n, exts);
     return n;
+}
+
+bool ql_sd_list_dir(const char *dir, void (*fn)(void *user, const char *name), void *user)
+{
+    if (!mounted || !dir || !fn) return false;
+    char path[192];
+    snprintf(path, sizeof path, SD_MOUNT "%s%s", dir[0] ? "/" : "", dir);
+    DIR *d = opendir(path);
+    if (!d) return false;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL)
+        if (e->d_name[0] != '.' && e->d_type != DT_DIR) fn(user, e->d_name);
+    closedir(d);
+    return true;
 }
 
 bool ql_sd_open(const char *name)

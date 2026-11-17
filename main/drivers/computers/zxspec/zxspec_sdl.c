@@ -215,6 +215,7 @@ int main(int argc, char **argv)
     sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     cpu_m = zxspec_create(ZX_MODEL);
     if (!cpu_m) { fprintf(stderr, "out of memory\n"); return 1; }
+    if (!zx_rom_load()) sdl_port_rom_error();
     zxspec_set_rom(cpu_m, zx_rom48, zx_rom128, zx_rom128_bytes);
     zxspec_reset(cpu_m);
 

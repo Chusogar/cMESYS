@@ -160,6 +160,7 @@ int main(void)
 {
     uint8_t *blocks[QL_RAM_BLOCKS];
     for (int i = 0; i < QL_RAM_BLOCKS; i++) blocks[i] = ram[i];
+    if (!ql_rom_load()) pico_port_rom_error();
     ql_init(ql_rom, ql_ipc_rom, blocks, 0);
     ql_view_init(rgb);
     pico_port_cfg cfg = { "Sinclair QL", render, NULL, QL_AUDIO_RATE, QL_FPS, true };

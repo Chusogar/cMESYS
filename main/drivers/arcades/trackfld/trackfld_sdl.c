@@ -5,6 +5,7 @@
 #include <string.h>
 #include "sdl_port.h"
 #include "tf_core.h"
+#include "rom_data.h"
 
 int main(int argc, char **argv)
 {
@@ -16,6 +17,7 @@ int main(int argc, char **argv)
     uint8_t pal[32][3];
     uint32_t pal32[32];
 
+    if (!tf_roms_get()) sdl_port_rom_error();
     tf_init();
     tf_palette_rgb(pal);
     for (int i = 0; i < 32; i++) pal32[i] = ((uint32_t)pal[i][0] << 16) | ((uint32_t)pal[i][1] << 8) | pal[i][2];

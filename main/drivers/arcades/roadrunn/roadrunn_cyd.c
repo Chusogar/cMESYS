@@ -357,8 +357,8 @@ static void copy_hot_pages(void)
     // 6502: $8000-$99FF and $E700-$E8FF (99.7% of its instructions)
     uint8_t *s = heap_caps_malloc(0x1a00 + 0x200, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (s) {
-        memcpy(s, as1_sound_rom + 0x4000, 0x1a00);
-        memcpy(s + 0x1a00, as1_sound_rom + 0xa700, 0x200);
+        memcpy(s, core->roms.sound + 0x4000, 0x1a00);
+        memcpy(s + 0x1a00, core->roms.sound + 0xa700, 0x200);
         for (int p = 0x80; p < 0x9a; p++) core->snd.page_r[p] = s + (p - 0x80) * 0x100;
         for (int p = 0xe7; p <= 0xe8; p++) core->snd.page_r[p] = s + 0x1a00 + (p - 0xe7) * 0x100;
     }
@@ -373,7 +373,7 @@ static void copy_hot_pages(void)
     if (!ram) { ESP_LOGW(TAG, "no RAM for hot ROM pages"); return; }
     ESP_LOGI(TAG, "%d hot 68010 ROM pages in RAM", n);
     for (int i = 0; i < n; i++) {
-        memcpy(ram + i * 1024, as1_main_rom + hot_rom_pages[i] * 1024, 1024);
+        memcpy(ram + i * 1024, core->roms.main + hot_rom_pages[i] * 1024, 1024);
         core->main_page[hot_rom_pages[i]] = ram + i * 1024;
     }
 }
@@ -393,7 +393,7 @@ void app_main(void)
     ESP_LOGI(TAG, "core %u bytes, video snapshot %u, MO list %u", (unsigned)sizeof *core,
              (unsigned)sizeof *vsnap, (unsigned)sizeof *mol);
     as1_roms roms;
-    as1_rom_data(&roms);
+    if (!as1_roms_get(&roms)) cyd_rom_error();
     as1_init(core, &roms, AUDIO_RATE);
     core->idle_skip = true;
     core->pk.approx_mute = true;         // muted POKEY: counters frozen (see pokey.h)

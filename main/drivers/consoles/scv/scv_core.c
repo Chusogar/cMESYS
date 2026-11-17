@@ -315,6 +315,7 @@ bool cons_init(void)
     S.rom = (uint8_t *)calloc(4, 0x8000);
     S.fb = (uint16_t *)calloc(W * H, sizeof(uint16_t));
     if (!S.mem || !S.rom || !S.fb) return false;
+    scv_rom_load();                     // (the BIOS from storage when not built in: romfs)
     if (scv_rom_bios && scv_rom_chr) {
         memcpy(S.mem, scv_rom_bios, 0x1000);
         memcpy(S.chars, scv_rom_chr, 0x400);

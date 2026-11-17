@@ -80,8 +80,17 @@ abstract class Machine {
         }
     }
 
-    /** The ROMs for Core.init (from the APK's assets/roms); null: missing. */
+    /** The ROMs for Core.init (from the APK's assets/roms; null entries: not in the
+     *  APK, then the core looks for them in the app's roms folder). */
     abstract byte[][] roms(MachineActivity a, SharedPreferences p, int model) throws IOException;
+
+    /** The folder of the app's roms/ the ROMs of this model go in (MAME's set names). */
+    String romSet(int model) {
+        switch (MachineId.ID) {
+            case "cpc": return "cpc6128";
+            default: return MachineId.ID;
+        }
+    }
 
     /** Width / height of the picture as the machine's monitor showed it. */
     float displayAspect(int w, int h) { return 4f / 3f; }

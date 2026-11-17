@@ -3,6 +3,7 @@
 // rp2350-pizero (video_dvi.c, audio_pwm.c, psram.c); USB input its
 // usb_input.cpp / hid.cpp, here in C.
 #include "pico_port.h"
+#include "../../rom/romfs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -916,9 +917,18 @@ void pico_port_frame_done(void)
 // ---------------------------------------------------------------------------
 // Start-up
 // ---------------------------------------------------------------------------
-void pico_port_open(const pico_port_cfg *c)
+// The clock, the UART and (RP2350) the PSRAM: what a frontend may need before
+// pico_port_open (the ROMs read from the microSD into the heap: romfs).
+static bool early_done;
+#ifdef PIZERO_FB
+static size_t early_psram;
+static bool early_psram_ok;
+#endif
+
+void pico_port_early(void)
 {
-    cfg = *c;
+    if (early_done) return;
+    early_done = true;
     // 640x480 DVI needs a 252 MHz system clock (the TMDS bit rate)
 #ifdef PIZERO_FB
     vreg_set_voltage(VREG_VOLTAGE_1_25);     // (the RP2350 at 252 MHz: some headroom, as XRoar's port)
@@ -931,9 +941,7 @@ void pico_port_open(const pico_port_cfg *c)
 #ifdef PIZERO_FB
     // PSRAM and PIO-USB before core 1 starts: TinyUSB's alarm pool and the
     // PSRAM set-up must not run while core 1 sends the picture (as in
-    // XRoar's port for this board). Then the picture, with what the start-up
-    // did on it (and on the UART)
-    printf("\ncMESYS %s on the RP2350-PiZero, %u MHz\n", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));
+    // XRoar's port for this board).
     // the 8 MB PSRAM: the heap goes on there once the SRAM is full
 #ifdef PICO_VIDEO_ONLY
     const size_t psram = 0;                  // (hdmitest: the picture and the sound only)
@@ -948,6 +956,23 @@ void pico_port_open(const pico_port_cfg *c)
     for (size_t o = 0; psram_ok && o < psram; o += 65536) psram_ok = nc[o / 4] == (0x5a000000u ^ (uint32_t)o);
     if (psram_ok) dsp_heap_add_psram(DSP_PSRAM_BASE, psram);
     psram_total = psram_ok ? psram : 0;
+    early_psram = psram;
+    early_psram_ok = psram_ok;
+#endif
+}
+
+// (romfs_sd.c: before the microSD is first read)
+void romfs_board_prepare(void) { pico_port_early(); }
+
+void pico_port_open(const pico_port_cfg *c)
+{
+    cfg = *c;
+    pico_port_early();
+#ifdef PIZERO_FB
+    // Then the picture, with what the start-up did on it (and on the UART)
+    printf("\ncMESYS %s on the RP2350-PiZero, %u MHz\n", cfg.title, (unsigned)(clock_get_hz(clk_sys) / 1000000));
+    const size_t psram = early_psram;
+    const bool psram_ok = early_psram_ok;
     printf("PSRAM %u KB%s\n", (unsigned)(psram / 1024), psram && !psram_ok ? " (FAILED THE TEST)" : "");
 #ifdef PICO_USB_ALT
     // (hdmitest2: the USB is started after the HDMI, as pico-286 does, with
@@ -1039,6 +1064,45 @@ void pico_port_open(const pico_port_cfg *c)
 #endif
     video_on = true;
     stat_t = time_us_64();
+}
+
+// The machine's ROMs are not built in and not on the microSD (romfs.h): the
+// picture says what is missing and where it was looked for (and the UART).
+static void rom_error_black(void *user, int y, int n, uint16_t *rgb)
+{
+    (void)user;
+    (void)y;
+    for (int i = 0; i < n * 320; i++) rgb[i] = 0;
+}
+
+static char rom_error_msg[1024];
+
+static void rom_error_loop(void)
+{
+    pico_osd_clear();
+    int row = 0;
+    for (char *line = rom_error_msg; line && row < PICO_OSD_ROWS; row++) {
+        char *nl = strchr(line, '\n');
+        if (nl) *nl = 0;
+        pico_osd_text(row, line, row == 0);
+        line = nl ? nl + 1 : NULL;
+    }
+    pico_osd_show(true);
+    for (;;) {
+        pico_port_poll();
+        sleep_ms(20);
+    }
+}
+
+void pico_port_rom_error(void)
+{
+    romfs_describe(rom_error_msg, sizeof rom_error_msg, PICO_OSD_COLS);
+    printf("%s\n", rom_error_msg);
+    if (!video_on) {
+        pico_port_cfg c = { cfg.title ? cfg.title : "ROMS", rom_error_black, NULL, 0, 60.0, false };
+        pico_port_open(&c);
+    }
+    pico_port_run(rom_error_loop);
 }
 
 // The SDK's stacks are in the 4 KB SCRATCH banks (core 0: PICO_STACK_SIZE,

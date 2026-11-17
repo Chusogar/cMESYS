@@ -95,9 +95,10 @@ static void game(void)
 
 int main(void)
 {
+    if (!pb_roms_get()) pico_port_rom_error();
     pb_init();
-    ym = ym2610_create(PB_SND_CLOCK, AUDIO_RATE, 6, pb_adpcma_rom, sizeof pb_adpcma_rom,
-                       pb_adpcma_rom, sizeof pb_adpcma_rom);
+    ym = ym2610_create(PB_SND_CLOCK, AUDIO_RATE, 6, pb_adpcma_rom, PB_ADPCMA_ROM_LEN,
+                       pb_adpcma_rom, PB_ADPCMA_ROM_LEN);
     pico_port_cfg cfg = { "Puzzle Bobble", render, NULL, AUDIO_RATE, PB_FPS, false };
     pico_port_open(&cfg);
     pico_port_run(game);

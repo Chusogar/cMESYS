@@ -1,13 +1,12 @@
-// rom_data.h - OutRun ROMs in flash (rom_data.c, made by tools/gen_roms_outrun.py)
+// rom_data.h - OutRun ROMs: built in (rom_data.c, made by tools/gen_roms_outrun.py;
+// run tools/regen.sh outrun) or from storage (rom_load.c, main/rom/romfs.h:
+// roms/outrun/ or MAME's outrun.zip).
 #ifndef ROM_DATA_H
 #define ROM_DATA_H
+#include <stdbool.h>
 #include "or_core.h"
-extern const uint8_t or_main_rom[0x40000];         // main 68000 program, big-endian words
-extern const uint8_t or_sub_rom[0x40000];          // sub 68000 program
-extern const uint8_t or_sound_rom[0x8000];         // Z80 program
-extern const uint8_t or_road_rom[(256 * 2 + 1) * 512];  // decoded road lines
-extern const uint8_t or_pcm_rom[0x30000];          // PCM samples (6 x 32 KB)
-extern const uint32_t or_tile_rom[0x2000 * 8];     // decoded tiles, 3bpp rows
-extern const uint32_t or_sprite_rom[0x40000];      // sprites, 4 banks of 0x10000 dwords
-void or_rom_data(or_roms *r);
+// The ROMs built in; false: none (a stub, or a ROMS=external build).
+bool or_rom_data(or_roms *r);
+// Built in, or from storage; false if they are not there (romfs_error()).
+bool or_roms_get(or_roms *r);
 #endif

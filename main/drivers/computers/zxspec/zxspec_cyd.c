@@ -463,6 +463,7 @@ void app_main(void)
         ESP_LOGE(TAG, "out of memory for Spectrum");
         abort();
     }
+    if (!zx_rom_load()) cyd_rom_error();
     zxspec_set_rom(cpu_m, zx_rom48, zx_rom128, zx_rom128_bytes);
     zxspec_reset(cpu_m);
 

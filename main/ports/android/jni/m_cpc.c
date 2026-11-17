@@ -4,11 +4,22 @@
 #include <stdlib.h>
 
 #include "core.h"
+#include "rom_data.h"
 #include "cpc_core.h"
 
 static cpc *m;
 static uint8_t *os_rom, *dos_rom;
 static bool green;
+
+void mc_rom_fill(int model, uint8_t **roms, int *lens, int *n)
+{
+    (void)model;
+    if (*n < 2) *n = 2;
+    if (roms[0] && roms[1]) return;
+    cpc_rom_load();
+    mc_take(roms, lens, 0, &cpc_rom_os, 0x8000);
+    mc_take(roms, lens, 1, &cpc_rom_amsdos, 0x4000);
+}
 
 bool mc_init(int model, uint8_t **roms, const int *lens, int n, int64_t unix_time)
 {

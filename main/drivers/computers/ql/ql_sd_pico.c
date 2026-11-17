@@ -381,7 +381,52 @@ static bool find_one(void *user, const uint8_t *e, const char *name)
     return false;
 }
 
-// Finds a file by the name a listing showed (or in the root by its name)
+// The folder of a path's folders ("roms/x/file": roms/x); *last: the file
+// name after them. false: a folder is not there.
+static bool walk_path(const char *path, uint32_t *dir, const char **last)
+{
+    uint32_t cl = 0;
+    const char *p = path, *slash;
+    while ((slash = strchr(p, '/')) != NULL) {
+        if (slash > p) {
+            char want[QL_SD_NAME_MAX];
+            size_t n = (size_t)(slash - p);
+            if (n >= sizeof want) return false;
+            for (size_t i = 0; i < n; i++) want[i] = (char)toupper((unsigned char)p[i]);
+            want[n] = 0;
+            folder_ctx fc = { want, 0 };
+            walk_dir(cl, find_folder, &fc);
+            if (fc.cl < 2) return false;
+            cl = fc.cl;
+        }
+        p = slash + 1;
+    }
+    *dir = cl;
+    if (last) *last = p;
+    return true;
+}
+
+typedef struct { void (*fn)(void *user, const char *name); void *user; } each_ctx;
+
+static bool each_file(void *user, const uint8_t *e, const char *name)
+{
+    each_ctx *c = (each_ctx *)user;
+    if (!(e[11] & 0x10)) c->fn(c->user, name);
+    return true;
+}
+
+bool ql_sd_list_dir(const char *dir, void (*fn)(void *user, const char *name), void *user)
+{
+    if (!mounted || !dir || !fn) return false;
+    char path[160];
+    snprintf(path, sizeof path, "%s/", dir);
+    uint32_t cl;
+    if (!walk_path(path, &cl, NULL)) return false;
+    each_ctx c = { fn, user };
+    return walk_dir(cl, each_file, &c);
+}
+
+// Finds a file by the name a listing showed (or by its path from the root)
 static bool locate(const char *name, uint32_t *cl, uint32_t *size)
 {
     for (int i = 0; i < nlisted; i++)
@@ -390,11 +435,13 @@ static bool locate(const char *name, uint32_t *cl, uint32_t *size)
             *size = listed[i].size;
             return true;
         }
+    uint32_t dir;
+    if (!walk_path(name, &dir, &name) || !name[0]) return false;
     find_ctx c;
     memset(&c, 0, sizeof c);
     c.name = name;
     make83(name, c.want83);
-    walk_dir(0, find_one, &c);
+    walk_dir(dir, find_one, &c);
     if (!c.found) return false;
     *cl = c.cl;
     *size = c.size;

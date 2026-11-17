@@ -103,7 +103,6 @@ final class Amiga extends Machine {
         String want = p.getString("kick", "kick13");
         byte[] kick = asset(a, "roms/" + want + ".rom");
         if (kick == null) kick = asset(a, "roms/kick13.rom");
-        if (kick == null) return null;
         return new byte[][] {kick};
     }
 

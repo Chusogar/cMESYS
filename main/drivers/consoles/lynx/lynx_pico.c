@@ -134,6 +134,7 @@ int main(void)
         printf("out of memory\n");
         for (;;) {}
     }
+    lynx_rom_load();                        // (optional: the built-in loader otherwise)
     if (lynx_rom_boot) lynx_set_boot_rom(cpu_m, lynx_rom_boot);
     else printf("no Lynx boot ROM built in (roms/lynx/): the built-in loader\n");
     pico_port_cfg cfg = { "Atari Lynx", render, NULL, LYNX_AUDIO_RATE, LYNX_FPS, true };

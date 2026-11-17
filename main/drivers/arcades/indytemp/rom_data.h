@@ -1,11 +1,13 @@
-// rom_data.h - Indiana Jones + Atari System 1 BIOS ROMs in flash (rom_data.c, made by tools/gen_roms_atarisy1.c)
+// rom_data.h - Indiana Jones + Atari System 1 BIOS ROMs: built in (rom_data.c, made by tools/gen_roms_atarisy1.c;
+// run tools/regen.sh indytemp) or from storage (rom_load.c, main/rom/romfs.h:
+// roms/indytemp/ + roms/atarisy1/, or MAME's indytemp.zip + atarisy1.zip).
 #ifndef ROM_DATA_H
 #define ROM_DATA_H
+#include <stdbool.h>
 #include <stddef.h>
 #include "atarisy1_core.h"
-extern const uint8_t as1_main_rom[0x88000];
-extern const uint8_t as1_sound_rom[0xc000];
-extern const uint8_t as1_char_rom[0x2000];
-extern const uint8_t as1_prom_data[0x400];
-void as1_rom_data(as1_roms *r);
+// The ROMs built in; false: none (a stub, or a ROMS=external build).
+bool as1_rom_data(as1_roms *r);
+// Built in, or from storage; false if they are not there (romfs_error()).
+bool as1_roms_get(as1_roms *r);
 #endif

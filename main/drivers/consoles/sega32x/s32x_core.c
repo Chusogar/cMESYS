@@ -661,6 +661,7 @@ bool cons_init(void)
     if (!Xp || !md_alloc()) return false;
     X.fb = (uint16_t *)calloc(MD_VDP_W * MD_VDP_H, sizeof(uint16_t));
     if (!X.fb) return false;
+    s32x_rom_load();                    // (the BIOS from storage when not built in: romfs)
     X.bios_g = s32x_rom_bios_g;
     X.bios_m = s32x_rom_bios_m;
     X.bios_s = s32x_rom_bios_s;

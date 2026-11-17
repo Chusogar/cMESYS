@@ -53,7 +53,7 @@ int main(int argc, char **argv)
             return 1;
         }
     } else {
-        as1_rom_data(&roms);
+        if (!as1_roms_get(&roms)) sdl_port_rom_error();
     }
     as1_init(&core, &roms, AUDIO_RATE);
     core.idle_skip = true;             // same result, less host time

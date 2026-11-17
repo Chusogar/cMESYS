@@ -35,8 +35,8 @@ static void on_frame(void *user, rc_core *c)
 int main(int argc, char **argv)
 {
     sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
-    const rc_roms roms = { rc_main_rom, rc_sound_rom, rc_mcu_rom, rc_oki_rom,
-                           rc_chars, rc_tiles1, rc_tiles2, rc_sprites };
+    rc_roms roms;
+    if (!rc_roms_get(&roms)) sdl_port_rom_error();
     rc_init(&core, &roms, AUDIO_RATE);
     core.idle_skip = true;             // same result, less host time
     core.on_frame = on_frame;

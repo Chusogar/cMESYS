@@ -1,6 +1,12 @@
 package com.chusogar.cmesys.arcade;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.DialogInterface;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.OpenableColumns;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
@@ -24,6 +30,10 @@ import com.chusogar.cmesys.app.R;
 import com.chusogar.cmesys.app.SoftMenu;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -84,12 +94,20 @@ public final class GameActivity extends Activity implements ControlsView.Listene
 
         Native.load(game.id);
         Native.setScreen(screen);
+        Native.romDirs(romDirs());
+        Native.romError = null;
         final File dir = new File(getFilesDir(), game.id);
         if (!dir.isDirectory()) dir.mkdirs();
         thread = new Thread(new Runnable() {
             @Override public void run() {
                 Native.runGame(dir.getAbsolutePath());
-                runOnUiThread(new Runnable() { @Override public void run() { finish(); } });
+                final String why = Native.romError;
+                runOnUiThread(new Runnable() {
+                    @Override public void run() {
+                        if (why != null) romsMissing(why);
+                        else finish();
+                    }
+                });
             }
         }, game.id);
         thread.start();
@@ -378,6 +396,94 @@ public final class GameActivity extends Activity implements ControlsView.Listene
     public void onMenuClosed() {
         Native.setSuspended(false);
         immersive();
+    }
+
+    // --- ROMs not built in ----------------------------------------------------------
+    private static final int IMPORT_ROMS = 0x200;
+
+    /** Android/data/<app>/files/roms (reachable over USB) and the app's files/roms. */
+    private String[] romDirs() {
+        List<String> dirs = new ArrayList<>();
+        File ext = getExternalFilesDir(null);
+        if (ext != null) dirs.add(new File(ext, "roms").getAbsolutePath());
+        dirs.add(new File(getFilesDir(), "roms").getAbsolutePath());
+        return dirs.toArray(new String[0]);
+    }
+
+    /** roms/<game>/: its files or MAME's .zip (and its BIOS'), made if needed. */
+    private File romFolder() {
+        File ext = getExternalFilesDir(null);
+        File dir = new File(new File(ext != null ? ext : getFilesDir(), "roms"), game.id);
+        if (!dir.isDirectory()) dir.mkdirs();
+        return dir;
+    }
+
+    private void romsMissing(String why) {
+        new AlertDialog.Builder(this)
+                .setTitle("Faltan ROMs")
+                .setMessage(why + "\n\nCópialas (sueltas o los .zip de MAME) en\n" + romFolder().getAbsolutePath()
+                        + "\no impórtalas desde aquí.")
+                .setPositiveButton("Importar ROMs…", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                        i.addCategory(Intent.CATEGORY_OPENABLE);
+                        i.setType("*/*");
+                        i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                        try {
+                            startActivityForResult(i, IMPORT_ROMS);
+                        } catch (Exception e) {
+                            finish();
+                        }
+                    }
+                })
+                .setNegativeButton("Cerrar", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) { finish(); }
+                })
+                .setCancelable(false)
+                .show();
+    }
+
+    @Override
+    protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != IMPORT_ROMS) return;
+        int n = 0;
+        if (result == RESULT_OK && data != null) {
+            List<Uri> uris = new ArrayList<>();
+            ClipData clip = data.getClipData();
+            if (clip != null) for (int k = 0; k < clip.getItemCount(); k++) uris.add(clip.getItemAt(k).getUri());
+            else if (data.getData() != null) uris.add(data.getData());
+            File dir = romFolder();
+            for (Uri uri : uris) {
+                String name = displayName(uri).replaceAll("[/\\\\:*?\"<>|]", "_");
+                try (InputStream in = getContentResolver().openInputStream(uri);
+                     OutputStream out = new FileOutputStream(new File(dir, name))) {
+                    if (in == null) continue;
+                    byte[] buf = new byte[65536];
+                    int k;
+                    while ((k = in.read(buf)) > 0) out.write(buf, 0, k);
+                    n++;
+                } catch (IOException | SecurityException e) {
+                    toast("No se puede copiar " + name);
+                }
+            }
+        }
+        if (n > 0) {
+            toast(n + " archivo(s) copiados: vuelve a abrir el juego");
+        }
+        finish();
+    }
+
+    private String displayName(Uri uri) {
+        try (Cursor c = getContentResolver().query(uri, new String[] {OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                String s = c.getString(0);
+                if (s != null) return s;
+            }
+        } catch (Exception ignored) {
+        }
+        String p = uri.getLastPathSegment();
+        return p != null ? p : "rom";
     }
 
     private void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show(); }

@@ -359,7 +359,7 @@ static void copy_hot_pages(void)
     for (int i = 0; i < (int)sizeof main_hot; i++, n++) {
         uint8_t *p = page_alloc();
         if (!p) break;
-        for (int k = 0; k < 1024; k += 4) *(volatile uint32_t *)(p + k) = *(const uint32_t *)(rc_main_rom + main_hot[i] * 1024 + k);
+        for (int k = 0; k < 1024; k += 4) *(volatile uint32_t *)(p + k) = *(const uint32_t *)(core->roms.main + main_hot[i] * 1024 + k);
         core->main_page[main_hot[i]] = p;
     }
     ESP_LOGI(TAG, "%d hot program pages in RAM", n);
@@ -394,8 +394,8 @@ void app_main(void)
     ESP_LOGI(TAG, "core %u bytes, sound %u, free %u (largest %u)", (unsigned)sizeof *core, (unsigned)sizeof(rc_sound),
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
-    const rc_roms roms = { rc_main_rom, rc_sound_rom, rc_mcu_rom, rc_oki_rom,
-                           rc_chars, rc_tiles1, rc_tiles2, rc_sprites };
+    rc_roms roms;
+    if (!rc_roms_get(&roms)) cyd_rom_error();
     rc_init(core, &roms, AUDIO_RATE);
     core->idle_skip = true;
     core->sound_async = true;           // run by the audio task on core 0

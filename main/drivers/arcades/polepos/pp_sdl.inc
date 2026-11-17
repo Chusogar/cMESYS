@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 {
     sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     pp_roms roms;
-    pp_rom_data(&roms);
+    if (!pp_roms_get(&roms)) sdl_port_rom_error();
     static int16_t abuf[4096];
     core.audio = abuf;
     core.audio_cap = 4096;

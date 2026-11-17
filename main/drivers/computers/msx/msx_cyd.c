@@ -155,6 +155,7 @@ void app_main(void)
                                      "MEDIA: SPACE / HOLD=SD", { 120, 160, 255 } };
     cyd_boot(&info);
     cpu_m = msx_create(MSX_MODEL, 64, 64, MSX_AUDIO_RATE);
+    if (!msx_rom_load()) cyd_rom_error();
     if (!cpu_m || !msx_rom_bios || (MSX_MODEL == 2 && !msx_rom_sub)) {
         ESP_LOGE("msx", "%s", cpu_m ? "no MSX ROMs built in (roms/msx1/, roms/msx2/)" : "out of memory for the MSX");
         abort();

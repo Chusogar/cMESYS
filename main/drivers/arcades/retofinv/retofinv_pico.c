@@ -7,6 +7,7 @@
 #include <string.h>
 #include "pico_port.h"
 #include "rv_core.h"
+#include "rom_data.h"
 
 #define AUDIO_RATE 22050
 #define X0 ((PICO_W - RV_W) / 2)
@@ -64,6 +65,7 @@ static void game(void)
 
 int main(void)
 {
+    if (!rv_roms_get()) pico_port_rom_error();
     uint8_t rgb[256][3];
     rv_palette_rgb(rgb);
     for (int i = 0; i < 256; i++) pal[i] = pico_rgb565(rgb[i][0], rgb[i][1], rgb[i][2]);

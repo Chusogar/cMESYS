@@ -474,6 +474,7 @@ bool cons_init(void)
     fb565 = (uint16_t *)calloc(kMaxFbW * kMaxFbH, sizeof(uint16_t));
     dma_buf = (uint32_t *)calloc(DMA_BUF_WORDS, sizeof(uint32_t));
     if (!X || !fb565 || !dma_buf) return false;
+    psx_rom_load();                     // (the BIOS from storage when not built in: romfs)
     if (psx_rom_bios) {
         memcpy(X->bios_, psx_rom_bios, sizeof X->bios_);
         have_bios = true;

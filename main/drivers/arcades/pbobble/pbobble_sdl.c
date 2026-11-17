@@ -64,10 +64,11 @@ int main(int argc, char **argv)
     static int16_t audio[8192];
     uint32_t pal_serial = ~0u;
 
+    if (!pb_roms_get()) sdl_port_rom_error();
     pb_init();
     eep_load();
-    ym = ym2610_create(PB_SND_CLOCK, AUDIO_RATE, 6, pb_adpcma_rom, sizeof pb_adpcma_rom,
-                       pb_adpcma_rom, sizeof pb_adpcma_rom);
+    ym = ym2610_create(PB_SND_CLOCK, AUDIO_RATE, 6, pb_adpcma_rom, PB_ADPCMA_ROM_LEN,
+                       pb_adpcma_rom, PB_ADPCMA_ROM_LEN);
     sdl_port_cfg cfg = {"Puzzle Bobble", PB_SCREEN_W, PB_SCREEN_H, 3, AUDIO_RATE, PB_FPS};
     if (!sdl_port_open(&cfg)) return 1;
 

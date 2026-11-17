@@ -268,7 +268,7 @@ void app_main(void)
     memset(core, 0, sizeof *core);
     iband = must_alloc(PP_W * BAND, "band");
     pp_roms roms;
-    pp_rom_data(&roms);
+    if (!pp_roms_get(&roms)) cyd_rom_error();
     // the three CPUs' programs in RAM (out of the flash cache), if they fit
     const uint8_t **prog[3] = { &roms.sub1, &roms.sub2, &roms.z80 };
     const size_t psize[3] = { 0x8000, 0x8000, roms.z80_size };

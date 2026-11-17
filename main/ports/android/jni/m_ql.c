@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "core.h"
+#include "rom_data.h"
 #include "ql_core.h"
 #include "ql_mdv.h"
 #include "zx8301.h"
@@ -16,6 +17,16 @@ static uint8_t *ram[QL_RAM_BLOCKS];
 static uint8_t *cart[2];                   // cartridge images (mdv1, mdv2)
 static uint32_t palette[8];
 static uint8_t held[MC_KEYS];
+
+void mc_rom_fill(int model, uint8_t **roms, int *lens, int *n)
+{
+    (void)model;
+    if (*n < 2) *n = 2;
+    if (roms[0] && roms[1]) return;
+    ql_rom_load();
+    mc_take(roms, lens, 0, &ql_rom, 0xc000);
+    mc_take(roms, lens, 1, &ql_ipc_rom, 0x800);
+}
 
 bool mc_init(int model, uint8_t **roms, const int *lens, int n, int64_t unix_time)
 {

@@ -160,6 +160,7 @@ int main(void)
 {
     pico_port_cfg cfg = { "Amiga 500", render, NULL, AMIGA_AUDIO_RATE, AMIGA_FPS, true };
     pico_port_open(&cfg);                   // (the PSRAM's heap is there after this)
+    if (!amiga_rom_load()) pico_port_rom_error();
     if (!amiga_rom_kick) {
         printf("no Kickstart built in (roms/amiga/, tools/regen.sh amiga)\n");
         pico_osd_text(2, "NO KICKSTART BUILT IN: ROMS/AMIGA, TOOLS/REGEN.SH AMIGA", true);

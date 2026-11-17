@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """The ROMs of one machine of the Android port, from roms/<set>/ (unzipped or
-the MAME .zip itself), into an APK's assets (never into git): the same
+the MAME .zip itself), into an APK's assets (never into git). Those missing
+are left out: the app looks for them at run time in its roms folder
+(Android/data/<app>/files/roms/<set>/, or imported from the menu). The same
 files and checks as tools/gen_roms_computers.py, gen_roms_zxspec.py and
 gen_roms_ql.py, written as plain binaries that the app gives its core.
 
@@ -42,7 +44,7 @@ def computers(machine_set, romdir, out, names):
             src, data = g.find(files, cands, size)
         if data is None:
             if required:
-                sys.exit("%s: %s missing in %s" % (machine_set, sym, romdir))
+                print("  %s: %s not in %s: the app will look for it in its roms folder" % (machine_set, sym, romdir))
             continue
         write(os.path.join(out, name), data)
         found.append(name)
@@ -61,7 +63,8 @@ def ql(roms, out):
     js = [read("ql.js 0000.ic33", 0x8000), read("ql.js 8000.ic34", 0x4000)]
     ipc = read("ipc8049.ic24", 0x800)
     if None in js or ipc is None:
-        sys.exit("roms/ql needs 'ql.js 0000.ic33', 'ql.js 8000.ic34' and 'ipc8049.ic24' (MAME set ql)")
+        print("  roms/ql has no 'ql.js 0000.ic33', 'ql.js 8000.ic34', 'ipc8049.ic24': the app will look for them in its roms folder")
+        return []
     write(os.path.join(out, "roms/js.rom"), js[0] + js[1])
     write(os.path.join(out, "roms/ipc.rom"), ipc)
     jm = [read("ql.jm 0000.ic33", 0x8000), read("ql.jm 8000.ic34", 0x4000)]
@@ -95,7 +98,7 @@ def zxspec(roms, out):
             write(os.path.join(out, "roms", model, "banked.rom"), banked)
         found.append(model)
     if not found:
-        sys.exit("no ZX Spectrum ROMs in %s/<model>/" % roms)
+        print("  no ZX Spectrum ROMs in %s/<model>/: the app will look for them in its roms folder" % roms)
     return found
 
 
@@ -116,7 +119,7 @@ def amiga(roms, out):
             src, data = g.find(files, cands, size)
         if data is None:
             if required:
-                sys.exit("amiga: Kickstart 1.3 (315093-02.u2) missing in %s/amiga" % roms)
+                print("  amiga: no Kickstart 1.3 in %s/amiga: the app will look for it in its roms folder" % roms)
             continue
         write(os.path.join(out, "roms", name), data)
         found.append(name)

@@ -1,6 +1,9 @@
 package com.chusogar.cmesys.app;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.DialogInterface;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -42,6 +45,7 @@ public final class MachineActivity extends Activity implements KeyboardView.List
     static final String PREF_RECENT = "recent_media";
     private static final int MAX_RECENT = 10;
     private static final int PICK = 0x100;            // + slot
+    private static final int IMPORT_ROMS = 0x200;
 
     private Machine machine;
     private Emulator emu;
@@ -70,6 +74,7 @@ public final class MachineActivity extends Activity implements KeyboardView.List
         PreferenceManager.setDefaultValues(this, R.xml.preferences, true);
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
         machine = Machine.create();
+        Core.romDirs(romDirs());
 
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -229,8 +234,9 @@ public final class MachineActivity extends Activity implements KeyboardView.List
                 }
                 emu.setStarted(ok);
                 if (!ok) {
+                    final String why = Core.romError();
                     runOnUiThread(new Runnable() {
-                        @Override public void run() { toast("Las ROM no son válidas para este modelo"); }
+                        @Override public void run() { romsMissing(why); }
                     });
                 }
             }
@@ -376,6 +382,9 @@ public final class MachineActivity extends Activity implements KeyboardView.List
                 emu.setPaused(!emu.isPaused());
                 toast(emu.isPaused() ? "En pausa" : "En marcha");
             }
+        }));
+        items.add(item(R.drawable.ic_folder, "Importar ROMs…", new Runnable() {
+            @Override public void run() { importRoms(); }
         }));
         items.add(item(R.drawable.ic_settings, "Ajustes", new Runnable() {
             @Override public void run() { startActivity(new Intent(MachineActivity.this, SettingsActivity.class)); }
@@ -558,9 +567,82 @@ public final class MachineActivity extends Activity implements KeyboardView.List
         };
     }
 
+    // --- ROMs ------------------------------------------------------------------
+    /** Where the ROMs the APK does not have are looked for: Android/data/<app>/files/roms
+     *  (reachable over USB) and the app's own files/roms. */
+    private String[] romDirs() {
+        List<String> dirs = new ArrayList<>();
+        File ext = getExternalFilesDir(null);
+        if (ext != null) dirs.add(new File(ext, "roms").getAbsolutePath());
+        dirs.add(new File(getFilesDir(), "roms").getAbsolutePath());
+        return dirs.toArray(new String[0]);
+    }
+
+    /** The folder the imported ROMs of this model go in (made if needed). */
+    private File romFolder() {
+        File ext = getExternalFilesDir(null);
+        File base = new File(ext != null ? ext : getFilesDir(), "roms");
+        File dir = new File(base, machine.romSet(model));
+        if (!dir.isDirectory()) dir.mkdirs();
+        return dir;
+    }
+
+    private void romsMissing(String why) {
+        new AlertDialog.Builder(this)
+                .setTitle("Faltan ROMs")
+                .setMessage(why + "\n\nCópialas (sueltas o el .zip de MAME) en\n" + romFolder().getAbsolutePath()
+                        + "\no impórtalas desde aquí.")
+                .setPositiveButton("Importar ROMs…", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) { importRoms(); }
+                })
+                .setNegativeButton("Cerrar", null)
+                .show();
+    }
+
+    /** Picks ROM files or MAME .zips and copies them to the app's roms/<set>/. */
+    private void importRoms() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        try {
+            startActivityForResult(i, IMPORT_ROMS);
+        } catch (Exception e) {
+            toast("No hay selector de archivos");
+        }
+    }
+
+    private void importRomsResult(Intent data) {
+        List<Uri> uris = new ArrayList<>();
+        ClipData clip = data.getClipData();
+        if (clip != null) for (int k = 0; k < clip.getItemCount(); k++) uris.add(clip.getItemAt(k).getUri());
+        else if (data.getData() != null) uris.add(data.getData());
+        File dir = romFolder();
+        int n = 0;
+        for (Uri uri : uris) {
+            String name = displayName(uri).replaceAll("[/\\\\:*?\"<>|]", "_");
+            try (InputStream in = getContentResolver().openInputStream(uri);
+                 OutputStream out = new FileOutputStream(new File(dir, name))) {
+                if (in == null) continue;
+                byte[] buf = new byte[65536];
+                int k;
+                while ((k = in.read(buf)) > 0) out.write(buf, 0, k);
+                n++;
+            } catch (IOException | SecurityException e) {
+                toast("No se puede copiar " + name);
+            }
+        }
+        toast(n + " archivo(s) en " + dir.getAbsolutePath());
+        if (n > 0) startMachine(false);
+    }
+
     @Override
     protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+        if (request == IMPORT_ROMS) {
+            if (result == RESULT_OK && data != null) importRomsResult(data);
+            return;
+        }
         if (request < PICK || request >= PICK + slotName.length) return;
         if (result != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();

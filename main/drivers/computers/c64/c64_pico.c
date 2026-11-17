@@ -146,6 +146,7 @@ static void game(void)
 int main(void)
 {
     cpu_m = c64_create(C64_AUDIO_RATE);
+    if (!c64_rom_load()) pico_port_rom_error();
     if (!cpu_m || !c64_rom_kernal) {
         printf(cpu_m ? "no C64 ROMs built in (roms/c64/)\n" : "out of memory\n");
         for (;;) {}

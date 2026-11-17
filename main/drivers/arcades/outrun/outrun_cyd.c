@@ -334,13 +334,13 @@ static void copy_hot_pages(void)
     for (int i = 0; i < (int)sizeof sub_hot; i++, n++) {
         uint8_t *p = page_alloc();
         if (!p) goto done;
-        for (int k = 0; k < 1024; k += 4) *(volatile uint32_t *)(p + k) = *(const uint32_t *)(or_sub_rom + sub_hot[i] * 1024 + k);
+        for (int k = 0; k < 1024; k += 4) *(volatile uint32_t *)(p + k) = *(const uint32_t *)(core->roms.sub + sub_hot[i] * 1024 + k);
         core->sub_page[sub_hot[i]] = p;
     }
     for (int i = 0; i < (int)sizeof main_hot; i++, n++) {
         uint8_t *p = page_alloc();
         if (!p) goto done;
-        for (int k = 0; k < 1024; k += 4) *(volatile uint32_t *)(p + k) = *(const uint32_t *)(or_main_rom + main_hot[i] * 1024 + k);
+        for (int k = 0; k < 1024; k += 4) *(volatile uint32_t *)(p + k) = *(const uint32_t *)(core->roms.main + main_hot[i] * 1024 + k);
         core->main_page[main_hot[i]] = p;
     }
 done:
@@ -379,7 +379,7 @@ void app_main(void)
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
     or_roms roms;
-    or_rom_data(&roms);
+    if (!or_roms_get(&roms)) cyd_rom_error();
     or_init(core, &roms, AUDIO_RATE);
     core->idle_skip = true;
     core->sound_async = true;           // run by the audio task on core 0

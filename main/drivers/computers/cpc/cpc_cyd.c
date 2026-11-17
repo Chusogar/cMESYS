@@ -149,6 +149,7 @@ void app_main(void)
     static const cyd_game_t info = { "cpc6128", "AMSTRAD CPC 6128", "MEDIA: TAPE / HOLD=SD", { 255, 180, 40 } };
     cyd_boot(&info);
     cpu_m = cpc_create(CPC_6128, CPC_AUDIO_RATE);
+    if (!cpc_rom_load()) cyd_rom_error();
     if (!cpu_m || !cpc_rom_os) {
         ESP_LOGE("cpc", "%s", cpu_m ? "no CPC ROMs built in (roms/cpc6128/)" : "out of memory for the CPC");
         abort();

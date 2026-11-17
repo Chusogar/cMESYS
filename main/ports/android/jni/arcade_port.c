@@ -13,7 +13,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <setjmp.h>
+
 #include "sdl_port.h"
+#include "../../../rom/romfs.h"
 
 extern int cmesys_game_main(int argc, char **argv);
 extern int chdir(const char *path);
@@ -145,6 +148,41 @@ void sdl_port_present(const uint32_t *rgb)
 
 // Runs the game (its desktop main) until requestQuit(); dir: where it keeps
 // its NVRAM / EEPROM files.
+// The game's ROMs are not built in and not in the app's roms folders: Java is
+// told (Native.onRomError) and run() returns.
+static jmp_buf rom_jmp;
+
+void sdl_port_rom_error(void)
+{
+    static char msg[1024];
+    romfs_describe(msg, sizeof msg, 1000);
+    jmethodID m = (*env)->GetStaticMethodID(env, cls, "onRomError", "(Ljava/lang/String;)V");
+    if (m) {
+        jstring s = (*env)->NewStringUTF(env, msg);
+        (*env)->CallStaticVoidMethod(env, cls, m, s);
+        (*env)->DeleteLocalRef(env, s);
+    }
+    longjmp(rom_jmp, 1);
+}
+
+// The folders the ROMs not built in are looked for in (romfs.h).
+JNIEXPORT void JNICALL JNI_FN(romDirs)(JNIEnv *e, jclass c, jobjectArray dirs)
+{
+    (void)c;
+    romfs_clear_dirs();
+    int n = dirs ? (*e)->GetArrayLength(e, dirs) : 0;
+    for (int i = 0; i < n; i++) {
+        jstring s = (jstring)(*e)->GetObjectArrayElement(e, dirs, i);
+        if (!s) continue;
+        const char *p = (*e)->GetStringUTFChars(e, s, NULL);
+        if (p) {
+            romfs_add_dir(p);
+            (*e)->ReleaseStringUTFChars(e, s, p);
+        }
+        (*e)->DeleteLocalRef(e, s);
+    }
+}
+
 JNIEXPORT void JNICALL JNI_FN(run)(JNIEnv *e, jclass c, jstring dir)
 {
     env = e;
@@ -161,7 +199,7 @@ JNIEXPORT void JNICALL JNI_FN(run)(JNIEnv *e, jclass c, jstring dir)
     quit = 0;
     static char name[] = "cmesys";
     char *argv[] = {name, NULL};
-    cmesys_game_main(1, argv);
+    if (setjmp(rom_jmp) == 0) cmesys_game_main(1, argv);
 }
 
 JNIEXPORT void JNICALL JNI_FN(setKeys)(JNIEnv *e, jclass c, jint bits)

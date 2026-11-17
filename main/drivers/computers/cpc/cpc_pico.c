@@ -138,6 +138,7 @@ static void game(void)
 int main(void)
 {
     cpu_m = cpc_create(CPC_6128, CPC_AUDIO_RATE);
+    if (!cpc_rom_load()) pico_port_rom_error();
     if (!cpu_m || !cpc_rom_os) {
         printf(cpu_m ? "no CPC ROMs built in (roms/cpc6128/)\n" : "out of memory\n");
         for (;;) {}

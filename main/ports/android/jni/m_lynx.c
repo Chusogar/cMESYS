@@ -7,11 +7,21 @@
 #include <stdlib.h>
 
 #include "core.h"
+#include "rom_data.h"
 #include "lynx_core.h"
 
 static lynx *m;
 static uint8_t *boot;
 static unsigned pad;
+
+void mc_rom_fill(int model, uint8_t **roms, int *lens, int *n)
+{
+    (void)model;
+    if (*n < 1) *n = 1;
+    if (roms[0]) return;
+    lynx_rom_load();                            // (optional: the built-in loader otherwise)
+    mc_take(roms, lens, 0, &lynx_rom_boot, 0x200);
+}
 
 bool mc_init(int model, uint8_t **roms, const int *lens, int n, int64_t unix_time)
 {

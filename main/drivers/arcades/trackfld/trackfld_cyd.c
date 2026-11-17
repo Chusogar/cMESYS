@@ -22,6 +22,7 @@
 #include "dac_audio.h"
 #include "nunchuk.h"
 #include "tf_core.h"
+#include "rom_data.h"
 
 static const char *TAG = "trackfld";
 
@@ -251,6 +252,7 @@ void app_main(void)
     fb = heap_caps_malloc(TF_W * TF_H, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     assert(fb);
     memset(fb, 0, TF_W * TF_H);
+    if (!tf_roms_get()) cyd_rom_error();
     tf_init();
 
 #ifndef CYD_HEADLESS_TEST

@@ -58,7 +58,7 @@ bool pb_idle_skip = true;
 
 // 68000 program ROM through 1 KB pages (hot ones copied to RAM on the ESP32)
 static const uint8_t *rom_page[512];
-static const uint8_t *snd_rom = pb_snd_rom;
+static const uint8_t *snd_rom;        // (pb_snd_rom, set by pb_init)
 
 static inline uint16_t rd16(const uint8_t *p) { return (uint16_t)((p[0] << 8) | p[1]); }
 static inline void wr16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)(v >> 8); p[1] = (uint8_t)v; }
@@ -489,6 +489,7 @@ void HOT pb_run_frame(void)
 // ---------------------------------------------------------------------------
 void pb_init(void)
 {
+    snd_rom = pb_snd_rom;
     if (!S) {
         S = calloc(1, sizeof(pb_t));
         V = calloc(1, sizeof(tc0180vcu_t));
@@ -496,7 +497,7 @@ void pb_init(void)
         eeprom93c46_init(&S->eep, 16);
         eeprom93c46_set_timing(&S->eep, PB_CPU_CLOCK);
     }
-    tc0180vcu_set_gfx(pb_gfx_rom, sizeof pb_gfx_rom / 32);
+    tc0180vcu_set_gfx(pb_gfx_rom, PB_GFX_ROM_LEN / 32);
     pb_t *s = S;
     s->syt.nmi_cb = syt_nmi;
     s->syt.reset_cb = syt_reset;

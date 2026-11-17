@@ -72,7 +72,7 @@ static void game(void)
 int main(void)
 {
     or_roms roms;
-    or_rom_data(&roms);
+    if (!or_roms_get(&roms)) pico_port_rom_error();
     or_init(&core, &roms, AUDIO_RATE);
     core.idle_skip = true;
     core.on_frame = on_frame;

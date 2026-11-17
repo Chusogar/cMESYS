@@ -6,12 +6,25 @@
 #include <stdlib.h>
 
 #include "core.h"
+#include "rom_data.h"
 #include "c64_core.h"
 
 #define KEY_RESTORE 100
 
 static c64 *m;
 static uint8_t *rom[4];
+
+void mc_rom_fill(int model, uint8_t **roms, int *lens, int *n)
+{
+    (void)model;
+    if (*n < 4) *n = 4;
+    if (roms[0] && roms[1] && roms[2] && roms[3]) return;
+    c64_rom_load();
+    mc_take(roms, lens, 0, &c64_rom_kernal, 0x2000);
+    mc_take(roms, lens, 1, &c64_rom_basic, 0x2000);
+    mc_take(roms, lens, 2, &c64_rom_chargen, 0x1000);
+    mc_take(roms, lens, 3, &c64_rom_dos1541, 0x4000);
+}
 
 bool mc_init(int model, uint8_t **roms, const int *lens, int n, int64_t unix_time)
 {

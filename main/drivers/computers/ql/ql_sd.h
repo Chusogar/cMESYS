@@ -45,5 +45,8 @@ typedef struct ql_sd_file ql_sd_file;
 ql_sd_file *ql_sd_file_open(const char *name, size_t *size);
 bool ql_sd_file_read(ql_sd_file *f, uint32_t off, uint8_t *dst, uint32_t n);
 void ql_sd_file_close(ql_sd_file *f);
+// The files (not folders) of a folder of the card ("roms/gauntlet"); false if
+// there is no such folder. Names with '/' also open with ql_sd_file_open.
+bool ql_sd_list_dir(const char *dir, void (*fn)(void *user, const char *name), void *user);
 typedef bool (*ql_sd_piece_fn)(void *user, size_t size, const uint8_t *data, size_t n);
 bool ql_sd_read_pieces(const char *name, ql_sd_piece_fn fn, void *user);

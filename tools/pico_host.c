@@ -9,6 +9,7 @@
 //   PICO_KEYS=bits@first:count,...   SP_* bits held from frame first for count frames
 //   PICO_PRESS=usage@frame,...       HID key presses (computers), e.g. 58@5 = F1 at frame 5
 #include "pico_port.h"
+#include "../main/rom/romfs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +19,17 @@
 static pico_port_cfg cfg;
 static long frames, quit_after = 600;
 static long audio_samples;
+
+void pico_port_early(void) {}
+
+// (the ROMs from ./roms on the host, as the board reads them from the microSD)
+void pico_port_rom_error(void)
+{
+    char msg[1024];
+    romfs_describe(msg, sizeof msg, PICO_OSD_COLS);
+    printf("%s\n", msg);
+    exit(1);
+}
 
 void pico_port_open(const pico_port_cfg *c)
 {

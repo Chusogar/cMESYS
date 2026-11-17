@@ -31,6 +31,9 @@ typedef struct {
 //   --help            prints these
 // They override what the driver asks for in sdl_port_open().
 void sdl_port_args(int *argc, char **argv);
+// The machine's ROMs are not built in and not found (romfs.h): says so (and
+// where they were looked for) and quits.
+void sdl_port_rom_error(void) __attribute__((noreturn));
 bool sdl_port_open(const sdl_port_cfg *cfg);
 void sdl_port_close(void);
 // Handles the events; false when the user quits. Sets *reset on F3.

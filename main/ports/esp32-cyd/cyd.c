@@ -20,6 +20,7 @@
 #include "nvs.h"
 #include "cyd.h"
 #include "font5x7.h"
+#include "../../rom/romfs.h"
 
 static const char *TAG = "cyd";
 
@@ -579,13 +580,35 @@ void cyd_boot(const cyd_game_t *g)
     gpio_config(&bb);
 }
 
+static bool display_started;
+
 void cyd_display_start(bool with_lcd)
 {
+    display_started = true;
     if (with_lcd) lcd_init();
     xpt_init();
     fill_rect(0, 0, 240, 320, C_BLACK);
     lcd_flush();
     gpio_set_level(PIN_LCD_BL, 1);
+}
+
+void cyd_rom_error(void)
+{
+    char msg[768];
+    romfs_describe(msg, sizeof msg, 52);
+    ESP_LOGE("cyd", "%s", msg);
+    if (!display_started) cyd_display_start(true);
+    set_landscape(true);
+    fill_rect(0, 0, 320, 240, C_BLACK);
+    int y = 8;
+    for (char *line = msg; line && y < 232; y += 10) {
+        char *nl = strchr(line, '\n');
+        if (nl) *nl = 0;
+        draw_text(4, y, line, 1, y == 8 ? C_YELLOW : C_WHITE, C_BLACK);
+        line = nl ? nl + 1 : NULL;
+    }
+    lcd_flush();
+    for (;;) vTaskDelay(pdMS_TO_TICKS(1000));
 }
 
 void cyd_setup_ui(void)

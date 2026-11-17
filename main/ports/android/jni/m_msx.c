@@ -6,10 +6,23 @@
 #include <stdlib.h>
 
 #include "core.h"
+#include "rom_data.h"
 #include "msx_core.h"
 
 static msx *m;
 static uint8_t *rom[3];
+
+void mc_rom_fill(int model, uint8_t **roms, int *lens, int *n)
+{
+    if (*n < 3) *n = 3;
+    if (roms[0] && (model == 1 || roms[1]) && roms[2]) return;
+    msx_rom_bios = msx_rom_sub = msx_rom_disk = NULL;
+    if (model == 1) msx1_rom_load();
+    else msx2_rom_load();
+    mc_take(roms, lens, 0, &msx_rom_bios, 0x8000);
+    if (model != 1) mc_take(roms, lens, 1, &msx_rom_sub, 0x4000);
+    mc_take(roms, lens, 2, &msx_rom_disk, 0x4000);
+}
 
 bool mc_init(int model, uint8_t **roms, const int *lens, int n, int64_t unix_time)
 {

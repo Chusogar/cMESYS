@@ -87,6 +87,12 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
   generadores de `tools/`) y van solo en el APK, nunca en git. El Spectrum
   lleva los seis modelos que encuentre; el MSX, MSX1 y MSX2; el Amiga, los
   Kickstart del set `a500` de MAME (`roms/amiga/a500.zip`).
+- Las que el APK no lleva (o todas, con `ROMS=external build_apk.sh`) las
+  busca el núcleo al arrancar (`main/rom/romfs.c`, el `rom_load.c` de la
+  máquina; `Core.romDirs`) en `Android/data/<app>/files/roms/<set>/`
+  (sueltas, el `.zip` de MAME o un `.zip` dentro) y en la carpeta interna de
+  la app. Si falta alguna, un aviso dice cuál y ofrece **Importar ROMs…**
+  (también en el menú), que copia los ficheros elegidos a esa carpeta.
 - Paquetes `com.chusogar.cmesys.<máquina>`; el del QL es el de antes, así que
   se actualiza encima. Firma: `$CMESYS_KEYSTORE` (o `$QL_KEYSTORE`) o
   `build/android/debug.keystore` (se crea la primera vez; consérvala para
@@ -132,7 +138,9 @@ main/ports/android/build_arcade.sh snowbros     # solo algunos
   paleta y el ritmo son los suyos, así que se juega y suena igual que en el
   escritorio.
 - **Una librería por juego** (`libgame_<id>.so`, con su ROM: el
-  `rom_data.c` generado, como para el escritorio): cada juego corre en su
+  `rom_data.c` generado, como para el escritorio; sin él, o con
+  `ROMS=external`, el juego lee su set de `Android/data/<app>/files/roms/`
+  y, si falta, la app ofrece importarlo): cada juego corre en su
   propio proceso (`:game`), que carga solo la suya (los juegos de 68000
   configuran Musashi cada uno a su manera) y termina al volver a la lista.
   Su EEPROM / NVRAM se guarda en la carpeta privada de la app.

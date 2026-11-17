@@ -4,8 +4,9 @@
 #   make -C main/ports/web all
 #   make -C main/ports/web serve            -> python http.server on build/web
 #
-# Needs emcc on PATH (source emsdk_env.sh). ROMs must already be in each
-# driver's rom_data.c (tools/regen.sh <game>).
+# Needs emcc on PATH (source emsdk_env.sh). ROMs: those in each driver's
+# rom_data.c (tools/regen.sh <game>), else roms/<set>.zip or roms/<set>/
+# next to the page (fetched when the game starts); ROMS=external builds none in.
 ROOT    := $(abspath ../../..)
 M       := $(ROOT)/main
 OUT     := $(ROOT)/build/web
@@ -156,6 +157,21 @@ else
   $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga or a console: $(CONSOLES))
 endif
 
+# The ROMs that rom_data.c does not have: from the page's server
+# (roms/<set>.zip or roms/<set>/<file> next to the .html, fetched once into
+# the in-memory file system) or uploaded (main/rom/romfs.c, rom_load.c).
+ROM_SRC := $(M)/rom/romfs.c $(M)/machine/zx_inflate.c $(wildcard $(D)/rom_load.c)
+ifneq ($(filter indytemp roadrunn,$(GAME)),)
+  ROM_SRC += $(AS1)/atarisy1_roms.c
+endif
+SRC := $(SRC) $(filter-out $(SRC),$(ROM_SRC))
+LDFLAGS += -sFORCE_FILESYSTEM=1
+# ROMS=external: no ROMs built in (build/web-noroms/)
+ifeq ($(ROMS),external)
+  OUT  := $(ROOT)/build/web-noroms
+  DEFS += -DCMESYS_ROMS_EXTERNAL
+endif
+
 PORTSRC := $(M)/ports/web/sdl_port.c
 GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql \
            spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga \
@@ -167,7 +183,7 @@ $(OUT)/$(GAME).html: $(SRC) $(PORTSRC) $(wildcard $(PP)/*.inc) $(M)/ports/web/sh
 	@cp -f $(M)/ports/web/index.html $(OUT)/index.html
 
 all:
-	@for g in $(GAMES); do $(MAKE) -f $(M)/ports/web/Makefile GAME=$$g || exit 1; done
+	@for g in $(GAMES); do $(MAKE) -f $(M)/ports/web/Makefile GAME=$$g ROMS=$(ROMS) || exit 1; done
 	@cp -f $(M)/ports/web/index.html $(OUT)/index.html
 	@echo "web builds in $(OUT)/"
 

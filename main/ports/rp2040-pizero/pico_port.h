@@ -56,7 +56,13 @@ typedef struct {
 } pico_port_cfg;
 
 // Clocks (252 MHz for HDMI), UART log, USB host, HDMI on core 1, sound.
+// The clock, the UART and the PSRAM only (pico_port_open does it too): before
+// a frontend reads its ROMs from the microSD into the heap (romfs).
+void pico_port_early(void);
 void pico_port_open(const pico_port_cfg *cfg);
+// The machine's ROMs are not built in and not on the microSD (romfs.h): shows
+// what is missing (opening the picture if needed) and stops.
+void pico_port_rom_error(void) __attribute__((noreturn));
 // Runs fn, the game's loop (it never returns).
 void pico_port_run(void (*fn)(void)) __attribute__((noreturn));
 // USB (call once a frame; the waits below call it too). Returns true when

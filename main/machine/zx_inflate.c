@@ -201,10 +201,11 @@ static bool run(zstate *s)
     return true;
 }
 
-uint8_t *zx_inflate(const uint8_t *src, size_t src_len, size_t expected, size_t max, size_t *out_len)
+static uint8_t *inflate_from(int first_pass, const uint8_t *src, size_t src_len, size_t expected, size_t max,
+                             size_t *out_len)
 {
     if (!max) max = (size_t)64 << 20;
-    for (int pass = 0; pass < 2; pass++) {
+    for (int pass = first_pass; pass < 2; pass++) {
         size_t skip = 0;
         // zlib header: CMF/FLG with deflate method and a valid check
         if (pass == 0) {
@@ -229,4 +230,14 @@ uint8_t *zx_inflate(const uint8_t *src, size_t src_len, size_t expected, size_t 
         free(s.out);
     }
     return NULL;
+}
+
+uint8_t *zx_inflate(const uint8_t *src, size_t src_len, size_t expected, size_t max, size_t *out_len)
+{
+    return inflate_from(0, src, src_len, expected, max, out_len);
+}
+
+uint8_t *zx_inflate_raw(const uint8_t *src, size_t src_len, size_t expected, size_t max, size_t *out_len)
+{
+    return inflate_from(1, src, src_len, expected, max, out_len);
 }

@@ -92,6 +92,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--664")) model = CPC_664;
         else file = argv[i];
     }
+    if (!cpc_rom_load()) sdl_port_rom_error();
     if (!cpc_rom_os) {
         fprintf(stderr, "No CPC ROMs built in: put cpc6128.rom and amsdos.rom in roms/cpc6128/ and run tools/regen.sh cpc6128\n");
         return 1;

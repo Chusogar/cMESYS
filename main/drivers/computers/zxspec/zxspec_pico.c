@@ -181,6 +181,7 @@ int main(void)
         printf("out of memory\n");
         for (;;) {}
     }
+    if (!zx_rom_load()) pico_port_rom_error();
     zxspec_set_rom(cpu_m, zx_rom48, zx_rom128, zx_rom128_bytes);
     zxspec_reset(cpu_m);
     pico_port_cfg cfg = { zxspec_title(ZX_MODEL), render, NULL, ZX_AUDIO_RATE, zxspec_fps(cpu_m), true };

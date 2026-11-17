@@ -58,6 +58,7 @@ int main(int argc, char **argv)
     sdl_port_args(&argc, argv);
     m = lynx_create(LYNX_AUDIO_RATE);
     if (!m) { fprintf(stderr, "out of memory\n"); return 1; }
+    lynx_rom_load();                        // (optional: the built-in loader otherwise)
     if (lynx_rom_boot) lynx_set_boot_rom(m, lynx_rom_boot);
     else fprintf(stderr, "No Lynx boot ROM built in (roms/lynx/lynxboot.img): using a small loader\n");
     mm = (comp_menu){ frame, FW, FH, "LYNX MEDIA  F9", LYNX_MEDIA_LABEL,

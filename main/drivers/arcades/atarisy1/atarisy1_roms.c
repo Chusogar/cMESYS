@@ -1,6 +1,9 @@
-// atarisy1_roms.c - ROM loading of the Atari System 1 games (host builds,
-// tools/gen_roms_atarisy1.c).
+// atarisy1_roms.c - ROM loading of the Atari System 1 games: from
+// directories (the desktop's command line, tools/gen_roms_atarisy1.c) or,
+// with no directory, from storage (main/rom/romfs.h: roms/<game>/ and
+// roms/atarisy1/, or MAME's <game>.zip and atarisy1.zip).
 #include "atarisy1_roms.h"
+#include "../../../rom/romfs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,11 +62,25 @@ static const rom_entry rr_back[] = {
 static const rom_entry rr_proms[] = {{"136040-126.7a|136040.126", 0x200, 0x000}, {"136040-125.5a|136040.125", 0x200, 0x200}};
 #define N(a) (sizeof(a) / sizeof((a)[0]))
 
+static const char *const *fs_sets;       // (no directory: the storage's sets)
+
 static uint8_t *load_one(const char *dir, const char *bios_dir, const char *names, uint32_t length,
                          char *err, int errlen)
 {
     char list[256];
     snprintf(list, sizeof list, "%s", names);
+    if (!dir) {
+        for (char *name = strtok(list, "|"); name; name = strtok(NULL, "|")) {
+            uint8_t *b = romfs_get(fs_sets, name, 0, length, NULL);
+            if (b) return b;
+        }
+        snprintf(list, sizeof list, "%s", names);
+        char *bar = strchr(list, '|');
+        if (bar) *bar = 0;
+        romfs_missing(fs_sets, list);
+        snprintf(err, (size_t)errlen, "%s", romfs_error());
+        return NULL;
+    }
     for (char *name = strtok(list, "|"); name; name = strtok(NULL, "|")) {
         const char *dirs[2] = {dir, bios_dir};
         for (int d = 0; d < 2; d++) {
@@ -96,6 +113,9 @@ static const uint8_t *chunk_of(void *u, int i)
 
 bool as1_load_roms(as1_game g, const char *dir, const char *bios_dir, as1_roms *roms, char *err, int errlen)
 {
+    static const char *const indy_sets[] = {"indytemp", "atarisy1", NULL};
+    static const char *const rr_sets[] = {"roadrunn", "atarisy1", NULL};
+    fs_sets = g == AS1_ROADRUNN ? rr_sets : indy_sets;
     memset(roms, 0, sizeof *roms);
     roms->game = g;
     const bool rr = g == AS1_ROADRUNN;
@@ -155,6 +175,11 @@ bool as1_load_roms(as1_game g, const char *dir, const char *bios_dir, as1_roms *
         if (t && as1_pack_bank(chunk_of, NULL, bank, t)) roms->tiles[bank] = t;
         else free(t);
     }
+    for (size_t i = 0; i < n_back; i++) {                // (the packed tiles are what is kept)
+        free((void *)gfx_chunks[t_back[i].offset / 0x4000]);
+        gfx_chunks[t_back[i].offset / 0x4000] = NULL;
+    }
+    if (!dir) romfs_release();
     roms->main = main;
     roms->sound = snd;
     roms->chars = ch;

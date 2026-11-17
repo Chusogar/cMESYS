@@ -7,14 +7,18 @@
 #   ./build_pico2.sh             all machines
 #   ./build_pico2.sh robocop ql  some of them
 #   USB=native ./build_pico2.sh  the native USB-C builds
+#   ROMS=external ./build_pico2.sh   no ROMs built in (they are read from the microSD:
+#                                    roms/<set>/ or roms/<set>.zip) -> <game>_rp2350_pizero[_usbc]_noroms.uf2
 set -e
+if [ "$ROMS" = external ]; then X=-noroms; XS=_noroms; else X=; XS=; fi
 mkdir -p dist
 CONSOLES=$(sed -n 's/^CONSOLES := //p' main/drivers/consoles/consoles.mk)
 GAMES=${*:-"hdmitest hdmitest2 indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga $CONSOLES"}
 if [ "$USB" = native ]; then B=pico2n; SUF=_usbc; NAT=ON; else B=pico2; SUF=; NAT=OFF; fi
 for g in $GAMES; do
     [ "$g" = hdmitest2 ] && [ "$NAT" = ON ] && continue
-    cmake -S main/ports/rp2040-pizero -B build/$B-$g -DGAME=$g -DPIZERO=2350 -DUSB_NATIVE=$NAT >/dev/null
-    cmake --build build/$B-$g -j"$(nproc 2>/dev/null || echo 4)"
-    cp build/$B-$g/${g}_pizero.uf2 dist/${g}_rp2350_pizero$SUF.uf2
+    cmake -S main/ports/rp2040-pizero -B build/$B$X-$g -DGAME=$g -DPIZERO=2350 -DUSB_NATIVE=$NAT \
+        -DROMS=${ROMS:-builtin} >/dev/null
+    cmake --build build/$B$X-$g -j"$(nproc 2>/dev/null || echo 4)"
+    cp build/$B$X-$g/${g}_pizero.uf2 dist/${g}_rp2350_pizero$SUF$XS.uf2
 done

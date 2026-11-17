@@ -8,7 +8,7 @@ Recreativas, ordenadores y consolas clásicas en C11, en un solo árbol de fuent
 - **ESP32 CYD**: la ESP32-2432S028 "Cheap Yellow Display", variante ST7789 de 240x320 por SPI.
 - **Waveshare RP2040-PiZero y RP2350-PiZero**, con salida HDMI.
 
-Hay **43 máquinas**: 11 recreativas, 12 ordenadores y 20 consolas. Casi todas son migraciones a C de los drivers de [dsp-cpp](https://github.com/Chusogar/dsp-cpp), con los detalles que faltaban comprobados con MAME. Las ROMs y BIOS no están en el repositorio (ver [ROMs y BIOS](#roms-y-bios)).
+Hay **43 máquinas**: 11 recreativas, 12 ordenadores y 20 consolas. Casi todas son migraciones a C de los drivers de [dsp-cpp](https://github.com/Chusogar/dsp-cpp), con los detalles que faltaban comprobados con MAME. Las ROMs y BIOS no están en el repositorio: se pueden compilar dentro del programa o leerse al arrancar de una carpeta, de la microSD o del almacenamiento del móvil, sueltas o en el `.zip` de MAME (ver [ROMs y BIOS](#roms-y-bios)).
 
 ## Índice
 
@@ -126,13 +126,16 @@ main/
                              zx_rzx, zx_inflate, zx_beta, zx_nec765, zx_pbuf, c1541, msx_cart,
                              msx_disk, psx_* (CD-ROM, DMA, GPU, MDEC, SPU, timers, mandos)
   drivers/
-    arcades/<id>/            núcleo, frontends <id>_cyd.c / _sdl.c / _pico.c, rom_data.c,
-                             m68k_game_conf.h y m68k_tables.c (68000), <id>.lf (código en IRAM)
+    arcades/<id>/            núcleo, frontends <id>_cyd.c / _sdl.c / _pico.c, rom_data.c (las ROMs
+                             dentro), rom_load.c (las que no: del almacenamiento), m68k_game_conf.h
+                             y m68k_tables.c (68000), <id>.lf (código en IRAM)
     computers/<id>/          ql, zxspec, cpc, c64, msx, amiga; common/ con los frontends compartidos
                              (comp_sdl.h, comp_pico.h, comp_cyd.h, comp_sd.h)
     consoles/<id>/           las 19 consolas de la API común y la Lynx
     consoles/common/         cons.h, cons_sdl.c, cons_pico.c, cons_cyd.c
     consoles/consoles.mk     manifiesto: CONSOLES y, por consola, CONS_SRC_, CONS_DEFS_, CONS_RAM_
+  rom/                       romfs.c (las ROMs desde carpetas, .zip de MAME por nombre o CRC, la microSD
+                             con romfs_sd.c), rom_embed.h (ROMS=external) y romfs_arcade.h
   ports/
     sdl2/                    ventana, audio, teclado, ritmo, capturas
     web/                     la misma API que sdl2 sobre Emscripten (USE_SDL=2 + ASYNCIFY)
@@ -140,7 +143,9 @@ main/
     esp32-cyd/               LCD SPI/DMA, táctil XPT2046, menú de ajustes en NVS, DAC, Nunchuk
     rp2040-pizero/           pico_port.c (HDMI, sonido, USB), CMakeLists.txt (RP2040 y RP2350), rp2350/
 tools/
-  regen.sh <id>              mete las ROMs de roms/<id>/ en rom_data.c (y regenera las tablas de Musashi)
+  regen.sh <id>              mete las ROMs de roms/<id>/ en rom_data.c (y regenera las tablas de Musashi);
+                             --stub <id>: rom_data.c sin ROMs (como está en git)
+  gen_rom_stub.py            los stubs de las recreativas
   gen_roms_*.py              un generador por familia; --stub deja un rom_data.c vacío
   setup_pico.sh              baja Pico SDK 2.1.1, PicoDVI y Pico-PIO-USB a deps/pico
   pico_host.c, pico_hot.py, pico_ram.py, conv_z8002.py, z8002_hot.py, gen_m68k_tables.c
@@ -153,7 +158,7 @@ El núcleo de cada máquina no depende de la plataforma. El CYD, el escritorio, 
 
 ## Compilar
 
-Antes de compilar con ROMs reales: `tools/regen.sh <id>` (ver [ROMs y BIOS](#roms-y-bios)). Sin ellas todo compila con los stubs del repositorio.
+Todo compila tal como está en el repositorio: las máquinas leen entonces sus ROMs al arrancar (de `roms/`, la microSD o la carpeta de la app). `tools/regen.sh <id>` las mete dentro del programa, y `ROMS=external` compila sin ninguna aunque estén generadas (ver [ROMs y BIOS](#roms-y-bios)).
 
 ### Escritorio (Linux)
 
@@ -169,6 +174,7 @@ Opciones comunes:
 |---|---|
 | `--mute` / `-m` | sin sonido |
 | `--scale N` / `-s N` | ventana de N veces la imagen (1-10; por defecto 2) |
+| `--roms DIR` | busca las ROMs que no lleva dentro en `DIR/<set>/` y `DIR/<set>.zip` (antes que en `$CMESYS_ROMS`, `./roms` y `roms/` junto al programa) |
 | `--help` | lista de opciones |
 
 Para pruebas sin ventana: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_PORT_FRAMES=1200 SDL_PORT_SHOT=1200 ./build/sdl/<id>` guarda el frame 1200 en `shot.ppm`. `SDL_PORT_VERBOSE=1` dice el tamaño de ventana y si hay sonido.
@@ -181,6 +187,7 @@ En [MSYS2](https://www.msys2.org/), shell MinGW64:
 pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-SDL2 make
 ./build_windows.sh              # todas → build/win/*.exe
 ./build_windows.sh robocop ql   # algunas (o build_windows.bat desde cmd.exe)
+ROMS=external ./build_windows.sh   # sin ROMs dentro → build/win-noroms/
 ```
 
 Desde Linux o macOS se cruza con `mingw-w64` y el SDL2 MinGW de [libsdl.org](https://libsdl.org/download-2.0.php): `SDL2DIR` apunta al prefijo `x86_64-w64-mingw32` del zip. Copia `SDL2.dll` junto al `.exe`.
@@ -193,7 +200,7 @@ source "$EMSDK/emsdk_env.sh"
 python3 -m http.server --directory build/web 8080
 ```
 
-`http://localhost:8080/` abre el índice. En la URL, `?frames=n` corta tras n frames. Los ordenadores, la Lynx y las consolas cargan ficheros con la barra «Upload» o arrastrándolos.
+`http://localhost:8080/` abre el índice. En la URL, `?frames=n` corta tras n frames. Los ordenadores, la Lynx y las consolas cargan ficheros con la barra «Upload» o arrastrándolos. Las ROMs que la página no lleva dentro las descarga del servidor al arrancar: `roms/<set>.zip` o `roms/<set>/<fichero>` junto al `.html` (en `build/web/roms/`). `ROMS=external ./build_web.sh` compila sin ninguna (`build/web-noroms/`).
 
 ### Android
 
@@ -203,7 +210,10 @@ Sin Android Studio ni NDK (clang, lld, aapt, dx y el `android.jar` del SDK de De
 main/ports/android/build_apk.sh             # todos → dist/<máquina>_android.apk (arm64-v8a y x86_64)
 main/ports/android/build_apk.sh lynx snes   # algunos
 main/ports/android/build_arcade.sh          # → dist/arcade_android.apk (las 11 recreativas)
+ROMS=external main/ports/android/build_apk.sh c64   # sin ROMs dentro del APK
 ```
+
+Las ROMs que el APK no lleva las busca la app en su carpeta `Android/data/<app>/files/roms/<set>/` (sueltas o el `.zip` de MAME; se llega por USB). Si faltan, la app dice cuáles y ofrece **Importar ROMs…**, que también está en el menú de los ordenadores: copia los ficheros elegidos a esa carpeta.
 
 - **Ordenadores** (`ql`, `zxspec`, `cpc`, `c64`, `msx`, `amiga`) y **Lynx**: una app por máquina con la interfaz de Hataroid (menú de iconos, ajustes, *Abrir con*) y el teclado en pantalla de dsp-cpp. En el Amiga la imagen hace de trackpad.
 - **Consolas**: un APK por consola, con sus ficheros generados por `tools/gen_consoles_android.py`.
@@ -231,6 +241,8 @@ esptool.py --chip esp32 -b 921600 write_flash 0x0 dist/<id>_cyd_st7789_spi40mhz_
 2. Aparece el menú de ajustes durante 6 s, o hasta tocar PLAY: invertir colores, RGB/BGR, girar 180°, volumen 0-4 y recalibrar. Cada máquina guarda sus ajustes en NVS.
 3. Mantén BOOT al encender para volver al menú. Tras un cuelgue, el menú muestra el motivo y la traza.
 
+**ROMs**: las que el firmware no lleva dentro (o todas, con `ROMS=external ./build_all.sh`) se leen de la microSD al arrancar: `roms/<set>/`, `roms/<set>.zip` o la raíz de la tarjeta. Si faltan, la pantalla dice cuáles. Solo caben en RAM las de las máquinas pequeñas (BIOS, ordenadores, recreativas de pocas decenas de KB): el CYD no tiene PSRAM.
+
 **Conexiones**: Nunchuk de Wii en CN1 (SDA GPIO22, SCL GPIO27, 3,3 V; se puede conectar en caliente), microSD FAT32 (CS GPIO5), puerto serie a 115200 baudios. Las funciones del 68000 más usadas de cada juego van en IRAM, elegidas en su `.lf`, sin tocar Musashi.
 
 ### RP2040-PiZero
@@ -244,7 +256,7 @@ tools/setup_pico.sh                # una vez
 ./build_pico.sh robocop ql         # algunas
 ```
 
-Para flashear, mantén BOOT al enchufar el USB-C; aparece la unidad `RPI-RP2` y se copia el `.uf2`.
+Para flashear, mantén BOOT al enchufar el USB-C; aparece la unidad `RPI-RP2` y se copia el `.uf2`. Las ROMs que el firmware no lleva (o todas, con `ROMS=external ./build_pico.sh` → `<id>_rp2040_pizero_noroms.uf2`) se leen de la microSD al arrancar (`roms/<set>/`, `roms/<set>.zip`); si faltan, el HDMI dice cuáles.
 
 | Función | Conexión | Notas |
 |---|---|---|
@@ -287,6 +299,7 @@ Velocidad estimada en el simulador rp2040js a 252 MHz, sin esperas de flash ni e
 ./build_pico2.sh                   # todas → dist/<id>_rp2350_pizero.uf2
 ./build_pico2.sh lynx amiga        # algunas
 USB=native ./build_pico2.sh        # teclado en el USB-C nativo → <id>_rp2350_pizero_usbc.uf2
+ROMS=external ./build_pico2.sh     # sin ROMs dentro → <id>_rp2350_pizero_noroms.uf2 (de la microSD)
 ```
 
 Para flashear, mantén BOOT al enchufar el USB-C nativo; aparece la unidad `RP2350`.
@@ -367,12 +380,63 @@ En el QL, MDV monta el cartucho, reinicia y pulsa F1, y QDOS ejecuta `mdv1_boot`
 
 ## ROMs y BIOS
 
-**Las ROMs y BIOS no se suben nunca a git.** Cada `rom_data.c` del repositorio es un stub vacío (punteros NULL). Para compilar con ROMs reales se copian a `roms/<id>/` y se ejecuta `tools/regen.sh <id>`, que genera `rom_data.c` y, en las máquinas con 68000, las tablas de Musashi. Los generadores comprueban tamaños y CRC. Antes de hacer commit se restauran los stubs:
+**Las ROMs y BIOS no se suben nunca a git.** Cada máquina puede tenerlas de dos formas, y las combina:
+
+1. **Dentro del programa**: `tools/regen.sh <id>` lee `roms/<id>/` y las escribe en su `rom_data.c` (y, en las máquinas con 68000, las tablas de Musashi). Los generadores comprueban tamaños y CRC.
+2. **Al arrancar, desde el almacenamiento**: lo que su `rom_data.c` no tiene lo busca su `rom_load.c` con `main/rom/romfs.c`. Hace la misma carga y la misma decodificación que el generador, así que la máquina recibe exactamente los mismos datos.
+
+En cada carpeta de búsqueda `D` y para cada nombre de set `S` de la máquina, se busca primero el fichero suelto, después dentro del `.zip` de MAME y por último en cualquier `.zip` de la carpeta del set:
 
 ```
-python3 tools/gen_roms_computers.py --stub <id> <ruta>/rom_data.c        # ordenadores, Lynx y consolas
-python3 tools/gen_roms_zxspec.py --stub-all main/drivers/computers/zxspec
+D/S/<fichero>      sueltos (el nombre tal cual, en minúsculas o en mayúsculas)
+D/S.zip            el .zip de MAME tal cual (por nombre o por CRC: da igual cómo se llamen dentro)
+D/S/*.zip          un .zip dentro de la carpeta del set
 ```
+
+Los sets son los nombres de MAME. Una máquina puede buscar en más de uno:
+
+- Indy y Road Runner, también en `atarisy1`.
+- Pole Position, en `namco51` … `namco54`; Pole Position II, además en `polepos`.
+- Los Spectrum: `spectrum`, `spec128`, `pent1024`, `scorpio`.
+- El Amiga, en `a500`; el 32X, en `32x`.
+
+Las carpetas `D` dependen de la plataforma:
+
+| Plataforma | Dónde |
+|---|---|
+| Escritorio y Windows | `--roms DIR`, `$CMESYS_ROMS` (varias, separadas por `:` o `;`), `./roms` y `roms/` junto al programa |
+| Web | `roms/` junto a la página; se descarga del servidor al arrancar |
+| Android | `Android/data/<app>/files/roms` y la carpeta interna de la app (menú **Importar ROMs…**) |
+| CYD, RP2040 y RP2350 | `roms/` y la raíz de la microSD (FAT); en la RP2350, en la PSRAM si la hay |
+
+Si falta una ROM obligatoria, la máquina dice cuál es y dónde la ha buscado:
+
+- en el escritorio, en un cuadro de diálogo;
+- en las placas, en pantalla;
+- en Android, en un aviso con el botón para importarla.
+
+Las BIOS opcionales de las consolas, y la de la Lynx, se usan solo si están.
+
+Para compilar **sin ninguna ROM dentro**, aunque estén generadas, existe `ROMS=external`. Así el binario se puede dar a otros, porque no lleva las ROMs:
+
+| Destino | Orden | Resultado |
+|---|---|---|
+| Escritorio | `make GAME=<id> ROMS=external` | `build/sdl-noroms/` |
+| Windows | `ROMS=external ./build_windows.sh` | `build/win-noroms/` |
+| Web | `ROMS=external ./build_web.sh` | `build/web-noroms/` |
+| CYD | `ROMS=external ./build_all.sh` | ficheros `..._noroms_...` |
+| RP2040 / RP2350 | `ROMS=external ./build_pico.sh` / `./build_pico2.sh` | ficheros `..._noroms.uf2` |
+| Android | `ROMS=external main/ports/android/build_apk.sh` / `build_arcade.sh` | APK sin ROMs |
+
+Por debajo, los `rom_data.c` se compilan con `-DCMESYS_ROMS_EXTERNAL`, que deja fuera sus tablas.
+
+En git, cada `rom_data.c` es un stub sin ROMs. Después de generarlos, se vuelve a ese estado con:
+
+```
+tools/regen.sh --stub <id>
+```
+
+`tools/gen_rom_stub.py` escribe los stubs de las recreativas; los de los ordenadores y consolas los escriben los `--stub` de sus generadores.
 
 ### Recreativas (sets de MAME)
 
@@ -407,7 +471,7 @@ Cada modelo Spectrum lee solo su directorio y genera su propio `rom_data_<modelo
 
 ### Consolas
 
-Las BIOS están en la tabla de [Consolas](#consolas-maindriversconsoles). Las consolas que no la necesitan llevan un `rom_data.c` vacío. La GBA y la PlayStation aceptan también la BIOS como primer fichero que se abre. La Lynx funciona sin BIOS con el pequeño cargador de dsp-cpp, pero entonces solo arranca cartuchos sin cifrar.
+Las BIOS están en la tabla de [Consolas](#consolas-maindriversconsoles), y se buscan como las demás ROMs (por ejemplo, `roms/gba/gba_bios.bin` o `roms/psx/scph1001.bin`). Las consolas que no la necesitan llevan un `rom_data.c` vacío. La GBA y la PlayStation aceptan también la BIOS como primer fichero que se abre. La Lynx funciona sin BIOS con el pequeño cargador de dsp-cpp, pero entonces solo arranca cartuchos sin cifrar.
 
 ## Recreativas: cómo funcionan
 

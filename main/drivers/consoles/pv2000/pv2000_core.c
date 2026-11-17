@@ -118,6 +118,7 @@ bool cons_init(void)
     S.vram = (uint8_t *)calloc(1, 0x4000);
     S.fb = (uint16_t *)calloc(TMS_W * TMS_H, sizeof(uint16_t));
     if (!S.mem || !S.vram || !S.fb) return false;
+    pv2000_rom_load();                     // (the BIOS from storage when not built in: romfs)
     if (pv2000_rom_bios) {
         memcpy(S.mem, pv2000_rom_bios, 0x4000);
         S.has_bios = true;

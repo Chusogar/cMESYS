@@ -148,6 +148,25 @@ else()
     message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2 or a console: ${CONSOLES})")
 endif()
 
+# The ROMs that rom_data.c does not have come from the microSD (roms/<set>/,
+# roms/<set>.zip: rom/romfs.c, rom/romfs_sd.c and the machine's rom_load.c).
+# ROMS=external (idf.py -DROMS=external, or in the environment): none built in.
+list(APPEND SRCS rom/romfs.c rom/romfs_sd.c machine/zx_inflate.c drivers/computers/ql/ql_sd_esp.c)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${D}/rom_load.c)
+    list(APPEND SRCS ${D}/rom_load.c)
+endif()
+if(GAME STREQUAL "indytemp" OR GAME STREQUAL "roadrunn")
+    list(APPEND SRCS ${AS1}/atarisy1_roms.c)
+endif()
+list(REMOVE_DUPLICATES SRCS)
+list(APPEND DEFS ROMFS_SD)
+if(ROMS STREQUAL "external" OR "$ENV{ROMS}" STREQUAL "external")
+    list(APPEND DEFS CMESYS_ROMS_EXTERNAL)
+endif()
+set(QL_SD_REQ fatfs sdmmc)
+list(APPEND EXTRA_INCLUDES drivers/computers/ql)
+list(REMOVE_DUPLICATES EXTRA_INCLUDES)
+
 idf_component_register(
     SRCS ${SRCS} ${PORT}
     INCLUDE_DIRS ${D} ${AS1} ${EXTRA_INCLUDES} ${PP} ports/esp32-cyd cpu cpu/m68k cpu/m6502 cpu/mc6809 cpu/mcs48 cpu/z80 sound machine video

@@ -22,6 +22,13 @@ final class Native {
     static native void requestReset();
     static native void requestQuit();
     static native void setTurbo(boolean on);
+    /** The folders the ROMs not built into the game are looked for in (<set>/, <set>.zip). */
+    static native void romDirs(String[] dirs);
+
+    /** Set when the game stopped for its missing ROMs (what and where looked for). */
+    static volatile String romError;
+
+    static void onRomError(String msg) { romError = msg; }
 
     // sdl_port.h controls (SP_*)
     static final int COIN1 = 1, COIN2 = 2, START1 = 4, START2 = 8, UP = 16, DOWN = 32, LEFT = 64, RIGHT = 128,

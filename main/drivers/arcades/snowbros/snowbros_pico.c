@@ -48,6 +48,7 @@ static uint16_t pal[256];
 // palette: the one core 0 draws, the last finished one, the one core 1 shows.
 #include <stdlib.h>
 #include "hardware/sync.h"
+#include "rom_data.h"
 static uint8_t *pic[3];
 static uint16_t pic_pal[3][256];
 static int pic_build, pic_ready = -1, pic_used = -1;
@@ -144,6 +145,7 @@ static void game(void)
 
 int main(void)
 {
+    if (!sb_roms_get()) pico_port_rom_error();
     sb_init(SB_OPL_RATE);
     opl = OPL_new(SB_YM_CLOCK, SB_OPL_RATE);
     OPL_setChipType(opl, 2);                    // YM3812
