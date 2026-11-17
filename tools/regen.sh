@@ -15,7 +15,8 @@ case $G in
 ql) D=$M/drivers/computers/$G ;;
 spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion) D=$M/drivers/computers/zxspec ;;
 cpc6128) D=$M/drivers/computers/cpc ;;
-c64|lynx|amiga) D=$M/drivers/computers/$G ;;
+c64|amiga) D=$M/drivers/computers/$G ;;
+lynx) D=$M/drivers/consoles/lynx ;;
 msx1|msx2) D=$M/drivers/computers/msx ;;
 esac
 T=${TMPDIR:-/tmp}/arcade_regen

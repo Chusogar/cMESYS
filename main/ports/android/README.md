@@ -97,7 +97,7 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | | |
 |---|---|
 | `jni/core.h`, `jni/core_jni.c` | lo que da cada máquina y las llamadas de `Core` (frames, imagen ARGB, sonido, teclas, joystick, medios) |
-| `jni/m_ql.c` … `m_lynx.c`, `m_amiga.c` | cada máquina sobre su núcleo de `main/drivers/computers` |
+| `jni/m_ql.c` … `m_amiga.c` | cada máquina sobre su núcleo de `main/drivers/computers` (la Lynx, de `main/drivers/consoles/lynx`) |
 | `jni/libc/` | cabeceras mínimas de bionic para compilar sin el NDK |
 | `app/src/.../MachineActivity.java` | pantalla, teclado, menú, medios, teclado físico y mandos |
 | `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx`, `Amiga` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |

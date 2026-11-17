@@ -8,7 +8,7 @@
 // shown doubled (320x204) so the menu fits over it.
 #include "lynx_core.h"
 #include "rom_data.h"
-#include "../common/comp_sdl.h"
+#include "../../computers/common/comp_sdl.h"
 
 #define FW (LYNX_W * 2)
 #define FH (LYNX_H * 2)
