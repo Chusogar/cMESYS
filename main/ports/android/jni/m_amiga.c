@@ -8,12 +8,22 @@
 #include <stdlib.h>
 
 #include "core.h"
+#include "rom_data.h"
 #include "amiga_core.h"
 
 #define KEY_CAPS_PHYS 0x70
 
 static uint8_t *kick;
 static uint8_t prev[MC_KEYS];
+
+void mc_rom_fill(int model, uint8_t **roms, int *lens, int *n)
+{
+    (void)model;
+    if (*n < 1) *n = 1;
+    if (roms[0]) return;
+    amiga_rom_load();
+    mc_take(roms, lens, 0, &amiga_rom_kick, 0x40000);
+}
 
 bool mc_init(int model, uint8_t **roms, const int *lens, int n, int64_t unix_time)
 {

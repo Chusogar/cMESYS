@@ -51,7 +51,7 @@ static sb_t *S;
 static const uint8_t *rom_page[256];
 static const uint8_t hot_rom_pages[] = {1,0,30,2,31,43,50,5,14,15,25,39,27,29,6,4,33,26,8,7,
                                         28,46,16,77,40,9,13,45,252,11,10,64};
-static const uint8_t *snd_rom = sb_snd_rom;
+static const uint8_t *snd_rom;        // (sb_snd_rom, set by sb_init)
 volatile uint16_t sb_input[3];
 volatile uint32_t sb_palette_serial;
 
@@ -269,6 +269,7 @@ static void HOT snd_out(z80 *z, uint16_t p, uint8_t v)
 // ---------------------------------------------------------------------------
 void sb_init(int audio_rate)
 {
+    snd_rom = sb_snd_rom;
     if (!S) {
         S = calloc(1, sizeof(sb_t));
         for (int i = 0; i < 256; i++) rom_page[i] = &sb_prog_rom[i * 1024];

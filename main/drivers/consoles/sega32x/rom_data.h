@@ -4,8 +4,12 @@
 // none built in (the 32X then refuses its cartridges).
 #ifndef S32X_ROM_DATA_H
 #define S32X_ROM_DATA_H
+#include <stdbool.h>
 #include <stdint.h>
-extern const uint8_t *const s32x_rom_bios_g;
-extern const uint8_t *const s32x_rom_bios_m;
-extern const uint8_t *const s32x_rom_bios_s;
+extern const uint8_t *s32x_rom_bios_g;
+extern const uint8_t *s32x_rom_bios_m;
+extern const uint8_t *s32x_rom_bios_s;
+// The ROMs not compiled in, from storage (rom_load.c, main/rom/romfs.h);
+// false if a required one is missing (romfs_error() says which).
+bool s32x_rom_load(void);
 #endif

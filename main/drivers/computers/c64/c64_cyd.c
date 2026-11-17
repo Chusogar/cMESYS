@@ -154,6 +154,7 @@ void app_main(void)
     static const cyd_game_t info = { "c64", "COMMODORE 64", "MEDIA: TAPE / HOLD=SD", { 140, 160, 255 } };
     cyd_boot(&info);
     cpu_m = c64_create(C64_AUDIO_RATE);
+    if (!c64_rom_load()) cyd_rom_error();
     if (!cpu_m || !c64_rom_kernal) {
         ESP_LOGE("c64", "%s", cpu_m ? "no C64 ROMs built in (roms/c64/)" : "out of memory for the C64");
         abort();

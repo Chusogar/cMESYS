@@ -24,6 +24,7 @@
 #include "nunchuk.h"
 #include "sb_core.h"
 #include "emu8950/emu8950.h"
+#include "rom_data.h"
 
 static const char *TAG = "snowbros";
 
@@ -309,6 +310,7 @@ void app_main(void)
     fb = heap_caps_malloc(SB_SCREEN_W * SB_SCREEN_H, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     assert(fb);
     memset(fb, 0, SB_SCREEN_W * SB_SCREEN_H);
+    if (!sb_roms_get()) cyd_rom_error();
     sb_init(SB_OPL_RATE);
 
 #if !defined(CYD_HEADLESS_TEST) || defined(CYD_QEMU_FULL)

@@ -37,6 +37,18 @@ enum {
 // the machine keeps them (the cores read them in place) and frees the old
 // ones. False: they are not right.
 bool mc_init(int model, uint8_t **roms, const int *lens, int n, int64_t unix_time);
+// Before mc_init: the ROMs the app did not have (roms[i] NULL), from the
+// app's roms folders (main/rom/romfs.h); *n grows to the machine's count.
+void mc_rom_fill(int model, uint8_t **roms, int *lens, int *n);
+// A ROM a loader found (malloc'd), into roms[i] when that one is missing.
+static inline void mc_take(uint8_t **roms, int *lens, int i, const uint8_t **found, int size)
+{
+    if (!roms[i] && *found) {
+        roms[i] = (uint8_t *)*found;
+        lens[i] = size;
+        *found = NULL;
+    }
+}
 void mc_reset(void);
 int mc_width(void);
 int mc_height(void);

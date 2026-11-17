@@ -93,6 +93,7 @@ static void menu_activate(void)
 int main(int argc, char **argv)
 {
     sdl_port_args(&argc, argv);
+    if (!msx_rom_load()) sdl_port_rom_error();
     if (!msx_rom_bios || (MSX_MODEL == 2 && !msx_rom_sub)) {
         fprintf(stderr, "No %s ROMs built in: put them in roms/msx%d/ and run tools/regen.sh msx%d\n", title(),
                 MSX_MODEL, MSX_MODEL);

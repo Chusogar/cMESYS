@@ -336,13 +336,14 @@ void app_main(void)
     cyd_boot(&info);
 
     // Big allocations first, while the heap is unfragmented
+    if (!pb_roms_get()) cyd_rom_error();
     pb_init();
     vsnap = heap_caps_malloc(sizeof *vsnap, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     pal565 = heap_caps_calloc(4096, sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     assert(vsnap && pal565);
     eeprom_load();
-    ym = ym2610_create(PB_SND_CLOCK, AUDIO_RATE, 6, pb_adpcma_rom, sizeof pb_adpcma_rom,
-                       pb_adpcma_rom, sizeof pb_adpcma_rom);
+    ym = ym2610_create(PB_SND_CLOCK, AUDIO_RATE, 6, pb_adpcma_rom, PB_ADPCMA_ROM_LEN,
+                       pb_adpcma_rom, PB_ADPCMA_ROM_LEN);
     assert(ym);
 
 #if !defined(CYD_HEADLESS_TEST) || defined(CYD_QEMU_FULL)

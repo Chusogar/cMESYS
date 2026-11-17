@@ -7,6 +7,8 @@
 #
 #   ./build_windows.sh              all machines
 #   ./build_windows.sh robocop ql   some of them
+#   ROMS=external ./build_windows.sh   no ROMs built in -> build/win-noroms/ (they are read
+#                                      from roms/<set>/, roms/<set>.zip or --roms DIR)
 #
 # Needs SDL2 for MinGW:
 #   MSYS2:  pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-SDL2 make
@@ -75,12 +77,13 @@ if ! command -v "$MAKE" >/dev/null 2>&1 && command -v mingw32-make >/dev/null 2>
     MAKE=mingw32-make
 fi
 
-echo "CC=$CC  SDL2_CONFIG=${SDL2_CONFIG:-"(SDL2DIR/fallback)"}  -> build/win/*.exe"
+W=build/win; [ "$ROMS" = external ] && W=build/win-noroms
+echo "CC=$CC  SDL2_CONFIG=${SDL2_CONFIG:-"(SDL2DIR/fallback)"}  -> $W/*.exe"
 export CC
 [ -n "$SDL2_CONFIG" ] && export SDL2_CONFIG
 [ -n "$SDL2DIR" ] && export SDL2DIR
 for g in $GAMES; do
     $MAKE GAME="$g" TARGET=windows
 done
-echo "done: build/win/"
-ls -1 build/win/*.exe 2>/dev/null || true
+echo "done: $W/"
+ls -1 $W/*.exe 2>/dev/null || true

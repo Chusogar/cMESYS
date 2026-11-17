@@ -118,7 +118,7 @@ static void game(void)
 int main(void)
 {
     as1_roms roms;
-    as1_rom_data(&roms);
+    if (!as1_roms_get(&roms)) pico_port_rom_error();
     as1_init(&core, &roms, AUDIO_RATE);
     core.idle_skip = true;
     core.on_frame = on_frame;

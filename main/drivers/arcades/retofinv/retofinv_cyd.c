@@ -22,6 +22,7 @@
 #include "dac_audio.h"
 #include "nunchuk.h"
 #include "rv_core.h"
+#include "rom_data.h"
 
 static const char *TAG = "retofinv";
 
@@ -259,6 +260,7 @@ void app_main(void)
 
     core = must_alloc(sizeof *core, "core");
     iband = must_alloc(RV_W * BAND, "band");
+    if (!rv_roms_get()) cyd_rom_error();
     rv_init(core, AUDIO_RATE);
     core->idle_skip = true;
     core->on_frame = on_frame;

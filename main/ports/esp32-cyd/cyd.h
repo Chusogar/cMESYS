@@ -55,6 +55,9 @@ extern int scr_w, scr_h;
 void cyd_boot(const cyd_game_t *g);
 // LCD (unless with_lcd is false: QEMU tests), touch, black screen, backlight.
 void cyd_display_start(bool with_lcd);
+// The machine's ROMs are not built in and not on the microSD (romfs.h): shows
+// what is missing and where it was looked for, and stops.
+void cyd_rom_error(void) __attribute__((noreturn));
 // Touch calibration when needed (or BOOT held) and the settings menu.
 void cyd_setup_ui(void);
 void cyd_settings_load(void);

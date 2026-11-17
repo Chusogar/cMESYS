@@ -59,7 +59,7 @@ static void game(void)
 int main(void)
 {
     pp_roms roms;
-    pp_rom_data(&roms);
+    if (!pp_roms_get(&roms)) pico_port_rom_error();
     // the Z8002s' and the Z80's programs in RAM (the XIP cache is 16 KB)
     static uint8_t sub_ram[2][0x8000];
     memcpy(sub_ram[0], roms.sub1, 0x8000);

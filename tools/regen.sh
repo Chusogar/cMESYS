@@ -1,5 +1,10 @@
 #!/bin/sh
 # Regenerates a game's generated sources (ROMs as C arrays, Musashi tables):
+#   tools/regen.sh <machine>         the ROMs of roms/<set>/ built into its rom_data.c
+#   tools/regen.sh --stub <machine>  its rom_data.c without ROMs (as in git): the
+#                                    machine then reads them from storage at run time
+#                                    (roms/<set>/, roms/<set>.zip, the microSD; main/rom/romfs.h)
+# (A build can also leave the ROMs out without touching rom_data.c: ROMS=external.)
 #   tools/regen.sh indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | ql
 #                  | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion | cpc6128 | c64 | lynx | msx1 | msx2 | amiga
 # ROMs: roms/indytemp or roms/roadrunn + roms/atarisy1, roms/snowbros, roms/trackfld, roms/pbobble, roms/gauntlet, roms/outrun, roms/retofinv, roms/robocop, roms/polepos, roms/polepos2 (unzipped; Pole Position
@@ -8,6 +13,8 @@
 # roms/<spectrum-model>/ exclusively (one directory and one rom_data_<model>.c per model),
 # roms/cpc6128, roms/c64, roms/lynx, roms/amiga (unzipped MAME sets, their .zip, or the usual dumps).
 set -e
+STUB=
+if [ "$1" = "--stub" ]; then STUB=1; shift; fi
 G=$1
 M=main
 D=$M/drivers/arcades/$G
@@ -19,6 +26,19 @@ c64|amiga) D=$M/drivers/computers/$G ;;
 lynx) D=$M/drivers/consoles/lynx ;;
 msx1|msx2) D=$M/drivers/computers/msx ;;
 esac
+if [ -n "$STUB" ]; then
+    case $G in
+    ql) python3 tools/gen_roms_ql.py --stub $D/rom_data.c ;;
+    spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion)
+        python3 tools/gen_roms_zxspec.py --stub $D/rom_data_$G.c $G ;;
+    msx1|msx2) python3 tools/gen_roms_computers.py --stub $G $D/rom_data_$G.c ;;
+    cpc6128|c64|lynx|amiga) python3 tools/gen_roms_computers.py --stub $G $D/rom_data.c ;;
+    coleco|pv2000|vectrex|scv|sega32x|gba|psx)
+        python3 tools/gen_roms_computers.py --stub $G $M/drivers/consoles/$G/rom_data.c ;;
+    *) python3 tools/gen_rom_stub.py $G $D/rom_data.c ;;
+    esac
+    exit 0
+fi
 T=${TMPDIR:-/tmp}/arcade_regen
 mkdir -p $T
 AS1=$M/drivers/arcades/atarisy1
@@ -28,7 +48,7 @@ case $G in
 indytemp|roadrunn)
     cc $CFLAGS -DAS1_HOOK_PC -o $T/gen_roms tools/gen_roms_atarisy1.c $AS1/atarisy1_roms.c $AS1/atarisy1_core.c \
        $M/sound/ym2151.c $M/sound/pokey.c $M/sound/tms5220.c $M/machine/via6522.c $M/machine/slapstic.c \
-       $M/video/atari_mo.c $M68K -lm
+       $M/video/atari_mo.c $M/rom/romfs.c $M/machine/zx_inflate.c $M68K -lm
     $T/gen_roms $G roms/$G roms/atarisy1 $D/rom_data.c
     CYC=1 ;;
 snowbros)

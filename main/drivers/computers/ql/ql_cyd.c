@@ -496,6 +496,7 @@ void app_main(void)
         ram[i] = must_alloc(0x8000, "RAM");
         memset(ram[i], 0, 0x8000);
     }
+    if (!ql_rom_load()) cyd_rom_error();
     ql_init(ql_rom, ql_ipc_rom, ram, 0);
     ql_view_init(rgb565);
 

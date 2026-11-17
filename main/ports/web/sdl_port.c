@@ -3,6 +3,7 @@
 // so the existing while (sdl_port_poll()) loops in *_sdl.c keep the browser
 // responsive (link with -sASYNCIFY).
 #include "sdl_port.h"
+#include "../../rom/romfs.h"
 
 #include <SDL2/SDL.h>
 #include <stdio.h>
@@ -73,14 +74,31 @@ void sdl_port_args(int *argc, char **argv)
             opt_scale = n;
             continue;
         }
+        if (!strncmp(a, "--roms=", 7) || !strcmp(a, "--roms")) {
+            const char *v = a[6] == '=' ? a + 7 : (i + 1 < *argc ? argv[++i] : "");
+            if (*v) romfs_add_dir(v);              // (looked in before the defaults)
+            continue;
+        }
         if (!strcmp(a, "--help") || !strcmp(a, "-h")) {
-            printf("Options: --mute (no sound), --sound, --scale N (window = picture x N, 1-10)\n");
+            printf("Options: --mute (no sound), --sound, --scale N (window = picture x N, 1-10),\n"
+                   "         --roms DIR (ROMs not built in: DIR/<set>/, DIR/<set>.zip; also $CMESYS_ROMS,\n"
+                   "         ./roms and the program's folder/roms)\n");
             exit(0);
         }
         argv[out++] = argv[i];
     }
     argv[out] = NULL;
     *argc = out;
+    romfs_default_dirs(argv[0]);
+}
+
+void sdl_port_rom_error(void)
+{
+    char msg[1024];
+    romfs_describe(msg, sizeof msg, 200);
+    fprintf(stderr, "%s\n", msg);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "cMESYS", msg, NULL);
+    exit(1);
 }
 
 bool sdl_port_open(const sdl_port_cfg *c)

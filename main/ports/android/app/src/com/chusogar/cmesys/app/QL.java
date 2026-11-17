@@ -85,11 +85,10 @@ final class QL extends Machine {
             rom = asset(a, "roms/" + choice + ".rom");
         }
         if (rom == null || rom.length != ROM_BYTES) {
-            a.toast("ROM elegida no disponible: se usa la JS");
+            if (!"js".equals(choice)) a.toast("ROM elegida no disponible: se usa la JS");
             rom = asset(a, "roms/js.rom");
         }
-        byte[] ipc = asset(a, "roms/ipc.rom");
-        return rom == null || ipc == null ? null : new byte[][] {rom, ipc};
+        return new byte[][] {rom, asset(a, "roms/ipc.rom")};
     }
 
     @Override int lineScale() { return 2; }

@@ -40,4 +40,8 @@ final class Core {
     static native void command(int cmd);
     /** The mouse (the Amiga's): motion in the machine's counts, buttons held (bit 0 left, bit 1 right). */
     static native void mouse(int dx, int dy, int buttons);
+    /** The folders where the ROMs the APK does not have are looked for (each with <set>/, <set>.zip). */
+    static native void romDirs(String[] dirs);
+    /** After init failed: which ROM is missing and where it was looked for. */
+    static native String romError();
 }

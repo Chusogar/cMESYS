@@ -5,6 +5,7 @@
 #include "sdl_port.h"
 #include "sb_core.h"
 #include "emu8950/emu8950.h"
+#include "rom_data.h"
 
 // YM3812: the core time-stamps the register writes in YM samples.
 typedef struct { uint32_t when; uint8_t reg, val; } oplw_t;
@@ -42,6 +43,7 @@ int main(int argc, char **argv)
     static int16_t audio[4096];
     static sb_video_t v;
 
+    if (!sb_roms_get()) sdl_port_rom_error();
     sb_init(SB_OPL_RATE);
     opl = OPL_new(SB_YM_CLOCK, SB_OPL_RATE);
     OPL_setChipType(opl, 2);            // YM3812

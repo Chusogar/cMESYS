@@ -117,6 +117,7 @@ void app_main(void)
         ESP_LOGE("lynx", "out of memory for the Lynx");
         abort();
     }
+    lynx_rom_load();                        // (optional: the built-in loader otherwise)
     if (lynx_rom_boot) lynx_set_boot_rom(cpu_m, lynx_rom_boot);
     comp_cyd_start(&kMachine);
 }

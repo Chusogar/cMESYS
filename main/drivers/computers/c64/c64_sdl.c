@@ -82,6 +82,7 @@ static void menu_activate(void)
 int main(int argc, char **argv)
 {
     sdl_port_args(&argc, argv);
+    if (!c64_rom_load()) sdl_port_rom_error();
     if (!c64_rom_kernal) {
         fprintf(stderr, "No C64 ROMs built in: put them in roms/c64/ and run tools/regen.sh c64\n");
         return 1;

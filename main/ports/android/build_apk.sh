@@ -13,7 +13,10 @@
 #   apt install clang lld openjdk-17-jdk-headless android-sdk-platform-23 \
 #               aapt dalvik-exchange apksigner zipalign python3 python3-pil
 # The ROMs come from roms/<set> (tools/android_roms.py, as the generators of
-# tools/): they go into the APK, never into git.
+# tools/): they go into the APK, never into git. Those not there (or all, with
+# ROMS=external) the app reads from its roms folder,
+# Android/data/<app>/files/roms/<set>/ (files or MAME's .zip), where its
+# "Importar ROMs…" menu entry copies them.
 #
 # Signing: $CMESYS_KEYSTORE (or $QL_KEYSTORE; default
 # build/android/debug.keystore, made on the first run; keep it to install
@@ -96,6 +99,16 @@ build() {
 
     # --- 1. the core: libcore.so -------------------------------------------------
     local SRCS="$HERE/jni/core_jni.c $HERE/jni/libc_extra.c $HERE/jni/$(jni_file "$mach") $(sources "$mach")"
+    # the ROMs the APK's assets do not have: from the app's roms folders (romfs);
+    # rom_data.c is built without its arrays (the assets are the built-in ROMs)
+    local rd=""
+    case $mach in
+        zxspec) rd="$C/zxspec/rom_data_spectrum48.c $C/zxspec/rom_load.c" ;;
+        msx) rd="$C/msx/rom_data_msx1.c $C/msx/rom_load.c" ;;
+        lynx) rd="$M/drivers/consoles/lynx/rom_data.c $M/drivers/consoles/lynx/rom_load.c" ;;
+        ql|cpc|c64|amiga) rd="$C/$mach/rom_data.c $C/$mach/rom_load.c" ;;
+    esac
+    SRCS="$(echo $SRCS $rd $M/rom/romfs.c $M/machine/zx_inflate.c | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ')"
     for abi in arm64-v8a x86_64; do
         local triple
         case $abi in
@@ -109,7 +122,7 @@ build() {
             clang --target=$triple -O2 -fPIC -ffreestanding -nostdinc -fno-stack-protector \
                 -ffunction-sections -fdata-sections -fvisibility=hidden \
                 -isystem "$RES_INC" -isystem "$HERE/jni/libc" -isystem "$JDK_INC" -isystem "$JDK_INC/linux" \
-                -DM68K_FLASH_TABLES -I"$HERE/jni" -I"$C/$mach" -I"$M/drivers/consoles/$mach" -I"$M/drivers/consoles/common" -I"$M/cpu" -I"$M/cpu/m68k" -I"$M/cpu/mcs48" \
+                -DM68K_FLASH_TABLES -DCMESYS_ROMS_EXTERNAL -I"$HERE/jni" -I"$C/$mach" -I"$M/drivers/consoles/$mach" -I"$M/drivers/consoles/common" -I"$M/cpu" -I"$M/cpu/m68k" -I"$M/cpu/mcs48" \
                 -I"$M/cpu/m6502" -I"$M/cpu/z80" -I"$M/sound" -I"$M/machine" -I"$M/video" -w -c "$f" -o "$o"
             objs="$objs $o"
         done
@@ -131,7 +144,10 @@ build() {
     echo "libcore.so: needs $(echo $syms | tr '\n' ' ')"
 
     # --- 2. assets: the ROMs, the keyboard, the help -----------------------------------
-    is_console "$mach" || python3 "$HERE/tools/android_roms.py" "$mach" "$ROOT/roms" "$OUT/assets"
+    # (ROMS=external: none in the APK; the app finds them in its roms folder or imports them)
+    if [ "${ROMS:-}" != external ] && ! is_console "$mach"; then
+        python3 "$HERE/tools/android_roms.py" "$mach" "$ROOT/roms" "$OUT/assets"
+    fi
     cp -r "$MD/assets/." "$OUT/assets/"
 
     # --- 3. resources, Java, dex -------------------------------------------------------

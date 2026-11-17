@@ -79,9 +79,8 @@ final class C64 extends Machine {
 
     @Override
     byte[][] roms(MachineActivity a, SharedPreferences p, int model) throws IOException {
-        byte[] kernal = asset(a, "roms/kernal.rom"), basic = asset(a, "roms/basic.rom"), chargen = asset(a, "roms/chargen.rom");
-        if (kernal == null || basic == null || chargen == null) return null;
-        return new byte[][] {kernal, basic, chargen, asset(a, "roms/dos1541.rom")};
+        return new byte[][] {asset(a, "roms/kernal.rom"), asset(a, "roms/basic.rom"), asset(a, "roms/chargen.rom"),
+                asset(a, "roms/dos1541.rom")};
     }
 
     @Override byte[] glyphRom(MachineActivity a) { return asset(a, "roms/chargen.rom"); }

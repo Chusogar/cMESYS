@@ -332,6 +332,7 @@ bool cons_init(void)
         const int v = (int)(powf((float)i / 255.0f, 0.8f) * 255.0f + 0.5f);
         V.gray[i] = (uint16_t)(((v & 0xf8) << 8) | ((v & 0xfc) << 3) | (v >> 3));
     }
+    vectrex_rom_load();                     // (the BIOS from storage when not built in: romfs)
     if (vectrex_rom_bios) {
         memcpy(V.bios, vectrex_rom_bios, sizeof V.bios);
         V.have_bios = true;

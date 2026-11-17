@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 {
     sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
     or_roms roms;
-    or_rom_data(&roms);
+    if (!or_roms_get(&roms)) sdl_port_rom_error();
     or_init(&core, &roms, AUDIO_RATE);
     core.idle_skip = true;             // same result, less host time
     core.on_frame = on_frame;

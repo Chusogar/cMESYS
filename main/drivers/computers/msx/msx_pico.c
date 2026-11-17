@@ -153,6 +153,7 @@ static void game(void)
 int main(void)
 {
     cpu_m = msx_create(MSX_MODEL, 64, 128, MSX_AUDIO_RATE);
+    if (!msx_rom_load()) pico_port_rom_error();
     if (!cpu_m || !msx_rom_bios || (MSX_MODEL == 2 && !msx_rom_sub)) {
         printf(cpu_m ? "no MSX ROMs built in (roms/msx%d/)\n" : "out of memory\n", MSX_MODEL);
         for (;;) {}

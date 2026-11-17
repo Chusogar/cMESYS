@@ -247,6 +247,7 @@ int main(int argc, char **argv)
 
     uint8_t *blocks[QL_RAM_BLOCKS];
     for (int i = 0; i < QL_RAM_BLOCKS; i++) blocks[i] = ram[i];
+    if (!ql_rom_load()) sdl_port_rom_error();
     ql_init(ql_rom, ql_ipc_rom, blocks, (uint32_t)time(NULL));
 
     sdl_port_cfg cfg = { "Sinclair QL", QL_W, QL_H, 2, QL_AUDIO_RATE, QL_FPS, true };

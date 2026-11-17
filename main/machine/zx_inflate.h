@@ -12,4 +12,7 @@
 // expected: the uncompressed size if known (0: grow as needed); max: limit.
 uint8_t *zx_inflate(const uint8_t *src, size_t src_len, size_t expected, size_t max, size_t *out_len);
 
+// Raw DEFLATE only (the entries of a .zip).
+uint8_t *zx_inflate_raw(const uint8_t *src, size_t src_len, size_t expected, size_t max, size_t *out_len);
+
 #endif

@@ -8,6 +8,7 @@
 #include <string.h>
 #include "sdl_port.h"
 #include "rv_core.h"
+#include "rom_data.h"
 
 #define AUDIO_RATE 44100
 
@@ -28,6 +29,7 @@ static void on_frame(void *user, rv_core *c)
 int main(int argc, char **argv)
 {
     sdl_port_args(&argc, argv);         // --mute, --sound, --scale N
+    if (!rv_roms_get()) sdl_port_rom_error();
     uint8_t rgb[256][3];
     rv_palette_rgb(rgb);
     for (int i = 0; i < 256; i++) pal[i] = (uint32_t)(rgb[i][0] << 16 | rgb[i][1] << 8 | rgb[i][2]);

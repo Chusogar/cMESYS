@@ -7,6 +7,7 @@
 #                             | a console of main/drivers/consoles/consoles.mk)  -> build/sdl/<game>
 #                             (ql / spectrum*: computers in main/drivers/computers/)
 #   make TARGET=windows ...   same, but MinGW -> build/win/<game>.exe  (see ./build_windows.sh)
+#   make ROMS=external ...    no ROMs built in: all from storage (roms/<set>/, <set>.zip, --roms DIR)
 #   make all                  all of them
 #   make clean
 #
@@ -187,6 +188,15 @@ else
   $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga or a console: $(CONSOLES))
 endif
 
+# The ROMs that rom_data.c does not have come from storage (main/rom/romfs.c
+# and the machine's rom_load.c): --roms DIR, $CMESYS_ROMS, ./roms, the
+# program's folder/roms; <set>/<file>, <set>.zip (MAME's) or <set>/*.zip.
+ROM_SRC := $(M)/rom/romfs.c $(M)/machine/zx_inflate.c $(wildcard $(D)/rom_load.c)
+ifneq ($(filter indytemp roadrunn,$(GAME)),)
+  ROM_SRC += $(AS1)/atarisy1_roms.c
+endif
+SRC := $(SRC) $(filter-out $(SRC),$(ROM_SRC))
+
 # PORT=picohost: the game's RP2040-PiZero frontend (<game>_pico.c) on the
 # desktop without a window (tools/pico_host.c), to test it without the board.
 # PORT=web: Emscripten build -> build/web/<game>.html (needs emcc; see
@@ -209,36 +219,44 @@ else
   PORTSRC := $(M)/ports/sdl2/sdl_port.c
 endif
 
+# ROMS=external: no ROMs built in at all (rom_data.c compiled without its
+# arrays), only those from storage; a build that can be given away.
+#   make GAME=robocop ROMS=external   -> build/sdl-noroms/robocop
+ifeq ($(ROMS),external)
+  OUT  := $(OUT)-noroms
+  DEFS += -DCMESYS_ROMS_EXTERNAL
+endif
+
 $(OUT)/$(GAME)$(EXE): $(SRC) $(PORTSRC) $(wildcard $(D)/*.h) $(wildcard $(AS1)/*.h) $(wildcard $(PP)/*.h) $(wildcard $(PP)/*.inc) Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) $(DEFS) $(SDL_CFLAGS) -o $@ $(SRC) $(PORTSRC) $(SDL_LIBS) -lm
 
 all:
-	$(MAKE) GAME=indytemp TARGET=$(TARGET)
-	$(MAKE) GAME=roadrunn TARGET=$(TARGET)
-	$(MAKE) GAME=gauntlet TARGET=$(TARGET)
-	$(MAKE) GAME=outrun TARGET=$(TARGET)
-	$(MAKE) GAME=snowbros TARGET=$(TARGET)
-	$(MAKE) GAME=trackfld TARGET=$(TARGET)
-	$(MAKE) GAME=pbobble TARGET=$(TARGET)
-	$(MAKE) GAME=retofinv TARGET=$(TARGET)
-	$(MAKE) GAME=robocop TARGET=$(TARGET)
-	$(MAKE) GAME=polepos TARGET=$(TARGET)
-	$(MAKE) GAME=polepos2 TARGET=$(TARGET)
-	$(MAKE) GAME=ql TARGET=$(TARGET)
-	$(MAKE) GAME=spectrum48 TARGET=$(TARGET)
-	$(MAKE) GAME=spectrum128 TARGET=$(TARGET)
-	$(MAKE) GAME=plus3 TARGET=$(TARGET)
-	$(MAKE) GAME=pentagon TARGET=$(TARGET)
-	$(MAKE) GAME=pentagon1024 TARGET=$(TARGET)
-	$(MAKE) GAME=scorpion TARGET=$(TARGET)
-	$(MAKE) GAME=cpc6128 TARGET=$(TARGET)
-	$(MAKE) GAME=c64 TARGET=$(TARGET)
-	$(MAKE) GAME=lynx TARGET=$(TARGET)
-	$(MAKE) GAME=msx1 TARGET=$(TARGET)
-	$(MAKE) GAME=msx2 TARGET=$(TARGET)
-	$(MAKE) GAME=amiga TARGET=$(TARGET)
-	for c in $(CONSOLES); do $(MAKE) GAME=$$c TARGET=$(TARGET) || exit 1; done
+	$(MAKE) GAME=indytemp TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=roadrunn TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=gauntlet TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=outrun TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=snowbros TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=trackfld TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=pbobble TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=retofinv TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=robocop TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=polepos TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=polepos2 TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=ql TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=spectrum48 TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=spectrum128 TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=plus3 TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=pentagon TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=pentagon1024 TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=scorpion TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=cpc6128 TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=c64 TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=lynx TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=msx1 TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=msx2 TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=amiga TARGET=$(TARGET) ROMS=$(ROMS)
+	for c in $(CONSOLES); do $(MAKE) GAME=$$c TARGET=$(TARGET) ROMS=$(ROMS) || exit 1; done
 
 clean:
 	rm -rf $(OUT)

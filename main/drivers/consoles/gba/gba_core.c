@@ -856,6 +856,7 @@ bool cons_init(void)
     if (!Gp || !fb565) return false;
     G.framebuffer_ = (uint32_t *)malloc(kWidth * kHeight * sizeof(uint32_t));
     if (!G.framebuffer_) return false;
+    gba_rom_load();                     // (the BIOS from storage when not built in: romfs)
     if (gba_rom_bios) {
         memcpy(G.bios_, gba_rom_bios, kBiosSize);
         have_bios = true;

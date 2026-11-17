@@ -18,6 +18,9 @@ static unsigned joy[2];
 static uint8_t prev[MC_KEYS];
 static bool ready;
 
+// (the consoles' cores load their BIOS themselves: romfs)
+void mc_rom_fill(int model, uint8_t **roms, int *lens, int *n) { (void)model, (void)roms, (void)lens, (void)n; }
+
 bool mc_init(int model, uint8_t **roms, const int *lens, int n, int64_t unix_time)
 {
     (void)model, (void)lens, (void)unix_time;

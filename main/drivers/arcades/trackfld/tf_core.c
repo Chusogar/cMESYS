@@ -55,7 +55,7 @@ typedef struct {
 
 static tf_t *T;
 // Program ROM (0x6000-0xFFFF): copied to RAM on ESP32
-static const uint8_t *mrom = tf_main_rom;
+static const uint8_t *mrom;          // (tf_main_rom, set by tf_init)
 
 // ---------------------------------------------------------------------------
 // Main CPU (Konami-1 = 6809 with encrypted opcodes)
@@ -184,9 +184,10 @@ void tf_init(void)
 {
     if (!T) {
         T = calloc(1, sizeof(tf_t));
+        mrom = tf_main_rom;
 #ifdef ESP_PLATFORM
-        uint8_t *r = malloc(sizeof tf_main_rom);
-        if (r) { memcpy(r, tf_main_rom, sizeof tf_main_rom); mrom = r; }
+        uint8_t *r = malloc(TF_MAIN_ROM_LEN);
+        if (r) { memcpy(r, tf_main_rom, TF_MAIN_ROM_LEN); mrom = r; }
 #endif
     }
     tf_in.in0 = tf_in.in1 = tf_in.in2 = 0xff;

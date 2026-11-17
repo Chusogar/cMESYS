@@ -74,8 +74,7 @@ final class Cpc extends Machine {
 
     @Override
     byte[][] roms(MachineActivity a, SharedPreferences p, int model) throws IOException {
-        byte[] os = asset(a, "roms/os.rom");
-        return os == null ? null : new byte[][] {os, asset(a, "roms/amsdos.rom")};
+        return new byte[][] {asset(a, "roms/os.rom"), asset(a, "roms/amsdos.rom")};
     }
 
     @Override int leds() { return 1; }

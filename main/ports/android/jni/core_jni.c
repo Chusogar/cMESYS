@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "core.h"
+#include "../../../rom/romfs.h"
 
 #define JNI_FN(name) Java_com_chusogar_cmesys_app_Core_##name
 
@@ -30,6 +31,7 @@ JNIEXPORT jboolean JNICALL JNI_FN(init)(JNIEnv *env, jclass cls, jint model, job
         (*env)->DeleteLocalRef(env, a);
     }
     memset(keys, 0, sizeof keys);
+    mc_rom_fill(model, data, lens, &n);          // (what the APK's assets do not have: romfs)
     ready = mc_init(model, data, lens, n, (int64_t)unix_time);
     return ready ? JNI_TRUE : JNI_FALSE;
 }
@@ -135,4 +137,32 @@ JNIEXPORT void JNICALL JNI_FN(mouse)(JNIEnv *env, jclass cls, jint dx, jint dy, 
 {
     (void)env, (void)cls;
     if (ready) mc_mouse(dx, dy, (unsigned)buttons);
+}
+
+// The folders the ROMs not in the APK are looked for in (romfs.h): the app's
+// roms folder (Android/data/<app>/files/roms) and the imported ones.
+JNIEXPORT void JNICALL JNI_FN(romDirs)(JNIEnv *env, jclass cls, jobjectArray dirs)
+{
+    (void)cls;
+    romfs_clear_dirs();
+    int n = dirs ? (*env)->GetArrayLength(env, dirs) : 0;
+    for (int i = 0; i < n; i++) {
+        jstring s = (jstring)(*env)->GetObjectArrayElement(env, dirs, i);
+        if (!s) continue;
+        const char *c = (*env)->GetStringUTFChars(env, s, NULL);
+        if (c) {
+            romfs_add_dir(c);
+            (*env)->ReleaseStringUTFChars(env, s, c);
+        }
+        (*env)->DeleteLocalRef(env, s);
+    }
+}
+
+// Why the last init failed (what is missing and where it was looked for).
+JNIEXPORT jstring JNICALL JNI_FN(romError)(JNIEnv *env, jclass cls)
+{
+    (void)cls;
+    static char msg[1024];
+    romfs_describe(msg, sizeof msg, 1000);
+    return (*env)->NewStringUTF(env, msg);
 }

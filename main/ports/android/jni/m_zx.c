@@ -6,10 +6,22 @@
 #include <stdlib.h>
 
 #include "core.h"
+#include "rom_data.h"
 #include "zxspec_core.h"
 
 static zxspec *m;
 static uint8_t *rom48, *rom128;
+
+void mc_rom_fill(int model, uint8_t **roms, int *lens, int *n)
+{
+    if (*n < 2) *n = 2;
+    if (roms[0] && (model == ZX_SPEC48 || roms[1])) return;
+    zx_rom48 = zx_rom128 = NULL;
+    zx_rom128_bytes = 0;
+    zx_rom_load_model(model);
+    mc_take(roms, lens, 0, &zx_rom48, 0x4000);
+    if (zx_rom128) mc_take(roms, lens, 1, &zx_rom128, (int)zx_rom128_bytes);
+}
 
 bool mc_init(int model, uint8_t **roms, const int *lens, int n, int64_t unix_time)
 {

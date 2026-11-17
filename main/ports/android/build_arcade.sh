@@ -9,6 +9,9 @@
 # Needs no Android Studio, Gradle or NDK (see build_apk.sh). The ROMs are
 # the generated rom_data.c of each game (tools/gen_roms_<game>.py, as for
 # the desktop): compiled into its library, inside the APK, never into git.
+# Those not built in (a stub rom_data.c, or ROMS=external: none) the app
+# reads from its roms folder (Android/data/<app>/files/roms/<game>/, the
+# MAME .zip or the files), where it also imports them from its dialog.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -93,25 +96,28 @@ defines() {
 
 # --- 1. one library per game --------------------------------------------------------
 for game in $GAMES; do
-    if [ "$(stat -c %s "$A/$game/rom_data.c")" -lt 4096 ]; then
-        echo "$game: rom_data.c has no ROMs: generate it first (tools/gen_roms_*, as for the desktop)" >&2
-        exit 1
+    # (a rom_data.c without ROMs, or ROMS=external: the app finds them in its roms folder)
+    if [ "${ROMS:-}" != external ] && [ "$(stat -c %s "$A/$game/rom_data.c")" -lt 4096 ]; then
+        echo "$game: rom_data.c has no ROMs: the app will look for them in its roms folder" >&2
     fi
+    ROMDEF=""
+    [ "${ROMS:-}" = external ] && ROMDEF="-DCMESYS_ROMS_EXTERNAL"
     for abi in arm64-v8a x86_64; do
         case $abi in
             arm64-v8a) triple=aarch64-linux-android21 ;;
             x86_64)    triple=x86_64-linux-android21 ;;
         esac
-        obj="$OUT/obj/$game/$abi"
+        obj="$OUT/obj${ROMDEF:+-noroms}/$game/$abi"
         mkdir -p "$obj" "$OUT/lib/$abi"
         objs=""
-        for f in "$HERE/jni/arcade_port.c" "$HERE/jni/libc_extra.c" $(sources "$game"); do
+        srcs="$(echo $(sources "$game") $A/$game/rom_load.c $M/rom/romfs.c $M/machine/zx_inflate.c | tr ' ' '\n' | awk 'NF && !seen[$0]++')"
+        for f in "$HERE/jni/arcade_port.c" "$HERE/jni/libc_extra.c" $srcs; do
             o="$obj/$(basename "$f" .c).o"
             # (the ROMs' object is kept between builds: it is the slow one)
             if [ "$(basename "$f")" != rom_data.c ] || [ ! -f "$o" ] || [ "$f" -nt "$o" ]; then
                 # (the frontend's main becomes cmesys_game_main, run by arcade_port.c)
                 clang --target=$triple -O2 -fPIC -ffreestanding -nostdinc -fno-stack-protector \
-                    -ffunction-sections -fdata-sections -fvisibility=hidden $(defines "$game") \
+                    -ffunction-sections -fdata-sections -fvisibility=hidden $(defines "$game") $ROMDEF \
                     -Dmain=cmesys_game_main -isystem "$RES_INC" -isystem "$HERE/jni/libc" \
                     -isystem "$JDK_INC" -isystem "$JDK_INC/linux" -I"$A/$game" -I"$A/atarisy1" -I"$A/polepos" \
                     -I"$M/ports/sdl2" -I"$M/cpu" -I"$M/cpu/m68k" -I"$M/cpu/m6502" -I"$M/cpu/mc6809" -I"$M/cpu/mcs48" \

@@ -82,10 +82,10 @@ final class Msx extends Machine {
     @Override
     byte[][] roms(MachineActivity a, SharedPreferences p, int model) throws IOException {
         String dir = model == 1 ? "roms/msx1/" : "roms/msx2/";
-        byte[] bios = asset(a, dir + "bios.rom");
-        if (bios == null) return null;
-        return new byte[][] {bios, model == 1 ? null : asset(a, dir + "sub.rom"), asset(a, dir + "disk.rom")};
+        return new byte[][] {asset(a, dir + "bios.rom"), model == 1 ? null : asset(a, dir + "sub.rom"), asset(a, dir + "disk.rom")};
     }
+
+    @Override String romSet(int model) { return model == 1 ? "msx1" : "msx2"; }
 
     @Override String mediaExtensions() { return ".rom .mx1 .mx2 .dsk .cas .tsx .tzx"; }
 

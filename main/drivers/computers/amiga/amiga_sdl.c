@@ -207,10 +207,9 @@ int main(int argc, char **argv)
             disks[nd++] = argv[i];
         }
     }
-    if (!kick) {
-        fprintf(stderr, "No Kickstart built in: put it in roms/amiga/ (the a500 .zip) and run tools/regen.sh amiga,\n"
-                        "or give one with --kick kickstart.rom\n");
-        return 1;
+    if (!kick) {                          // not built in: from storage (romfs), or --kick
+        if (!amiga_rom_load()) sdl_port_rom_error();
+        kick = amiga_rom_kick;
     }
     if (!amiga_init(kick, kick_size)) {
         fprintf(stderr, "out of memory\n");

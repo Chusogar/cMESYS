@@ -61,10 +61,10 @@ final class Spectrum extends Machine {
     byte[][] roms(MachineActivity a, SharedPreferences p, int model) throws IOException {
         if (model < 0 || model >= MODEL_DIRS.length) model = 0;
         String dir = "roms/" + MODEL_DIRS[model] + "/";
-        byte[] rom48 = asset(a, dir + "rom48.rom");
-        if (rom48 == null) return null;
-        return new byte[][] {rom48, asset(a, dir + "banked.rom")};
+        return new byte[][] {asset(a, dir + "rom48.rom"), asset(a, dir + "banked.rom")};
     }
+
+    @Override String romSet(int model) { return MODEL_DIRS[model < 0 || model >= MODEL_DIRS.length ? 0 : model]; }
 
     @Override int leds() { return 2; }
 

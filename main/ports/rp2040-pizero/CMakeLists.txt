@@ -255,6 +255,21 @@ if(PIZERO STREQUAL "2350")
     set(BAND 2)
     set(TMDS_SLACK 4)
 endif()
+# The ROMs that rom_data.c does not have come from the microSD (roms/<set>/,
+# roms/<set>.zip: main/rom/romfs.c, romfs_sd.c and the machine's rom_load.c).
+# -DROMS=external: none built in (rom_data.c compiled without its arrays).
+list(APPEND SRCS ${M}/rom/romfs.c ${M}/rom/romfs_sd.c ${M}/machine/zx_inflate.c ${QL_DIR}/ql_sd_pico.c)
+if(DEFINED D AND EXISTS ${D}/rom_load.c)
+    list(APPEND SRCS ${D}/rom_load.c)
+endif()
+if(GAME STREQUAL "indytemp" OR GAME STREQUAL "roadrunn")
+    list(APPEND SRCS ${AS1}/atarisy1_roms.c)
+endif()
+list(REMOVE_DUPLICATES SRCS)
+list(APPEND DEFS ROMFS_SD)
+if(ROMS STREQUAL "external")
+    list(APPEND DEFS CMESYS_ROMS_EXTERNAL)
+endif()
 add_executable(${EXE} ${SRCS} ${PORT_DIR}/pico_port.c)
 target_include_directories(${EXE} PRIVATE ${PORT_DIR} ${D} ${AS1} ${QL_DIR} ${M}/drivers/arcades/polepos ${M}/cpu ${M}/cpu/m68k ${M}/cpu/m6502
     ${M}/cpu/mc6809 ${M}/cpu/mcs48 ${M}/cpu/z80 ${M}/sound ${M}/machine ${M}/video)

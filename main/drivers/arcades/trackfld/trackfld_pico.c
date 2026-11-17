@@ -10,6 +10,7 @@
 #include "pico/time.h"
 #endif
 #include "tf_core.h"
+#include "rom_data.h"
 
 #define X0 ((PICO_W - TF_W) / 2)
 #define Y0 ((PICO_H - TF_H) / 2)
@@ -77,6 +78,7 @@ static void game(void)
 int main(void)
 {
     uint8_t rgb[32][3];
+    if (!tf_roms_get()) pico_port_rom_error();
     tf_init();
     fb2 = malloc(sizeof fb);
     tf_palette_rgb(rgb);
