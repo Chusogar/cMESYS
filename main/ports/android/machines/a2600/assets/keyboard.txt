@@ -1,0 +1,18 @@
+# tools/gen_consoles_vkb.py, do not edit
+picture keyboard.png 1536 520
+travel 4
+button menu 558 34 788 104
+button hide 808 34 938 104
+key 100 0 248 130 352 228  # UP
+key 101 0 248 332 352 430  # DOWN
+key 102 0 150 228 248 332  # LEFT
+key 103 0 352 228 450 332  # RIGHT
+key 111 0 150 130 248 228  # UP+LEFT
+key 112 0 352 130 450 228  # UP+RIGHT
+key 113 0 150 332 248 430  # DOWN+LEFT
+key 114 0 352 332 450 430  # DOWN+RIGHT
+key 104 0 1144 188 1328 372  # FIRE
+key 108 0 617 351 749 409  # RESET
+key 109 0 787 351 919 409  # SELECT
+key 106 0 605 166 721 234  # LEFT DIFF.
+key 107 0 815 166 931 234  # RIGHT DIFF.

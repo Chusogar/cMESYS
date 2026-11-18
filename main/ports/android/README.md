@@ -115,6 +115,7 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | `machines/<máquina>/` | recursos de cada APK: nombre, ajustes, lanzador, teclado, ayuda |
 | `tools/import_dsp_keyboards.py` | los teclados de dsp-cpp (`*_vkb_data.inc`) → `keyboard.png` + `keyboard.txt` |
 | `tools/gen_msx_vkb.py`, `gen_lynx_vkb.py` | los teclados de MSX y Lynx |
+| `tools/gen_consoles_vkb.py` | los mandos en pantalla de las 19 consolas (`machines/<id>/assets/keyboard.png` + `keyboard.txt`; códigos de `m_cons.c`) |
 | `tools/gen_amiga_vkb.py` | el teclado del Amiga desde la foto |
 | `tools/android_roms.py` | las ROM de cada máquina para el APK |
 | `tools/make_icons.py`, `make_help.py` | iconos, lanzadores y ayuda |
