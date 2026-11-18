@@ -1,0 +1,1 @@
+Macintosh II: MAME's macii.zip (9779d2c4.rom or 97851db6.rom) and the Display Card 8*24's 3410868.bin (MAME's nb_mdc824.zip); then tools/regen.sh macii

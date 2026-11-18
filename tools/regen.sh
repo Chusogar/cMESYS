@@ -7,11 +7,13 @@
 # (A build can also leave the ROMs out without touching rom_data.c: ROMS=external.)
 #   tools/regen.sh indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | ql
 #                  | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion | cpc6128 | c64 | lynx | msx1 | msx2 | amiga
+#                  | apple2 | apple2p | apple2e | apple2ee | apple2gs | macplus | macii
 # ROMs: roms/indytemp or roms/roadrunn + roms/atarisy1, roms/snowbros, roms/trackfld, roms/pbobble, roms/gauntlet, roms/outrun, roms/retofinv, roms/robocop, roms/polepos, roms/polepos2 (unzipped; Pole Position
 # also with the Namco 51xx-54xx MCU dumps),
 # roms/ql (the QL set unzipped + the .mdv cartridge to build in),
 # roms/<spectrum-model>/ exclusively (one directory and one rom_data_<model>.c per model),
-# roms/cpc6128, roms/c64, roms/lynx, roms/amiga (unzipped MAME sets, their .zip, or the usual dumps).
+# roms/cpc6128, roms/c64, roms/lynx, roms/amiga, roms/apple2* (one per model), roms/apple2gs, roms/macplus,
+# roms/macii (unzipped MAME sets, their .zip, or the usual dumps).
 set -e
 STUB=
 if [ "$1" = "--stub" ]; then STUB=1; shift; fi
@@ -25,14 +27,16 @@ cpc6128) D=$M/drivers/computers/cpc ;;
 c64|amiga) D=$M/drivers/computers/$G ;;
 lynx) D=$M/drivers/consoles/lynx ;;
 msx1|msx2) D=$M/drivers/computers/msx ;;
+apple2|apple2p|apple2e|apple2ee) D=$M/drivers/computers/apple2 ;;
+apple2gs|macplus|macii) D=$M/drivers/computers/$G ;;
 esac
 if [ -n "$STUB" ]; then
     case $G in
     ql) python3 tools/gen_roms_ql.py --stub $D/rom_data.c ;;
     spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion)
         python3 tools/gen_roms_zxspec.py --stub $D/rom_data_$G.c $G ;;
-    msx1|msx2) python3 tools/gen_roms_computers.py --stub $G $D/rom_data_$G.c ;;
-    cpc6128|c64|lynx|amiga) python3 tools/gen_roms_computers.py --stub $G $D/rom_data.c ;;
+    msx1|msx2|apple2|apple2p|apple2e|apple2ee) python3 tools/gen_roms_computers.py --stub $G $D/rom_data_$G.c ;;
+    cpc6128|c64|lynx|amiga|apple2gs|macplus|macii) python3 tools/gen_roms_computers.py --stub $G $D/rom_data.c ;;
     coleco|pv2000|vectrex|scv|sega32x|gba|psx)
         python3 tools/gen_roms_computers.py --stub $G $M/drivers/consoles/$G/rom_data.c ;;
     *) python3 tools/gen_rom_stub.py $G $D/rom_data.c ;;
@@ -91,9 +95,15 @@ cpc6128|c64|lynx)
 amiga)
     python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data.c
     CYC=0 ;;
-msx1|msx2)
+msx1|msx2|apple2|apple2p|apple2e|apple2ee)
     python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data_$G.c
     exit 0 ;;
+apple2gs|macii)
+    python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data.c
+    exit 0 ;;
+macplus)
+    python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data.c
+    CYC=0 ;;
 coleco|pv2000|vectrex|scv|sega32x|gba|psx)
     D=$M/drivers/consoles/$G
     python3 tools/gen_roms_computers.py $G roms/$G $D/rom_data.c
@@ -102,7 +112,7 @@ trackfld)
     cc -O2 -o $T/gen_roms tools/gen_roms_trackfld.c
     $T/gen_roms roms/trackfld $D/rom_data.c
     exit 0 ;;
-*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|coleco|pv2000|vectrex|scv|sega32x|gba|psx"; exit 1 ;;
+*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|apple2|apple2p|apple2e|apple2ee|apple2gs|macplus|macii|coleco|pv2000|vectrex|scv|sega32x|gba|psx"; exit 1 ;;
 esac
 # Musashi opcode tables in flash, for this game's CPU type
 cc -O1 -w -I$D -I$M/cpu/m68k -DCYC_CPU=$CYC -o $T/gen_m68k tools/gen_m68k_tables.c $M/cpu/m68k/m68kcpu.c \

@@ -39,5 +39,17 @@ void via6522_tick(via6522 *v, int cycles);
 void via6522_write_pa(via6522 *v, uint8_t value);
 void via6522_write_ca1(via6522 *v, bool state);
 uint8_t via6522_out_b(const via6522 *v);
+uint8_t via6522_out_a(const via6522 *v);
+// (the Macintoshes)
+void via6522_write_pb(via6522 *v, uint8_t value);
+void via6522_set_pb_line(via6522 *v, int line, bool state);
+void via6522_write_ca2(via6522 *v, bool state);
+void via6522_write_cb1(via6522 *v, bool state);
+void via6522_write_cb2(via6522 *v, bool state);
+void via6522_set_cb2_data(via6522 *v, bool bit);       // CB2 as shift data, without its interrupt
+void via6522_shift_in_external(via6522 *v, uint8_t value);   // 8 bits in at once (ACR mode 3)
+uint8_t via6522_shift_out_external(via6522 *v);              // 8 bits out at once (ACR mode 7)
+static inline bool via6522_sr_busy(const via6522 *v) { return v->shift_count != 0 && v->shift_count != 0xFF; }
+static inline bool via6522_cb2(const via6522 *v) { return v->out_cb2; }
 
 #endif

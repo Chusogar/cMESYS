@@ -6,7 +6,8 @@ Usage:
   tools/gen_roms_computers.py --stub <machine> <out.c>
   tools/gen_roms_computers.py --loaders [<repo root>]   (writes every rom_load.c)
 
-<machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga, or a console of
+<machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga | apple2 | apple2p | apple2e | apple2ee |
+apple2gs | macplus | macii, or a console of
 main/drivers/consoles with a BIOS (coleco, ...). <romdir> is roms/<machine>/, unzipped or the
 MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   cpc6128  cpc6128.rom (32 KB: OS + BASIC), amsdos.rom | cpcados.rom (16 KB)
@@ -20,6 +21,16 @@ MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
            (256 KB; the MAME a500 set's .zip as it is)
   msx2     MSX2.ROM | nms8250_basic-bios2.rom (32 KB), MSX2EXT.ROM | nms8250_msx2sub.rom
            (16 KB), DISK.ROM | nms8250_disk.rom (16 KB, optional)
+  apple2   (MAME apple2) 341-0001-00.e0 + 341-0002-00.e8 + 341-0003-00.f0 (Integer BASIC) +
+           341-0020-00.f8 (Autostart) | 341-0004-00.f8 (8 KB, $E000), a2.chr (2 KB),
+           341-0016-00.d0 (Programmer's Aid, optional), 341-0027-a.p5 (Disk II, optional)
+  apple2p  (MAME apple2p) 341-0011.d0 .. 341-0015.f0 + 341-0020-00.f8 (12 KB, $D000),
+           341-0036.chr (2 KB), 341-0027-a.p5
+  apple2e  (MAME apple2e) 342-0135-b.64 + 342-0134-a.64 (16 KB, $C000), 342-0133-a.chr (4 KB), 341-0027-a.p5
+  apple2ee (MAME apple2ee) 342-0304-a.e10 + 342-0303-a.e8 (16 KB), 342-0265-a.chr (4 KB), 341-0027-a.p5
+  apple2gs (MAME apple2gs, ROM 03) 341-0728 + 341-0748 (256 KB), apple2gs.chr (4 KB)
+  macplus  (MAME macplus) 342-0341-c.u6d + 342-0342-b.u8d (v3; or -b + -a, -a + -a: 64 KB each, even / odd)
+  macii    (MAME macii) 9779d2c4.rom | 97851db6.rom (256 KB), 3410868.bin (Display Card 8*24, 32 KB)
 """
 from __future__ import print_function
 import os
@@ -58,6 +69,53 @@ SETS = {
     'amiga': [
         ('amiga_rom_kick', 0x40000, [('315093-02.u2', 0xc4f0f55f), ('kick13.rom', None), ('kick34005.a500', None),
                                      ('315093-01.u2', 0xa6ce1636), ('kick.rom', None), ('kickstart.rom', None)], True),
+    ],
+    # Apple II family (drivers/computers/apple2): one rom_data_<model>.c each
+    'apple2': [
+        ('a2_rom_main', 0x2000, [(('341-0001-00.e0', '341-0002-00.e8', '341-0003-00.f0', '341-0020-00.f8'), None),
+                                 (('341-0001-00.e0', '341-0002-00.e8', '341-0003-00.f0', '341-0004-00.f8'), None),
+                                 ('apple2-int-auto.rom', None), ('apple2integer.rom', None)], True),
+        ('a2_rom_chr', 0x800, [('a2.chr', 0x64f415c6), ('341-0036.chr', None), ('apple2.chr', None)], False),
+        ('a2_rom_disk', 0x100, [('341-0027-a.p5', 0xce7144f6), ('disk2-16boot.rom', None), ('diskii.rom', None)], False),
+        ('a2_rom_aid', 0x800, [('341-0016-00.d0', 0x4234e88a)], False),
+    ],
+    'apple2p': [
+        ('a2_rom_main', 0x3000, [(('341-0011.d0', '341-0012.d8', '341-0013.e0', '341-0014.e8', '341-0015.f0',
+                                   '341-0020-00.f8'), None),
+                                 ('apple2plus.rom', None), ('apple2p.rom', None), ('apple2.rom', None)], True),
+        ('a2_rom_chr', 0x800, [('341-0036.chr', 0x64f415c6), ('a2.chr', None), ('apple2.chr', None)], False),
+        ('a2_rom_disk', 0x100, [('341-0027-a.p5', 0xce7144f6), ('disk2-16boot.rom', None), ('diskii.rom', None)], False),
+        ('a2_rom_aid', 0x800, [], False),
+    ],
+    'apple2e': [
+        ('a2_rom_main', 0x4000, [(('342-0135-b.64', '342-0134-a.64'), None), ('apple2e.rom', None)], True),
+        ('a2_rom_chr', 0x1000, [('342-0133-a.chr', 0xb081df66), ('apple2e.chr', None)], False),
+        ('a2_rom_disk', 0x100, [('341-0027-a.p5', 0xce7144f6), ('disk2-16boot.rom', None), ('diskii.rom', None)], False),
+        ('a2_rom_aid', 0x800, [], False),
+    ],
+    'apple2ee': [
+        ('a2_rom_main', 0x4000, [(('342-0304-a.e10', '342-0303-a.e8'), None), ('apple2ee.rom', None),
+                                 ('AppleIIe.rom', None)], True),
+        ('a2_rom_chr', 0x1000, [('342-0265-a.chr', 0x2651014d), ('342-0133-a.chr', None)], False),
+        ('a2_rom_disk', 0x100, [('341-0027-a.p5', 0xce7144f6), ('disk2-16boot.rom', None), ('diskii.rom', None)], False),
+        ('a2_rom_aid', 0x800, [], False),
+    ],
+    # Apple IIGS ROM 03: 341-0728 is banks $FC-$FD, 341-0748 is $FE-$FF with
+    # its halves swapped (the core puts them in place)
+    'apple2gs': [
+        ('a2gs_rom_fc', 0x20000, [('341-0728', 0x8d410067), ('341-0728.bin', None)], True),
+        ('a2gs_rom_fe', 0x20000, [('341-0748', 0x18190283), ('341-0748.bin', None)], True),
+        ('a2gs_rom_chr', 0x1000, [('apple2gs.chr', 0x91e53cd8)], True),
+    ],
+    # Macintosh Plus: the even / odd byte chips (the core interleaves them)
+    'macplus': [
+        ('macplus_rom_even', 0x10000, [('342-0341-c.u6d', 0xf69697e6), ('342-0341-b.u6d', 0x65341487),
+                                       ('342-0341-a.u6d', 0x5095fe39)], True),
+        ('macplus_rom_odd', 0x10000, [('342-0342-b.u8d', 0x49f25913), ('342-0342-a.u8d', 0xfb766270)], True),
+    ],
+    'macii': [
+        ('macii_rom', 0x40000, [('9779d2c4.rom', 0x4df6d054), ('97851db6.rom', 0x8c8b9d03)], True),
+        ('macii_rom_card', 0x8000, [('3410868.bin', 0x57f925fa)], True),
     ],
     # consoles (main/drivers/consoles): their BIOS, all optional
     'coleco': [
@@ -172,6 +230,13 @@ LOADERS = {   # machine: (function, set names searched, ROMs required)
     'gba': ('gba_rom_load', ['gba'], False),
     'psx': ('psx_rom_load', ['psx'], False),
     'lynx': ('lynx_rom_load', ['lynx'], False),   # (without it: the built-in loader)
+    'apple2': ('apple2_rom_load', ['apple2'], True),
+    'apple2p': ('apple2p_rom_load', ['apple2p'], True),
+    'apple2e': ('apple2e_rom_load', ['apple2e'], True),
+    'apple2ee': ('apple2ee_rom_load', ['apple2ee'], True),
+    'apple2gs': ('apple2gs_rom_load', ['apple2gs'], True),
+    'macplus': ('macplus_rom_load', ['macplus'], True),
+    'macii': ('macii_rom_load', ['macii', 'nb_mdc824'], True),
 }
 LOADER_FILES = {   # rom_load.c -> the machines in it (#if MSX_MODEL for the two MSX)
     'main/drivers/computers/cpc/rom_load.c': ['cpc6128'],
@@ -179,6 +244,15 @@ LOADER_FILES = {   # rom_load.c -> the machines in it (#if MSX_MODEL for the two
     'main/drivers/computers/msx/rom_load.c': ['msx1', 'msx2'],
     'main/drivers/computers/amiga/rom_load.c': ['amiga'],
     'main/drivers/consoles/lynx/rom_load.c': ['lynx'],
+    'main/drivers/computers/apple2/rom_load.c': ['apple2', 'apple2p', 'apple2e', 'apple2ee'],
+    'main/drivers/computers/apple2gs/rom_load.c': ['apple2gs'],
+    'main/drivers/computers/macplus/rom_load.c': ['macplus'],
+    'main/drivers/computers/macii/rom_load.c': ['macii'],
+}
+# rom_load.c with several models: (the build's model macro, its loader, the models' values)
+MULTI = {
+    ('msx1', 'msx2'): ('MSX_MODEL', 'msx_rom_load', ['1', '2']),
+    ('apple2', 'apple2p', 'apple2e', 'apple2ee'): ('A2_MODEL', 'a2_rom_load', ['0', '1', '2', '3']),
 }
 for _c in ('coleco', 'scv', 'vectrex', 'pv2000', 'sega32x', 'gba', 'psx'):
     LOADER_FILES['main/drivers/consoles/%s/rom_load.c' % _c] = [_c]
@@ -221,9 +295,16 @@ def write_loader(path, machines):
         f.write('#include "rom_data.h"\n#include "../../../rom/romfs.h"\n\n')
         if len(machines) == 1:
             f.write(loader_body(machines[0]) + '\n')
-        else:   # msx1 / msx2: both (the Android app has the two models), and the build's
-            f.write('%s\n\n%s\n' % (loader_body('msx1', 'msx1_rom_load'), loader_body('msx2', 'msx2_rom_load')))
-            f.write('\n#ifdef MSX_MODEL\nbool msx_rom_load(void) { return MSX_MODEL == 2 ? msx2_rom_load() : msx1_rom_load(); }\n#endif\n')
+        else:   # every model (the Android app has them all), and the build's
+            macro, fn, values = MULTI[tuple(machines)]
+            f.write('\n\n'.join(loader_body(mm, mm + '_rom_load') for mm in machines) + '\n')
+            if macro == 'MSX_MODEL':
+                f.write('\n#ifdef MSX_MODEL\nbool msx_rom_load(void) { return MSX_MODEL == 2 ? msx2_rom_load() : msx1_rom_load(); }\n#endif\n')
+                return
+            f.write('\n#ifdef %s\nbool %s(void)\n{\n' % (macro, fn))
+            for mm, v in zip(machines[:-1], values[:-1]):
+                f.write('    if (%s == %s) return %s_rom_load();\n' % (macro, v, mm))
+            f.write('    return %s_rom_load();\n}\n#endif\n' % machines[-1])
 
 
 def main():

@@ -1,0 +1,1 @@
+Macintosh Plus: MAME's macplus.zip (342-0341-c.u6d + 342-0342-b.u8d, or the -b/-a and -a/-a pairs); then tools/regen.sh macplus

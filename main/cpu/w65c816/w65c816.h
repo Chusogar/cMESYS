@@ -16,6 +16,7 @@ typedef struct {
     void (*write)(void *user, uint32_t addr, uint8_t v);
     void (*cycles)(void *user, int n);                    // after every instruction (optional)
     uint32_t (*vector_handler)(void *user, uint32_t v);   // (optional)
+    void (*wdm)(void *user, uint8_t signature);           // WDM $42 xx (optional: the IIGS's SmartPort)
     void *user;
     uint16_t a, x, y, sp, d;
     uint8_t pbr, dbr;

@@ -344,3 +344,80 @@ void via6522_write_ca1(via6522 *v, bool state)
 }
 
 uint8_t via6522_out_b(const via6522 *v) { return out_b(v); }
+
+// ---------------------------------------------------------------------------
+// More external lines (the Macintoshes): port B's pins, CA2, CB1 (its edge
+// also clocks the shift register in its external modes), CB2, and whole
+// bytes through the shift register (the Mac II's ADB transceiver)
+void via6522_write_pb(via6522 *v, uint8_t value)
+{
+    v->in_b = value;
+    if (!PB_LATCH(v->acr)) v->latch_b = value;
+}
+
+void via6522_set_pb_line(via6522 *v, int line, bool state)
+{
+    if (line < 0 || line > 7) return;
+    if (state) v->in_b |= (uint8_t)(1 << line);
+    else v->in_b &= (uint8_t)~(1 << line);
+}
+
+void via6522_write_ca2(via6522 *v, bool state)
+{
+    if (state == v->in_ca2) return;
+    const bool rise = state && !v->in_ca2, fall = !state && v->in_ca2;
+    v->in_ca2 = state;
+    if (!CA2_FIX_OUT(v->pcr) && !CA2_PULSE(v->pcr) && !CA2_HANDSHAKE(v->pcr)) {
+        const bool pos = (v->pcr & 0x04) != 0;
+        if ((pos && rise) || (!pos && fall)) set_int(v, INT_CA2);
+    } else if ((v->pcr & 0x0A) == 0x02) {
+        if (fall) set_int(v, INT_CA2);
+    }
+}
+
+void via6522_write_cb1(via6522 *v, bool state)
+{
+    if (state == v->in_cb1) return;
+    const bool rise = state && !v->in_cb1, fall = !state && v->in_cb1;
+    v->in_cb1 = state;
+    const bool trigger = (v->pcr & 0x10) ? rise : fall;
+    if (trigger) {
+        if (PB_LATCH(v->acr)) v->latch_b = v->pb_in ? v->pb_in(v->user) : v->in_b;
+        set_int(v, INT_CB1);
+        if (CB2_HANDSHAKE(v->pcr)) output_cb2(v, true);
+        const uint8_t mode = SR_MODE(v->acr);
+        if (mode == 3 || mode == 6 || mode == 7) shift_clock(v);     // external shift clock
+    }
+}
+
+void via6522_write_cb2(via6522 *v, bool state)
+{
+    if (state == v->in_cb2) return;
+    const bool rise = state && !v->in_cb2, fall = !state && v->in_cb2;
+    v->in_cb2 = state;
+    if (SR_MODE(v->acr) != 0) return;           // (the shift register owns CB2)
+    if (!CB2_FIX_OUT(v->pcr) && !CB2_PULSE(v->pcr) && !CB2_HANDSHAKE(v->pcr)) {
+        const bool pos = (v->pcr & 0x40) != 0;
+        if ((pos && rise) || (!pos && fall)) set_int(v, INT_CB2);
+    } else if ((v->pcr & 0xA0) == 0x20) {
+        if (fall) set_int(v, INT_CB2);
+    }
+}
+
+void via6522_set_cb2_data(via6522 *v, bool bit) { v->in_cb2 = bit; }
+
+void via6522_shift_in_external(via6522 *v, uint8_t value)
+{
+    v->sr = value;
+    v->shift_count = 0;
+    set_int(v, INT_SR);
+}
+
+uint8_t via6522_shift_out_external(via6522 *v)
+{
+    v->shift_count = 0;
+    set_int(v, INT_SR);
+    return v->sr;
+}
+
+uint8_t via6522_out_a(const via6522 *v) { return out_a(v); }
