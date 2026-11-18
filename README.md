@@ -216,7 +216,7 @@ ROMS=external main/ports/android/build_apk.sh c64   # sin ROMs dentro del APK
 Las ROMs que el APK no lleva las busca la app en su carpeta `Android/data/<app>/files/roms/<set>/` (sueltas o el `.zip` de MAME; se llega por USB). Si faltan, la app dice cuáles y ofrece **Importar ROMs…**, que también está en el menú de los ordenadores: copia los ficheros elegidos a esa carpeta.
 
 - **Ordenadores** (`ql`, `zxspec`, `cpc`, `c64`, `msx`, `amiga`) y **Lynx**: una app por máquina con la interfaz de Hataroid (menú de iconos, ajustes, *Abrir con*) y el teclado en pantalla de dsp-cpp. En el Amiga la imagen hace de trackpad.
-- **Consolas**: un APK por consola, con sus ficheros generados por `tools/gen_consoles_android.py`.
+- **Consolas**: un APK por consola, con sus ficheros generados por `tools/gen_consoles_android.py` y un mando en pantalla dibujado por `tools/gen_consoles_vkb.py`: la cruceta o el joystick, sus botones, START / SELECT, el teclado numérico de la ColecoVision y del SCV, la cruz Y de la WonderSwan y el teclado del PV-2000.
 - **cMESYS Arcade**: las 11 recreativas en una app con lista de juegos como MAME para Android, joystick en pantalla, botones, START y monedero.
 
 ### ESP32 CYD
