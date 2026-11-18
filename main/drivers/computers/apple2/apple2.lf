@@ -1,0 +1,7 @@
+# Hot code in IRAM (out of the flash cache)
+[mapping:apple2_hot]
+archive: libmain.a
+entries:
+    m65xx (noflash)
+    apple2_core (noflash)
+    diskii (noflash)

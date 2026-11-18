@@ -467,6 +467,10 @@ static uint8_t *ram_ptr(uint32_t pa)
     if (pa >= 0x40000000u || M.overlay) return NULL;
     if (M.glue == 3) return pa < 0x100000 ? &M.ram[pa] : NULL;
     if (pa < M.ram_size) return &M.ram[pa];
+    if (M.ram_size < (8u << 20)) {      // (4 MB: bank A only, mirrored where the 8 MB one's is)
+        if (pa >= (8u << 20) && pa < (12u << 20)) return &M.ram[pa - (8u << 20)];
+        return NULL;
+    }
     if (pa < M.ram_size + M.ram_size / 2) return &M.ram[pa - M.ram_size];    // bank A's mirror
     return NULL;
 }

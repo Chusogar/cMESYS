@@ -34395,8 +34395,15 @@ static void m68k_op_unpk_16_mm(void)
 
 #define NUM_CPU_TYPES 5
 
+#ifdef MUSASHI_HEAP_TABLES
+/* cMESYS boards: the tables in the heap (the RP2350's PSRAM), not in the SRAM */
+#include <stdlib.h>
+void  (**m68ki_instruction_jump_table)(void);
+unsigned char (*m68ki_cycles)[0x10000];
+#else
 void  (*m68ki_instruction_jump_table[0x10000])(void); /* opcode handler jump table */
 unsigned char m68ki_cycles[NUM_CPU_TYPES][0x10000]; /* Cycles used by CPU type */
+#endif
 
 /* This is used to generate the opcode handler jump table */
 typedef struct
@@ -36395,6 +36402,14 @@ void m68ki_build_opcode_table(void)
 	int j;
 	int k;
 
+#ifdef MUSASHI_HEAP_TABLES
+	if(!m68ki_instruction_jump_table)
+		m68ki_instruction_jump_table = malloc(0x10000 * sizeof *m68ki_instruction_jump_table);
+	if(!m68ki_cycles)
+		m68ki_cycles = malloc(NUM_CPU_TYPES * sizeof *m68ki_cycles);
+	if(!m68ki_instruction_jump_table || !m68ki_cycles)
+		return;
+#endif
 	for(i = 0; i < 0x10000; i++)
 	{
 		/* default to illegal */

@@ -8,7 +8,8 @@
 # or ./build_pico.sh for all of them (-> dist/). GAME: indytemp, roadrunn,
 # gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql,
 # spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2,
-# amiga (RP2350 only: its RAM is in the PSRAM).
+# amiga, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii (RP2350 only: their RAM, disks or
+# both are in the PSRAM).
 cmake_minimum_required(VERSION 3.13)
 
 get_filename_component(PORT_DIR "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
@@ -49,7 +50,7 @@ endif()
 pico_sdk_init()
 
 if(NOT GAME)
-    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga>")
+    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|apple2|apple2p|apple2e|apple2ee|apple2gs|macplus|macii>")
 endif()
 # HDMI: PicoDVI on the RP2040; on the RP2350 rp2350/hdmi (pico_lib's DVI,
 # which also sends the sound to the TV, in data islands)
@@ -61,6 +62,7 @@ if(NOT PIZERO STREQUAL "2350")
 endif()
 
 set(ZX_GAMES spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion)
+set(A2_GAMES apple2 apple2p apple2e apple2ee)
 include(${M}/drivers/consoles/consoles.cmake)
 set(IS_ZXSPEC 0)
 set(QL_DIR ${M}/drivers/computers/ql)
@@ -79,6 +81,10 @@ elseif(GAME STREQUAL "lynx")
     set(D ${M}/drivers/consoles/lynx)
 elseif(GAME STREQUAL "msx1" OR GAME STREQUAL "msx2")
     set(D ${M}/drivers/computers/msx)
+elseif(GAME IN_LIST A2_GAMES)
+    set(D ${M}/drivers/computers/apple2)
+elseif(GAME STREQUAL "apple2gs" OR GAME STREQUAL "macplus" OR GAME STREQUAL "macii")
+    set(D ${M}/drivers/computers/${GAME})
 elseif(GAME IN_LIST CONSOLES)
     set(D ${M}/drivers/consoles/${GAME})
 else()
@@ -182,6 +188,36 @@ elseif(GAME STREQUAL "amiga")
     set(DEFS M68K_FLASH_TABLES)
     set(RAM_CODE m68kcpu.c.o amiga_core.c.o amiga_chipset.c.o)
     set(HOT_MAX 120)                # (the hottest 68000 handlers of amiga.lf)
+elseif(GAME IN_LIST A2_GAMES OR GAME STREQUAL "apple2gs" OR GAME STREQUAL "macplus" OR GAME STREQUAL "macii")
+    if(NOT PIZERO STREQUAL "2350")
+        message(FATAL_ERROR "${GAME}: the RP2350-PiZero only (-DPIZERO=2350): its RAM and disks go in the PSRAM")
+    endif()
+    if(GAME IN_LIST A2_GAMES)
+        list(FIND A2_GAMES ${GAME} A2_N)
+        set(SRCS ${D}/apple2_pico.c ${D}/apple2_core.c ${D}/rom_data_${GAME}.c ${M}/cpu/m6502/m65xx.c
+                 ${M}/machine/diskii.c ${M}/machine/zx_pbuf.c)
+        set(DEFS A2_MODEL=${A2_N})
+        set(RAM_CODE apple2_core.c.o m65xx.c.o diskii.c.o)
+    elseif(GAME STREQUAL "apple2gs")
+        set(SRCS ${D}/apple2gs_pico.c ${D}/apple2gs_core.c ${D}/rom_data.c ${M}/cpu/w65c816/w65c816.c
+                 ${M}/sound/es5503.c ${M}/machine/blkfile.c)
+        set(DEFS)
+        set(RAM_CODE apple2gs_core.c.o w65c816.c.o es5503.c.o)
+    elseif(GAME STREQUAL "macplus")
+        set(SRCS ${D}/macplus_pico.c ${D}/macplus_core.c ${D}/rom_data.c ${M68K} ${M}/machine/via6522.c
+                 ${M}/machine/iwm.c ${M}/machine/mac_dsk.c ${M}/machine/mac_rtc.c ${M}/machine/ncr5380.c
+                 ${M}/machine/mac_dcmp.c ${M}/machine/blkfile.c)
+        set(DEFS M68K_FLASH_TABLES)
+        set(RAM_CODE m68kcpu.c.o macplus_core.c.o via6522.c.o iwm.c.o)
+    else()
+        # Musashi 4 (the 68020), found by relative path from macii_core.c
+        set(SRCS ${D}/macii_pico.c ${D}/macii_core.c ${D}/rom_data.c ${M}/cpu/musashi/m68kcpu.c
+                 ${M}/cpu/musashi/m68kops.c ${M}/cpu/musashi/softfloat/softfloat.c ${M}/machine/via6522.c
+                 ${M}/machine/iwm.c ${M}/machine/mac_dsk.c ${M}/machine/ncr5380.c ${M}/sound/asc.c
+                 ${M}/machine/blkfile.c)
+        set(DEFS MUSASHI_HEAP_TABLES)   # (its 0.75 MB of opcode tables in the PSRAM)
+        set(RAM_CODE macii_core.c.o via6522.c.o)
+    endif()
 elseif(GAME IN_LIST CONSOLES)
     cons_sources(${GAME} CONS_SRCS ${M}/)
     set(SRCS ${M}/drivers/consoles/common/cons_pico.c ${CONS_SRCS} ${QL_DIR}/ql_sd_pico.c)
@@ -272,7 +308,7 @@ if(ROMS STREQUAL "external")
 endif()
 add_executable(${EXE} ${SRCS} ${PORT_DIR}/pico_port.c)
 target_include_directories(${EXE} PRIVATE ${PORT_DIR} ${D} ${AS1} ${QL_DIR} ${M}/drivers/arcades/polepos ${M}/cpu ${M}/cpu/m68k ${M}/cpu/m6502
-    ${M}/cpu/mc6809 ${M}/cpu/mcs48 ${M}/cpu/z80 ${M}/sound ${M}/machine ${M}/video)
+    ${M}/cpu/mc6809 ${M}/cpu/mcs48 ${M}/cpu/w65c816 ${M}/cpu/z80 ${M}/sound ${M}/machine ${M}/video)
 # TMDS rows: a band, the one on screen, the one being freed and the slack
 math(EXPR NBUF "${BAND} + 2 + ${TMDS_SLACK}")
 target_compile_definitions(${EXE} PRIVATE ${DEFS} NDEBUG PICO_BAND=${BAND}

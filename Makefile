@@ -237,7 +237,7 @@ ifeq ($(PORT),picohost)
   PORTSRC := tools/pico_host.c
   CFLAGS += -I$(M)/ports/rp2040-pizero -I$(M)/drivers/computers/ql -DPICO_BAND=4
   # microSD is board-only; stub the API so ql / zxspec *_pico.c link on the host.
-  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2 amiga $(CONSOLES)),)
+  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2 amiga $(A2_GAMES) apple2gs macplus macii $(CONSOLES)),)
     PORTSRC += tools/ql_sd_host_stub.c
   endif
   SDL_CFLAGS :=
