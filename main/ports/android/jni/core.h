@@ -31,6 +31,7 @@ enum {
     MC_CMD_MONITOR = 4,                     // CPC: colour / green monitor
     MC_CMD_FAST_LOAD_ON = 5,                // C64: LOAD from the .d64 at once
     MC_CMD_FAST_LOAD_OFF = 6,
+    MC_CMD_RESET_KEY = 7,                   // Apple II / IIGS: CTRL-RESET (the RESET line, RAM kept)
 };
 
 // roms[i] (malloc'd, lens[i] bytes, NULL when absent) are the machine's:

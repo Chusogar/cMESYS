@@ -210,6 +210,7 @@ public final class MachineActivity extends Activity implements KeyboardView.List
     private void startMachine(boolean coldStart) {
         startedWith = restartChoice();
         model = machine.model(prefs);
+        keyboard.setLayout(machine.keyboardFile(model));
         final byte[][] roms;
         try {
             roms = machine.roms(this, prefs, model);

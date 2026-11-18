@@ -84,15 +84,36 @@ final class KeyboardView extends View {
         label.setColor(Color.rgb(225, 225, 225));
         label.setTextAlign(Paint.Align.CENTER);
         label.setFakeBoldText(true);
-        load(context, glyphRom);
+        this.glyphRom = glyphRom;
+        load(context, machine.keyboardFile(0));
+    }
+
+    private final byte[] glyphRom;
+    private String layout;
+
+    /** Another keyboard of the machine (the Apple ][ and the //e: by model), from assets/<file>. */
+    void setLayout(String file) {
+        if (file.equals(layout)) return;
+        releaseAll();
+        keys.clear();
+        sticky.clear();
+        lastTap.clear();
+        modsSent.clear();
+        travel = 0;
+        hasWell = false;
+        picW = picH = 1;
+        load(getContext(), file);
+        requestLayout();
+        invalidate();
     }
 
     // --- the picture and the keys --------------------------------------------------
-    private void load(Context context, byte[] glyphRom) {
+    private void load(Context context, String txt) {
+        layout = txt;
         String file = "keyboard.png";
         int cropX = 0, cropY = 0;
         boolean keyRed = false;
-        try (InputStream in = context.getAssets().open("keyboard.txt")) {
+        try (InputStream in = context.getAssets().open(txt)) {
             BufferedReader r = new BufferedReader(new InputStreamReader(in, "UTF-8"));
             String line;
             while ((line = r.readLine()) != null) {

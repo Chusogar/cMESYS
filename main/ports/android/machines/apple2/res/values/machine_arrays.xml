@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="model_entries">
+        <item>Apple ][ (1977, Integer BASIC)</item>
+        <item>Apple ][+ (1979, Applesoft)</item>
+        <item>Apple //e (1983)</item>
+        <item>Apple //e Enhanced (1985, 65C02)</item>
+    </string-array>
+    <string-array name="model_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+    <string-array name="pad_entries">
+        <item>Joystick (botones 0 y 1)</item>
+        <item>Cursores, ESPACIO y RETURN</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>joy</item>
+        <item>cursors</item>
+    </string-array>
+</resources>

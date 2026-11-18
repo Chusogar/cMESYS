@@ -155,6 +155,107 @@ Workbench: mantenlo y mueve el primero). Un ratón USB o Bluetooth también vale
               "arranca solo.</p>",
         kbcredit="Teclado en pantalla: foto de un Amiga 500 español.",
         credits="núcleo Amiga migrado de dsp-cpp (del emulador DSP), 68000 de Musashi (Karl Stenerud)"),
+    "apple2": dict(
+        title="cMESYS Apple II",
+        intro="Apple ][, ][+, //e y //e Enhanced con el núcleo Apple II de cMESYS (migrado de dsp-cpp): 6502 "
+              "(65C02 en el Enhanced), texto de 40 y 80 columnas, baja y alta resolución, doble alta resolución "
+              "del //e, el altavoz, 64 KB (128 KB en el //e con la tarjeta de 80 columnas extendida), el joystick y "
+              "la Disk II en el slot 6.",
+        media=("Discos", "Meter un disco <code>.dsk .do .po .nib</code> en la unidad 1 (la máquina se enciende "
+               "de nuevo y lo arranca), sacarlo, o teclear <code>PR#6</code> o <code>CATALOG</code>."),
+        reset="CTRL-RESET (el botón RESET: la RAM se conserva) o apagar y encender (arranca el disco).",
+        settings="modelo (][, ][+, //e o //e Enhanced)",
+        keys=("Teclas Apple", "CTRL-RESET, CTRL-C, ESC, RETURN, Open Apple + CTRL-RESET…"),
+        keyboard=("el teclado de cada modelo, dibujado para cMESYS: el del ][ / ][+ (mayúsculas, REPT, "
+                  "RESET y dos flechas) o el del //e (con DELETE, las teclas Open y Solid Apple y cuatro "
+                  "flechas), que cambia con el modelo"),
+        same="la tecla pulsada se hunde",
+        mods="<kbd>SHIFT</kbd>, <kbd>CTRL</kbd> y las teclas <kbd>Open</kbd> / <kbd>Solid Apple</kbd>",
+        physical="Las teclas del PC son las del Apple; <kbd>Retroceso</kbd> = ←, <kbd>Supr</kbd> = DELETE, "
+                 "Alt izq. / dcha. = Open / Solid Apple, <kbd>F12</kbd> = RESET.",
+        pad="el joystick (botones 0 y 1) o los cursores",
+        start="<p>Sin disco, el ][ entra en el monitor o en Integer BASIC, el ][+ en Applesoft y el //e busca "
+              "un disco (pulsa CTRL-RESET para ir a BASIC). Con la Disk II, abre un <code>.dsk</code> en "
+              "<b>Discos</b> y arranca solo. Lo que se escribe en el disco se guarda en el archivo.</p>",
+        kbcredit="Teclados en pantalla dibujados para cMESYS (tools/gen_apple_vkb.py).",
+        credits="núcleo Apple II migrado de dsp-cpp (del emulador DSP), 6502 de cMESYS, Disk II a partir de MAME"),
+    "apple2gs": dict(
+        title="cMESYS Apple IIGS",
+        intro="Apple IIGS (ROM 3) con el núcleo IIGS de cMESYS (migrado de dsp-cpp): 65C816, 4 MB de RAM, "
+              "Mega II y los modos de vídeo del IIe y Super Hi-Res, el sintetizador Ensoniq 5503, el reloj, "
+              "el teclado y el ratón ADB y cuatro discos SmartPort.",
+        media=("Discos", "Meter discos <code>.po .2mg .hdv</code> (orden ProDOS) en las cuatro unidades "
+               "SmartPort: el primero es el de arranque (la máquina se reinicia); cambiarlos o sacarlos."),
+        reset="CTRL-RESET o apagar y encender.",
+        settings="el mando",
+        keys=("Teclas IIGS", "CTRL-RESET, el panel de control (CTRL + ⌘ + ESC), CTRL + ⌘ + RESET, ⌘ + Q…"),
+        keyboard="el teclado Apple Desktop Bus del IIGS, dibujado para cMESYS, con el bloque numérico y RESET",
+        same="la tecla pulsada se hunde",
+        mods="<kbd>shift</kbd>, <kbd>control</kbd>, <kbd>option</kbd> y <kbd>⌘</kbd>",
+        physical="Las teclas del PC son las del IIGS; Alt = option, Windows = ⌘, <kbd>F12</kbd> = RESET.",
+        pad="los cursores, RETURN, ESPACIO, ESC y TAB",
+        extra="""<h2>Ratón</h2>
+<p>La imagen es un <b>trackpad</b> para el ratón: un dedo que se mueve mueve el puntero; un toque es un clic
+(dos toques, doble clic); tocar, volver a tocar y mover arrastra con el botón pulsado (para los menús: toca,
+vuelve a tocar sobre el título y baja). Un ratón USB o Bluetooth también vale.</p>
+""",
+        start="<p>Sin disco, el IIGS busca uno en las unidades (<i>Check startup device</i>): mete un disco de "
+              "arranque de ProDOS o GS/OS en la primera unidad de <b>Discos</b>. CTRL + ⌘ + ESC abre el panel "
+              "de control.</p>",
+        kbcredit="Teclado en pantalla dibujado para cMESYS (tools/gen_apple_vkb.py).",
+        credits="núcleo IIGS migrado de dsp-cpp (del emulador DSP), 65C816 y Ensoniq 5503 de cMESYS"),
+    "macplus": dict(
+        title="cMESYS Mac Plus",
+        intro="Macintosh Plus con el núcleo Mac Plus de cMESYS (migrado de dsp-cpp): 68000 a 7,8 MHz, 4 MB "
+              "de RAM, pantalla de 512 x 342, la VIA, el SCC (ratón), la IWM con la disquetera de 800K (y "
+              "1,44 MB), el reloj, el sonido y el SCSI con un disco duro.",
+        media=("Discos", "Meter un disquete (<code>.dsk</code> de 400K, 800K o 1,44 MB, o Disk Copy 4.2) o "
+               "conectar un disco duro SCSI (imágenes mayores: <code>.hda .img</code>; lo que se escribe se "
+               "guarda en el archivo); expulsarlos."),
+        reset="Reinicio (el botón de reset).",
+        settings="el mando",
+        keys=("Teclas Mac", "⌘ + E, ⌘ + Q, ⌘ + W, ⌘ + . y ⌘ + ⇧ + 1 (expulsar el disquete)…"),
+        keyboard="el teclado M0110A del Mac Plus, dibujado para cMESYS, con el bloque numérico y las flechas",
+        same="la tecla pulsada se hunde",
+        mods="<kbd>shift</kbd>, <kbd>option</kbd> y <kbd>⌘</kbd>",
+        physical="Las teclas del PC son las del Mac; Alt = option, Ctrl o Windows = ⌘.",
+        pad="los cursores, RETURN, ESPACIO, ESC y TAB",
+        extra="""<h2>Ratón</h2>
+<p>La imagen es un <b>trackpad</b> para el ratón: un dedo que se mueve mueve el puntero; un toque es un clic
+(dos toques, doble clic); tocar, volver a tocar y mover arrastra con el botón pulsado (para los menús: toca,
+vuelve a tocar sobre el título y baja). Un ratón USB o Bluetooth también vale.</p>
+""",
+        start="<p>Sin disco, el Mac muestra el disquete con la interrogación: mete un disquete de arranque "
+              "(System 6 o 7) o conecta un disco duro en <b>Discos</b>.</p>",
+        kbcredit="Teclado en pantalla dibujado para cMESYS (tools/gen_apple_vkb.py).",
+        credits="núcleo Mac Plus migrado de dsp-cpp (del emulador DSP, a partir de Mini vMac), 68000 de Musashi "
+                "(Karl Stenerud)"),
+    "macii": dict(
+        title="cMESYS Mac II",
+        intro="Macintosh II con el núcleo Mac II de cMESYS (migrado de dsp-cpp): 68020 con FPU (Musashi 4), "
+              "8 MB de RAM, la tarjeta de vídeo Display Card 8*24 (640 x 480 en color), las dos VIA, el ASC "
+              "(sonido), el teclado y el ratón ADB y el SCSI con un disco duro.",
+        media=("Discos", "Conectar un disco duro SCSI (<code>.hda .img</code>; lo que se escribe se guarda en el "
+               "archivo) y arrancarlo, o desconectarlo."),
+        reset="Reinicio.",
+        settings="el mando",
+        keys=("Teclas Mac", "⌘ + E, ⌘ + Q, ⌘ + W, ⌘ + ., la tecla de encendido…"),
+        keyboard="el Apple Extended Keyboard, dibujado para cMESYS: F1–F15, las teclas de navegación, el "
+                 "bloque numérico y la de encendido",
+        same="la tecla pulsada se hunde",
+        mods="<kbd>shift</kbd>, <kbd>control</kbd>, <kbd>option</kbd> y <kbd>⌘</kbd>",
+        physical="Las teclas del PC son las del Mac; Alt = option, Windows = ⌘, F1–F12, Insert = help.",
+        pad="los cursores, RETURN, ESPACIO, ESC y TAB",
+        extra="""<h2>Ratón</h2>
+<p>La imagen es un <b>trackpad</b> para el ratón: un dedo que se mueve mueve el puntero; un toque es un clic
+(dos toques, doble clic); tocar, volver a tocar y mover arrastra con el botón pulsado (para los menús: toca,
+vuelve a tocar sobre el título y baja). Un ratón USB o Bluetooth también vale.</p>
+""",
+        start="<p>Sin disco, el Mac II muestra el disquete con la interrogación: conecta un disco duro con el "
+              "sistema (System 6.0.x o 7) en <b>Discos</b>.</p>",
+        kbcredit="Teclado en pantalla dibujado para cMESYS (tools/gen_apple_vkb.py).",
+        credits="núcleo Mac II migrado de dsp-cpp (del emulador DSP), 68020 de Musashi 4 (Karl Stenerud y "
+                "colaboradores, con SoftFloat de John R. Hauser)"),
 }
 
 

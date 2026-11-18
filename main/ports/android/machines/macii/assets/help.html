@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS Mac II</h1>
+<p>Macintosh II con el núcleo Mac II de cMESYS (migrado de dsp-cpp): 68020 con FPU (Musashi 4), 8 MB de RAM, la tarjeta de vídeo Display Card 8*24 (640 x 480 en color), las dos VIA, el ASC (sonido), el teclado y el ratón ADB y el SCSI con un disco duro.</p>
+
+<h2>Menú</h2>
+<p>Se abre con <kbd>Atrás</kbd>, con el icono de la esquina, con el botón <kbd>MENÚ</kbd> del teclado en
+pantalla o con <kbd>START</kbd> de un mando. Mientras está abierto la máquina se detiene.</p>
+<table>
+<tr><td><b>Discos</b></td><td>Conectar un disco duro SCSI (<code>.hda .img</code>; lo que se escribe se guarda en el archivo) y arrancarlo, o desconectarlo.</td></tr>
+<tr><td><b>Reset</b></td><td>Reinicio.</td></tr>
+<tr><td><b>Pausa</b></td><td>Detiene la máquina hasta volver a pulsarlo.</td></tr>
+<tr><td><b>Ajustes</b></td><td>El mando; pantalla, teclado, mando y sonido.</td></tr>
+<tr><td><b>Teclado</b></td><td>Muestra u oculta el teclado en pantalla.</td></tr>
+<tr><td><b>Velocidad</b></td><td>Turbo: la máquina va tan rápido como puede (sin sonido).</td></tr>
+<tr><td><b>Pantalla</b></td><td>Proporción del monitor, píxeles cuadrados, pantalla completa o múltiplo entero.</td></tr>
+<tr><td><b>Teclas Mac</b></td><td>⌘ + E, ⌘ + Q, ⌘ + W, ⌘ + ., la tecla de encendido…</td></tr>
+<tr><td><b>Recientes</b></td><td>Los últimos archivos abiertos.</td></tr>
+<tr><td><b>Expulsar</b></td><td>Saca lo que se pueda sacar (o para la cinta).</td></tr>
+</table>
+
+<h2>Teclado en pantalla</h2>
+<p>Es el Apple Extended Keyboard, dibujado para cMESYS: F1–F15, las teclas de navegación, el bloque numérico y la de encendido: la tecla pulsada se hunde. Admite varios dedos a la vez.
+<kbd>shift</kbd>, <kbd>control</kbd>, <kbd>option</kbd> y <kbd>⌘</kbd> se quedan pulsadas para la tecla siguiente; dos toques seguidos las bloquean (hundidas y rojizas) hasta volver a tocarlas. <kbd>MENÚ</kbd> abre el menú y <kbd>▼</kbd> oculta el teclado.</p>
+
+<h2>Teclado físico y mandos</h2>
+<p>Las teclas del PC son las del Mac; Alt = option, Windows = ⌘, F1–F12, Insert = help. La cruceta y los botones de un mando hacen de los cursores, RETURN, ESPACIO, ESC y TAB, según los ajustes.</p>
+
+<h2>Ratón</h2>
+<p>La imagen es un <b>trackpad</b> para el ratón: un dedo que se mueve mueve el puntero; un toque es un clic
+(dos toques, doble clic); tocar, volver a tocar y mover arrastra con el botón pulsado (para los menús: toca,
+vuelve a tocar sobre el título y baja). Un ratón USB o Bluetooth también vale.</p>
+<h2>Al arrancar</h2>
+<p>Sin disco, el Mac II muestra el disquete con la interrogación: conecta un disco duro con el sistema (System 6.0.x o 7) en <b>Discos</b>.</p>
+<p>Un archivo también se puede abrir con la app desde un gestor de archivos (<i>Abrir con</i>).</p>
+
+<h2>Créditos</h2>
+<p>cMESYS (Chusogar): núcleo Mac II migrado de dsp-cpp (del emulador DSP), 68020 de Musashi 4 (Karl Stenerud y colaboradores, con SoftFloat de John R. Hauser). Teclado en pantalla dibujado para cMESYS (tools/gen_apple_vkb.py).
+Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
+</body></html>
