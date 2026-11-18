@@ -52,6 +52,7 @@ static struct {
     uint64_t total;                     // CPU cycles run
     uint64_t synced;                    // the chips' time
     bool in_cpu;
+    bool slice_fresh;               // the instruction at last_pc not run yet (run_cpu's)
     int debt;
     int via_acc, kbd_acc;
     int64_t rtc_acc;
@@ -659,10 +660,22 @@ static void sanitize_mountvol_pb(void)
 }
 
 // After every instruction (before the next: see the top)
+static void after_instruction(uint32_t ppc, uint32_t pc);
+
 void cpu_instr_callback(unsigned int pc)
 {
-    // (REG_PPC is the current PC at the start of a slice: keep our own)
-    const uint32_t ppc = P.last_pc;
+    // (REG_PPC is the current PC at the start of a slice: keep our own; and
+    // what ran before the slice was dealt with by run_cpu)
+    if (P.slice_fresh) P.slice_fresh = false;
+    else after_instruction(P.last_pc, pc);
+    sync_to(cpu_now());
+    apply_ipl();
+    P.last_pc = REG(M68K_REG_PC) & 0xffffffu;
+}
+
+// What the instruction at ppc did: the .Sony entries, the traps watched
+static void after_instruction(uint32_t ppc, uint32_t pc)
+{
     if (P.iwm.disk.hd && P.sony_prime) {
         if (ppc == P.sony_prime) {
             if (peek_word(P.sony_prime) == 0x2f38) SETREG(M68K_REG_A7, REG(M68K_REG_A7) + 4);
@@ -711,9 +724,6 @@ void cpu_instr_callback(unsigned int pc)
             P.read_sp++;
         }
     }
-    sync_to(cpu_now());
-    apply_ipl();
-    P.last_pc = REG(M68K_REG_PC) & 0xffffffu;
 }
 
 // ---------------------------------------------------------------------------
@@ -852,6 +862,7 @@ void macplus_reset(void)
     memset(P.held, 0, sizeof P.held);
     P.dcmp_sp = P.read_sp = 0;
     P.last_pc = 0xffffffffu;
+    P.slice_fresh = true;
     P.naudio = 0;
     P.debt = 0;
     P.total = P.synced = 0;
@@ -870,6 +881,13 @@ static void run_cpu(int cycles)
 {
     int left = cycles - P.debt;
     while (left > 0) {
+        // the last instruction of the slice before seen to before an
+        // interrupt is taken here (it would leave last_pc behind)
+        if (!P.slice_fresh) {
+            after_instruction(P.last_pc, REG(M68K_REG_PC) & 0xffffffu);
+            P.last_pc = REG(M68K_REG_PC) & 0xffffffu;
+            P.slice_fresh = true;
+        }
         apply_ipl();
         P.in_cpu = true;
         const int used = m68k_execute(left);

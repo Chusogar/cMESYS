@@ -59,6 +59,13 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | MSX | `msx1` | Z80 | AY-3-8910 (+ SCC) | `msx/msx_core.c` (TMS9918) |
 | MSX2 | `msx2` | Z80 | AY-3-8910 (+ SCC) | `msx/msx_core.c` (V9938) |
 | Commodore Amiga 500 (PAL, OCS) | `amiga` | 68000 | Paula | `amiga/amiga_core.c` + `amiga_chipset.c` |
+| Apple ][ (Integer BASIC) | `apple2` | 6502 | altavoz | `apple2/apple2_core.c` |
+| Apple ][+ (Applesoft) | `apple2p` | 6502 | altavoz | `apple2/apple2_core.c` |
+| Apple //e | `apple2e` | 6502 | altavoz | `apple2/apple2_core.c` |
+| Apple //e Enhanced | `apple2ee` | 65C02 | altavoz | `apple2/apple2_core.c` |
+| Apple IIGS (ROM 3) | `apple2gs` | 65C816 | Ensoniq 5503 | `apple2gs/apple2gs_core.c` |
+| Macintosh Plus | `macplus` | 68000 | PWM (VIA) | `macplus/macplus_core.c` |
+| Macintosh II | `macii` | 68020 + FPU (Musashi 4) | ASC | `macii/macii_core.c` |
 
 ### Consolas (`main/drivers/consoles/`)
 
@@ -96,9 +103,13 @@ Las 19 primeras usan la API común de consolas (`common/cons.h`). La Lynx es un 
 | CPC, C64, MSX, MSX2 | sí | sí | sí | sí | — | sí |
 | Amiga 500 | sí | sí | sí | — (necesita 1 MB de RAM) | — | sí, con PSRAM |
 | Lynx | sí | sí | sí | sí | — | sí |
+| Apple ][, ][+, //e, //e Enhanced | sí | sí | sí, en una app | sí | — | sí |
+| Apple IIGS, Macintosh Plus, Macintosh II | sí | sí | sí | — (4-5 MB de RAM) | — | sí, con PSRAM² |
 | Las 19 consolas de la API común | sí | sí | sí | sí¹ | sí¹ | sí¹ |
 
 ¹ Se compilan todas, pero las que no caben avisan en pantalla con «OUT OF MEMORY FOR THIS CONSOLE». Mega Drive, SNES, 32X, GBA y PlayStation guardan su estado en el heap; en la RP2350 va a la PSRAM. La PlayStation (unos 10 MB) no cabe en ninguna placa.
+
+² En la RP2350 la RAM va a la PSRAM; el Mac II, con 4 MB, va más lento que el real. Los discos duros (y los SmartPort del IIGS) se leen de la microSD; lo que se escribe queda en la PSRAM hasta apagar.
 
 Cada firmware lleva una sola máquina con sus ROMs dentro. No caben todas juntas: la partición de aplicación del CYD es de 0x3F0000 bytes, y solo Puzzle Bobble lleva 2,6 MB de ROMs.
 
@@ -129,8 +140,9 @@ main/
     arcades/<id>/            núcleo, frontends <id>_cyd.c / _sdl.c / _pico.c, rom_data.c (las ROMs
                              dentro), rom_load.c (las que no: del almacenamiento), m68k_game_conf.h
                              y m68k_tables.c (68000), <id>.lf (código en IRAM)
-    computers/<id>/          ql, zxspec, cpc, c64, msx, amiga; common/ con los frontends compartidos
-                             (comp_sdl.h, comp_pico.h, comp_cyd.h, comp_sd.h)
+    computers/<id>/          ql, zxspec, cpc, c64, msx, amiga, apple2, apple2gs, macplus, macii; common/
+                             con los frontends compartidos (comp_sdl.h, comp_pico.h, comp_cyd.h,
+                             comp_sd.h, comp_blk.h, adb_hid.h)
     consoles/<id>/           las 19 consolas de la API común y la Lynx
     consoles/common/         cons.h, cons_sdl.c, cons_pico.c, cons_cyd.c
     consoles/consoles.mk     manifiesto: CONSOLES y, por consola, CONS_SRC_, CONS_DEFS_, CONS_RAM_
@@ -215,7 +227,7 @@ ROMS=external main/ports/android/build_apk.sh c64   # sin ROMs dentro del APK
 
 Las ROMs que el APK no lleva las busca la app en su carpeta `Android/data/<app>/files/roms/<set>/` (sueltas o el `.zip` de MAME; se llega por USB). Si faltan, la app dice cuáles y ofrece **Importar ROMs…**, que también está en el menú de los ordenadores: copia los ficheros elegidos a esa carpeta.
 
-- **Ordenadores** (`ql`, `zxspec`, `cpc`, `c64`, `msx`, `amiga`) y **Lynx**: una app por máquina con la interfaz de Hataroid (menú de iconos, ajustes, *Abrir con*) y el teclado en pantalla de dsp-cpp. En el Amiga la imagen hace de trackpad.
+- **Ordenadores** (`ql`, `zxspec`, `cpc`, `c64`, `msx`, `amiga`, `apple2`, `apple2gs`, `macplus`, `macii`) y **Lynx**: una app por máquina con la interfaz de Hataroid (menú de iconos, ajustes, *Abrir con*) y el teclado en pantalla de dsp-cpp. Los Apple tienen el suyo dibujado por `tools/gen_apple_vkb.py`: el del ][ / ][+ y el del //e (la app `apple2` cambia de uno a otro con el modelo), el ADB del IIGS, el M0110A del Mac Plus y el Apple Extended Keyboard del Mac II. En el Amiga, el IIGS y los Mac la imagen hace de trackpad.
 - **Consolas**: un APK por consola, con sus ficheros generados por `tools/gen_consoles_android.py` y un mando en pantalla dibujado por `tools/gen_consoles_vkb.py`: la cruceta o el joystick, sus botones, START / SELECT, el teclado numérico de la ColecoVision y del SCV, la cruz Y de la WonderSwan y el teclado del PV-2000.
 - **cMESYS Arcade**: las 11 recreativas en una app con lista de juegos como MAME para Android, joystick en pantalla, botones, START y monedero.
 
@@ -341,6 +353,9 @@ En los **ordenadores** el teclado del PC es el de la máquina, así que las tecl
 | CPC | Alt = COPY, Supr = CLR, teclado numérico = f0-f9. F6 cinta, F3 reset, F8 cursores como joystick, F10 monitor verde, F12 TURBO; `--464` / `--664` en el escritorio. Disco: `CAT` y `RUN"nombre`; cinta: `\|TAPE` y `RUN"` |
 | C64 | Esc = RUN/STOP, Tab / Ctrl = CTRL, Alt izq. = C=, Inicio = CLR/HOME, AvPág = RESTORE. Joystick en el teclado numérico (8 4 6 2, 0/5 disparo). F11 cinta, F10 reset, F8 puerto 1/2, F12 TURBO. `LOAD"*",8,1` y `RUN` |
 | MSX / MSX2 | por posición. F1-F5 los del MSX, F6 = SELECT, Fin = STOP, Alt izq. = GRAPH, Alt dcho. = CODE. F10 reset, F11 saca el cartucho, F8 cursores como joystick, F12 TURBO |
+| Apple ][ / //e | Retroceso = ←, Supr = DELETE, Alt izq. / dcho. = Open / Solid Apple. Joystick en el teclado numérico (8 4 6 2, 0 / 5 botones). F9 menú (disco en la unidad 1, que arranca), F10 RESET (CTRL-RESET), F11 apagar y encender, F12 TURBO |
+| Apple IIGS | Alt = Option, Windows = ⌘; el ratón es el suyo. F9 menú (discos SmartPort: el primero arranca), F10 CTRL-RESET, F11 apagar y encender, Pausa = RESET, F12 TURBO |
+| Macintosh Plus / II | Alt = Option, Windows (y Ctrl en el Plus) = ⌘; el ratón es el suyo. F9 menú (disquete o disco SCSI, por el tamaño; F11 en el Mac II, cuyo F1-F10 son los suyos), F12 TURBO |
 | Amiga 500 | por posición (distribución española). Windows izq. / RePág = Amiga izq., Windows dcha. / AvPág = Amiga dcha., Fin = HELP. Joystick en el teclado numérico, disparo 0 / 5 / Ctrl dcho. F11 menú (DF0 / DF1, expulsar, reset), F12 TURBO. Un clic captura el ratón; el botón central lo suelta. `--kick fichero.rom` arranca con otro Kickstart |
 
 **Consolas** (las 19 de la API común): cursores, Z X C V (o Ctrl / Alt) botones 1-4, ENTER = START, Retroceso o Mayús dcha. = SELECT; segundo mando en el teclado numérico. F9 menú (abrir / sacar cartucho), F3 reset, F12 TURBO. ColecoVision, SCV y WonderSwan leen además sus teclas del teclado del PC; el PV-2000 usa el teclado entero (botones con Ctrl / Alt).
@@ -375,6 +390,7 @@ Por el puerto serie: `a d w s` mover, `j` / `k` botones, `g` marcha, `5` moneda,
 | C64 | MEDIA · F1 · RUN/STOP · HELP | ← ↑ ↓ → | ESPACIO · RETURN · 1 · FUEGO |
 | MSX | MEDIA · F1 · STOP · HELP | ← ↑ ↓ → | ESPACIO · RETURN · ESC · FUEGO |
 | Lynx | MEDIA · OPTION 1 · OPTION 2 · HELP | ← ↑ ↓ → | PAUSE · B · A · A |
+| Apple II | MEDIA (toque: CTRL-RESET) · Y · N · HELP | ← ↑ ↓ → | ESC · ESPACIO · RETURN · BOTÓN 0 |
 
 En el QL, MDV monta el cartucho, reinicia y pulsa F1, y QDOS ejecuta `mdv1_boot`; mantenerlo abre el menú de cartuchos. VIEW alterna entre la imagen entera (512x256 reducida promediando) y 1:1. En los Spectrum el menú incluye «TURBO on/off»; por el puerto serie, F12 o Ctrl-T = TURBO y F5 = botón mágico.
 
@@ -466,6 +482,10 @@ tools/regen.sh --stub <id>
 | `msx1` | `MSX.ROM`, `DISK.ROM` opcional ([RetroPieBIOS](https://github.com/archtaurus/RetroPieBIOS/tree/master/BIOS)) |
 | `msx2` | `MSX2.ROM`, `MSX2EXT.ROM`, `DISK.ROM` opcional |
 | `amiga` | set `a500` de MAME: `315093-02.u2` (Kickstart 1.3) |
+| `apple2`, `apple2p`, `apple2e`, `apple2ee` | el set de MAME de cada uno (ROM del sistema y de caracteres); la PROM de la Disk II (`341-0027-a.p5`) para los discos |
+| `apple2gs` | set `apple2gs` de MAME: `341-0728`, `341-0748` y la ROM de vídeo |
+| `macplus` | set `macplus` de MAME: las dos ROM de 64 KB (par e impar) |
+| `macii` | set `macii` de MAME: la ROM de 256 KB y la de la Display Card 8*24 |
 
 Cada modelo Spectrum lee solo su directorio y genera su propio `rom_data_<modelo>.c`, así que regenerar uno no pisa otro.
 
@@ -567,6 +587,12 @@ Sobre dsp-cpp se añadieron:
 - HPOS real, que pide el Kickstart 3.1.
 
 Probado con Shadow of the Beast y North & South. En la RP2350 la chip RAM y los discos van en la PSRAM.
+
+### Apple II, IIGS y Macintosh
+
+Migrados de dsp-cpp. El **Apple II** es un solo núcleo para los cuatro modelos: 6502 / 65C02, texto de 40 y 80 columnas, baja, alta y doble alta resolución, el codificador del teclado de cada modelo, el joystick y la Disk II en el slot 6 (`machine/diskii`: `.dsk .do .po .nib`, con escritura). El **IIGS** (ROM 3): 65C816, 4 MB (8 en el escritorio), Mega II, Super Hi-Res, el Ensoniq 5503 (`sound/es5503`), ADB, el reloj y cuatro discos SmartPort (`.po .2mg .hdv`, leídos y escritos en su sitio con `machine/blkfile`). El **Mac Plus**: 68000 (Musashi), 4 MB, la VIA, el SCC, la IWM con la disquetera de 800K y la SuperDrive de 1,44 MB (`machine/iwm`, `mac_dsk`), el reloj y el SCSI (`machine/ncr5380`). El **Mac II**: 68020 con FPU (Musashi 4 en `cpu/musashi`), 8 MB, la Display Card 8*24 a 640 x 480, el ASC (`sound/asc`), ADB y SCSI.
+
+Las imágenes son idénticas píxel a píxel a las de dsp-cpp en el arranque, DOS 3.3, ProDOS y GS/OS (Apple II e IIGS) y en System 6.0.8 hasta el Finder (Mac Plus desde el disquete de 1,44 MB; Mac II desde la misma imagen como disco SCSI, en color).
 
 ## Consolas: notas
 
