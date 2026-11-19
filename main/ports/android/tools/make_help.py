@@ -285,6 +285,32 @@ vuelve a tocar sobre el título y baja). Un ratón USB o Bluetooth también vale
         kbcredit="Teclado en pantalla: una foto del teclado del ZX Spectrum Next (tools/gen_specnext_vkb.py).",
         credits="núcleo Next migrado de dsp-cpp (del emulador DSP, a partir del de MAME: Andrei I. Holub), Z80 "
                 "de dsp-cpp; la ROM de arranque, NextZXOS y el firmware son del proyecto ZX Spectrum Next"),
+    "samcoupe": dict(
+        title="cMESYS SAM Coupé",
+        intro="SAM Coupé (MGT, 1989) con el núcleo SAM de cMESYS (migrado de dsp-cpp): Z80 a 6 MHz, 512 KB de "
+              "RAM, los cuatro modos de pantalla del ASIC, la paleta de 128 colores (16 a la vez, cambiable "
+              "línea a línea), el sonido SAA1099, dos unidades de disco (WD1772) y las cintas.",
+        media=("Discos y cintas", "Meter un disco en la unidad 1 o 2 (<code>.mgt .dsk .sad .sdf</code>) o una "
+               "cinta (<code>.tap .tzx</code>), <b>BOOT</b> (arranca el disco de la unidad 1, como F9 en la "
+               "pantalla de inicio), reproducir o parar la cinta y escribir LOAD \"\" o DIR. Lo que escribe el "
+               "SAM en un disco se queda en la memoria."),
+        reset="reiniciar el SAM.",
+        settings="el mando (joystick 1 o 2, o los cursores) y abrir el último disco al arrancar",
+        keys=("Teclas SAM", "F9 (BOOT), ESC, EDIT, DELETE, RETURN, ESPACIO, F0, F1…"),
+        keyboard=("una foto del teclado del SAM, con todas sus teclas: ESC, TAB, CAPS, DELETE, EDIT, INV, "
+                  "SHIFT, CNTRL, SYMBOL, el teclado de funciones F0-F9 y los cursores"),
+        same="la tecla pulsada se hunde",
+        mods="<kbd>SHIFT</kbd>, <kbd>CNTRL</kbd> y <kbd>SYMBOL</kbd>",
+        physical="Las teclas del PC son las del SAM: Mayúsculas = SHIFT, Ctrl izquierdo = CNTRL, Alt o Ctrl "
+                 "derecho = SYMBOL, <kbd>Retroceso</kbd> = DELETE, <kbd>Inicio</kbd> = EDIT, <kbd>Fin</kbd> = "
+                 "INV, F1-F10 = F1-F9 y F0, los cursores y ; : \" , . - + =.",
+        pad="el joystick 1 (las teclas 6 7 8 9 0), el 2 (1 2 3 4 5) o los cursores",
+        start="<p>El SAM arranca en SAM BASIC. Para un disco: mételo en la unidad 1 y elige <b>BOOT</b> en "
+              "el menú (pulsa RETURN y F9 por ti), o pulsa una tecla y luego <b>F9</b>. Para una cinta: escribe <b>LOAD \"\"</b> y pulsa RETURN, y luego "
+              "<b>Cinta: reproducir</b>.</p>",
+        kbcredit="Teclado en pantalla: una foto del teclado del SAM Coupé (tools/gen_samcoupe_vkb.py).",
+        credits="núcleo SAM migrado de dsp-cpp (del emulador DSP; el comportamiento del FDC y del ASIC "
+                "contrastado con SimCoupe de Simon Owen), Z80 de dsp-cpp; la ROM del SAM es de MGT"),
 }
 
 

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="pad_entries">
+        <item>Joystick 1 (teclas 6 7 8 9 0)</item>
+        <item>Joystick 2 (teclas 1 2 3 4 5)</item>
+        <item>Cursores, ESPACIO, RETURN, ESC</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>joy1</item>
+        <item>joy2</item>
+        <item>cursors</item>
+    </string-array>
+</resources>

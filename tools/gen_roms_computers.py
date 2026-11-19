@@ -7,7 +7,7 @@ Usage:
   tools/gen_roms_computers.py --loaders [<repo root>]   (writes every rom_load.c)
 
 <machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga | apple2 | apple2p | apple2e | apple2ee |
-apple2gs | macplus | macii | specnext, or a console of
+apple2gs | macplus | macii | specnext | samcoupe, or a console of
 main/drivers/consoles with a BIOS (coleco, ...). <romdir> is roms/<machine>/, unzipped or the
 MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   cpc6128  cpc6128.rom (32 KB: OS + BASIC), amsdos.rom | cpcados.rom (16 KB)
@@ -32,6 +32,7 @@ MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   macplus  (MAME macplus) 342-0341-c.u6d + 342-0342-b.u8d (v3; or -b + -a, -a + -a: 64 KB each, even / odd)
   macii    (MAME macii) 9779d2c4.rom | 97851db6.rom (256 KB), 3410868.bin (Display Card 8*24, 32 KB)
   specnext (MAME tbblue) boot-30204.bin (the TBBlue boot ROM, 8 KB)
+  samcoupe (MAME samcoupe) rom30.z5 (ROM 3.0) | rom31.z5 | rom25.z5 ... | atom.z5 (32 KB)
 """
 from __future__ import print_function
 import os
@@ -123,6 +124,15 @@ SETS = {
     'specnext': [
         ('specnext_rom_boot', 0x2000, [('boot-30204.bin', 0x95118eb6), ('boot-30200.bin', None),
                                        ('boot-30100.bin', 0xccbd55ba), ('tbblue_loader.rom', None)], True),
+    ],
+    # SAM Coupe: the 32 KB ROM (MAME's samcoupe set has every version: 3.0 first)
+    'samcoupe': [
+        ('samcoupe_rom', 0x8000, [('rom30.z5', 0xe535c25d), ('rom30.rom', 0xe535c25d), ('samcoupe.rom', None),
+                                  ('rom31.z5', 0x0b7e3585), ('rom25.z5', 0xddadd358), ('rom24.z5', 0xbb23fee4),
+                                  ('rom21.z5', 0xf6804b46), ('rom20.z5', 0xeaf32054), ('rom181.z5', 0xd25e1de1),
+                                  ('rom18.z5', 0xf626063f), ('rom14.z5', 0x08799596), ('rom13.z5', 0x2093768c),
+                                  ('rom12.z5', 0x7fe37dd8), ('rom10.z5', 0x3659d31f), ('rom04.z5', 0xf439e84e),
+                                  ('rom01.z5', 0xc04acfdf), ('atom.z5', 0xdec75f58)], True),
     ],
     # consoles (main/drivers/consoles): their BIOS, all optional
     'coleco': [
@@ -245,6 +255,7 @@ LOADERS = {   # machine: (function, set names searched, ROMs required)
     'macplus': ('macplus_rom_load', ['macplus'], True),
     'macii': ('macii_rom_load', ['macii', 'nb_mdc824'], True),
     'specnext': ('specnext_rom_load', ['specnext', 'tbblue'], True),
+    'samcoupe': ('samcoupe_rom_load', ['samcoupe'], True),
 }
 LOADER_FILES = {   # rom_load.c -> the machines in it (#if MSX_MODEL for the two MSX)
     'main/drivers/computers/cpc/rom_load.c': ['cpc6128'],
@@ -257,6 +268,7 @@ LOADER_FILES = {   # rom_load.c -> the machines in it (#if MSX_MODEL for the two
     'main/drivers/computers/macplus/rom_load.c': ['macplus'],
     'main/drivers/computers/macii/rom_load.c': ['macii'],
     'main/drivers/computers/specnext/rom_load.c': ['specnext'],
+    'main/drivers/computers/samcoupe/rom_load.c': ['samcoupe'],
 }
 # rom_load.c with several models: (the build's model macro, its loader, the models' values)
 MULTI = {
