@@ -427,10 +427,24 @@ def launcher_macii(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_samcoupe(size):
+    """A SAM Coupe: the dark grey wedge, its keys, the two drive slots on the right."""
+    im, d = launcher_base()
+    d.polygon([(3, 50), (6, 24), (58, 24), (61, 50)], fill=(62, 62, 66, 255), outline=(130, 130, 136, 255))
+    keys_rows(d, 9, 40, 29, 5, (196, 196, 200, 255))
+    d.rectangle([9, 45, 36, 46], fill=(196, 196, 200, 255))
+    for y in (31, 39):
+        d.rectangle([44, y, 56, y + 3], fill=(20, 20, 22, 255), outline=(150, 150, 156, 255))
+    d.rectangle([54, 27, 55, 27], fill=(230, 40, 30, 255))
+    text(d, 14, 6, "SAM", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
              "msx": launcher_msx, "lynx": launcher_lynx, "amiga": launcher_amiga,
              "apple2": launcher_apple2, "apple2gs": launcher_apple2gs, "macplus": launcher_macplus,
-             "macii": launcher_macii, "specnext": launcher_specnext, "arcade": launcher_arcade}
+             "macii": launcher_macii, "specnext": launcher_specnext, "samcoupe": launcher_samcoupe,
+             "arcade": launcher_arcade}
 
 
 ICONS = {
