@@ -24,6 +24,7 @@ pantalla de dsp-cpp:
 | `dist/macplus_android.apk` | Macintosh Plus | el M0110A (`tools/gen_apple_vkb.py`) |
 | `dist/macii_android.apk` | Macintosh II | el Apple Extended Keyboard (`tools/gen_apple_vkb.py`) |
 | `dist/specnext_android.apk` | ZX Spectrum Next (la tarjeta SD se usa donde está, sin copiarla) | una foto del teclado del Next (`tools/gen_specnext_vkb.py`) |
+| `dist/samcoupe_android.apk` | SAM Coupé (dos unidades de disco y cintas; BOOT en el menú) | una foto del teclado del SAM (`tools/gen_samcoupe_vkb.py`) |
 
 El Amiga (dsp-cpp tampoco tiene su teclado) usa la foto de un Amiga 500
 español: `gen_amiga_vkb.py` la recorta y escribe el rectángulo y el código de
@@ -108,7 +109,7 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | | |
 |---|---|
 | `jni/core.h`, `jni/core_jni.c` | lo que da cada máquina y las llamadas de `Core` (frames, imagen ARGB, sonido, teclas, joystick, medios) |
-| `jni/m_ql.c` … `m_amiga.c`, `m_apple2.c`, `m_apple2gs.c`, `m_macplus.c`, `m_macii.c`, `m_specnext.c` | cada máquina sobre su núcleo de `main/drivers/computers` (la Lynx, de `main/drivers/consoles/lynx`) |
+| `jni/m_ql.c` … `m_amiga.c`, `m_apple2.c`, `m_apple2gs.c`, `m_macplus.c`, `m_macii.c`, `m_specnext.c`, `m_samcoupe.c` | cada máquina sobre su núcleo de `main/drivers/computers` (la Lynx, de `main/drivers/consoles/lynx`) |
 | `jni/libc/` | cabeceras mínimas de bionic para compilar sin el NDK |
 | `app/src/.../MachineActivity.java` | pantalla, teclado, menú, medios, teclado físico y mandos |
 | `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx`, `Amiga`, `Apple2`, `AdbKeys` (`Apple2gs`, `MacPlus`, `MacII`), `SpecNext` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |

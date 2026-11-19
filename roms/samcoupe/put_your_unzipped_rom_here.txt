@@ -1,0 +1,1 @@
+SAM Coupe: MAME's samcoupe.zip (rom30.z5, ROM 3.0, or any other version; then tools/regen.sh samcoupe to build it in). Disks (.mgt .dsk .sdf) and tapes (.tap .tzx) are opened from the menu (F11) or given on the command line.
