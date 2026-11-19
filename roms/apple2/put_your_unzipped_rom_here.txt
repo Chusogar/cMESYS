@@ -1,0 +1,1 @@
+Apple II: MAME's apple2.zip (341-0001-00.e0 ... 341-0020-00.f8, a2.chr, 341-0027-a.p5) or the unzipped files; then tools/regen.sh apple2

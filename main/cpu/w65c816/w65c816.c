@@ -510,7 +510,7 @@ int w65c816_step(w65c816 *P) {
         case 0x42: {                                                   // WDM
             uint8_t sig = fetch8(P);
             P->cycles_ = 2;
-            (void)sig;
+            if (P->wdm) P->wdm(P->user, sig);
             break;
         }
 

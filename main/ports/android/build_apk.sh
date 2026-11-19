@@ -3,7 +3,7 @@
 #
 #   main/ports/android/build_apk.sh [machine ...]       (from anywhere)
 #
-# machines: ql zxspec cpc c64 msx lynx amiga and the consoles of
+# machines: ql zxspec cpc c64 msx lynx amiga apple2 apple2gs macplus macii specnext and the consoles of
 # main/drivers/consoles/consoles.mk (default: all of them), each one as
 # dist/<machine>_android.apk (package com.chusogar.cmesys.<machine>).
 #
@@ -42,7 +42,7 @@ done
 [ -f "$JAR" ] || { echo "missing android.jar (apt install android-sdk-platform-23)" >&2; exit 1; }
 
 CONSOLES="$(sed -n 's/^CONSOLES := //p' "$M/drivers/consoles/consoles.mk")"
-MACHINES="${*:-ql zxspec cpc c64 msx lynx amiga $CONSOLES}"
+MACHINES="${*:-ql zxspec cpc c64 msx lynx amiga apple2 apple2gs macplus macii specnext $CONSOLES}"
 RES_INC="$(clang -print-resource-dir)/include"
 JDK_INC="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")/include"
 mkdir -p "$OUTBASE" "$ROOT/dist"
@@ -68,6 +68,17 @@ sources() {
         msx) echo "$C/msx/msx_core.c $M/cpu/z80dsp/z80dsp.c $M/video/tms9918.c $M/video/v9938.c
                   $M/sound/ay8910.c $M/machine/msx_cart.c $M/machine/msx_disk.c $M/machine/zx_pbuf.c" ;;
         lynx) echo "$M/drivers/consoles/lynx/lynx_core.c $M/machine/zx_pbuf.c" ;;
+        apple2) echo "$C/apple2/apple2_core.c $M/cpu/m6502/m65xx.c $M/machine/diskii.c $M/machine/zx_pbuf.c" ;;
+        apple2gs) echo "$C/apple2gs/apple2gs_core.c $M/cpu/w65c816/w65c816.c $M/sound/es5503.c $M/machine/blkfile.c" ;;
+        macplus) echo "$C/macplus/macplus_core.c $C/macplus/m68k_tables.c $M/cpu/m68k/m68kcpu.c $M/cpu/m68k/m68kops.c
+                  $M/cpu/m68k/m68kopac.c $M/cpu/m68k/m68kopdm.c $M/cpu/m68k/m68kopnz.c $M/machine/via6522.c
+                  $M/machine/iwm.c $M/machine/mac_dsk.c $M/machine/mac_rtc.c $M/machine/ncr5380.c
+                  $M/machine/mac_dcmp.c $M/machine/blkfile.c" ;;
+        macii) echo "$C/macii/macii_core.c $M/cpu/musashi/m68kcpu.c $M/cpu/musashi/m68kops.c
+                  $M/cpu/musashi/softfloat/softfloat.c $M/machine/via6522.c $M/machine/iwm.c $M/machine/mac_dsk.c
+                  $M/machine/ncr5380.c $M/sound/asc.c $M/machine/blkfile.c" ;;
+        specnext) echo "$C/specnext/specnext_core.c $M/cpu/z80dsp/z80dsp.c $M/sound/ay8910.c $M/machine/sdcard_spi.c
+                  $M/machine/zxn_dma.c $M/machine/blkfile.c" ;;
         amiga) echo "$C/amiga/amiga_core.c $C/amiga/amiga_chipset.c $C/amiga/m68k_tables.c $M/cpu/m68k/m68kcpu.c
                   $M/cpu/m68k/m68kops.c $M/cpu/m68k/m68kopac.c $M/cpu/m68k/m68kopdm.c $M/cpu/m68k/m68kopnz.c" ;;
         *)
@@ -77,7 +88,7 @@ sources() {
                     echo "$M/$v"
                 done
             else
-                echo "unknown machine: $1 (ql zxspec cpc c64 msx lynx amiga $CONSOLES)" >&2; exit 1
+                echo "unknown machine: $1 (ql zxspec cpc c64 msx lynx amiga apple2 apple2gs macplus macii specnext $CONSOLES)" >&2; exit 1
             fi ;;
     esac
 }
@@ -106,7 +117,8 @@ build() {
         zxspec) rd="$C/zxspec/rom_data_spectrum48.c $C/zxspec/rom_load.c" ;;
         msx) rd="$C/msx/rom_data_msx1.c $C/msx/rom_load.c" ;;
         lynx) rd="$M/drivers/consoles/lynx/rom_data.c $M/drivers/consoles/lynx/rom_load.c" ;;
-        ql|cpc|c64|amiga) rd="$C/$mach/rom_data.c $C/$mach/rom_load.c" ;;
+        apple2) rd="$C/apple2/rom_data_apple2.c $C/apple2/rom_load.c" ;;
+        ql|cpc|c64|amiga|apple2gs|macplus|macii|specnext) rd="$C/$mach/rom_data.c $C/$mach/rom_load.c" ;;
     esac
     SRCS="$(echo $SRCS $rd $M/rom/romfs.c $M/machine/zx_inflate.c | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ')"
     for abi in arm64-v8a x86_64; do
@@ -123,22 +135,30 @@ build() {
                 -ffunction-sections -fdata-sections -fvisibility=hidden \
                 -isystem "$RES_INC" -isystem "$HERE/jni/libc" -isystem "$JDK_INC" -isystem "$JDK_INC/linux" \
                 -DM68K_FLASH_TABLES -DCMESYS_ROMS_EXTERNAL -I"$HERE/jni" -I"$C/$mach" -I"$M/drivers/consoles/$mach" -I"$M/drivers/consoles/common" -I"$M/cpu" -I"$M/cpu/m68k" -I"$M/cpu/mcs48" \
-                -I"$M/cpu/m6502" -I"$M/cpu/z80" -I"$M/sound" -I"$M/machine" -I"$M/video" -w -c "$f" -o "$o"
+                -I"$M/cpu/m6502" -I"$M/cpu/w65c816" -I"$M/cpu/z80" -I"$M/sound" -I"$M/machine" -I"$M/video" -w -c "$f" -o "$o"
             objs="$objs $o"
         done
         # Android's libc as a stub with the functions the core calls (resolved by
         # the real one when the app loads the library)
         local syms
         syms="$(ld.lld -r $objs -o "$obj/all.o" && llvm-nm -u "$obj/all.o" 2>/dev/null | awk '{print $2}' || nm -u "$obj/all.o" | awk '{print $2}')"
-        {
-            echo ".text"
-            for s in $syms; do printf '.globl %s\n.type %s,%%function\n%s:\n ret\n' "$s" "$s" "$s"; done
-        } > "$obj/libc_stub.s"
-        clang --target=$triple -c "$obj/libc_stub.s" -o "$obj/libc_stub.o"
-        ld.lld -shared -soname libc.so -o "$obj/libc.so" "$obj/libc_stub.o"
+        # (and libm's, those of jni/libc/math.h: Musashi 4's FPU)
+        local mathsyms csyms="" msyms="" libs="$obj/libc.so"
+        mathsyms=" $(grep -o '[a-z0-9]*(' "$HERE/jni/libc/math.h" | tr -d '(' | tr '\n' ' ') "
+        for s in $syms; do
+            case "$mathsyms" in *" $s "*) msyms="$msyms $s" ;; *) csyms="$csyms $s" ;; esac
+        done
+        stub() {   # stub <soname> <symbols...>
+            local so=$1; shift
+            { echo ".text"; for s in "$@"; do printf '.globl %s\n.type %s,%%function\n%s:\n ret\n' "$s" "$s" "$s"; done; } > "$obj/$so.s"
+            clang --target=$triple -c "$obj/$so.s" -o "$obj/$so.o"
+            ld.lld -shared -soname "$so" -o "$obj/$so" "$obj/$so.o"
+        }
+        stub libc.so $csyms
+        if [ -n "$msyms" ]; then stub libm.so $msyms; libs="$libs $obj/libm.so"; fi
         ld.lld -shared -soname libcore.so --gc-sections -z noexecstack -z relro -z now \
             -z max-page-size=16384 --hash-style=both --build-id --no-undefined \
-            -o "$OUT/lib/$abi/libcore.so" $objs "$obj/libc.so"
+            -o "$OUT/lib/$abi/libcore.so" $objs $libs
         llvm-strip --strip-unneeded "$OUT/lib/$abi/libcore.so" 2>/dev/null || true
     done
     echo "libcore.so: needs $(echo $syms | tr '\n' ' ')"

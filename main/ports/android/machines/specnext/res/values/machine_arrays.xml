@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="pad_entries">
+        <item>Joystick Kempston (como lo configure NextZXOS)</item>
+        <item>Cursores, ENTER, ESPACIO, BREAK</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>kempston</item>
+        <item>cursors</item>
+    </string-array>
+</resources>

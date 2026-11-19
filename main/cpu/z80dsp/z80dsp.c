@@ -161,7 +161,7 @@ static inline void internal(zd_z80 *z, uint16_t addr, int count)
 static inline uint8_t fetch(zd_z80 *z)
 {
     const bool m1 = z->fetching_opcode;
-    uint8_t v = z->read(z->user, z->pc);
+    uint8_t v = (m1 && z->opcode_read) ? z->opcode_read(z->user, z->pc) : z->read(z->user, z->pc);
     z->fetching_opcode = false;
     z->pc = (uint16_t)(z->pc + 1);
     // M1 opcode fetch is 4 T; immediate/operand bytes are 3 T.
@@ -474,7 +474,18 @@ static int take_nmi(zd_z80 *z)
     z->halted = false;
     z->iff2 = z->iff1;
     z->iff1 = false;
-    push(z, z->pc);
+    if (z->z80n && z->nextreg_w) {
+        // the Z80N keeps the NMI return address in nextregs C2/C3 and, in
+        // stackless mode, leaves the stack untouched (SP still moves)
+        z->nextreg_w(z->user, 0xc2, (uint8_t)z->pc);
+        z->nextreg_w(z->user, 0xc3, (uint8_t)(z->pc >> 8));
+    }
+    if (z->z80n && z->nmi_stackless) {
+        z->stackless_retn_en = true;
+        z->sp = (uint16_t)(z->sp - 2);
+    } else {
+        push(z, z->pc);
+    }
     z->pc = 0x0066;
     z->wz = z->pc;
     z->r = (uint8_t)(((z->r + 1) & 0x7f) | (z->r & 0x80));
@@ -583,12 +594,144 @@ static uint16_t rr_of(zd_z80 *z, int sel)
     }
 }
 
+// Z80N (ZX Spectrum Next) extended opcodes, after MAME's z80.lst; false for
+// those that are not Z80N additions. (The ED table charges 4 + 4 for these
+// slots: the rest is added.)
+// (not on the ESP32: its machines have no Z80N, and the IRAM is short)
+#ifndef Z80DSP_Z80N
+#ifdef ESP_PLATFORM
+#define Z80DSP_Z80N 0
+#else
+#define Z80DSP_Z80N 1
+#endif
+#endif
+#if Z80DSP_Z80N
+#define Z80N_EXTRA(total) (z->cycles_ += (total) - 8)
+static bool exec_z80n(zd_z80 *z, uint8_t opcode)
+{
+    switch (opcode) {
+    case 0x23: z->a = (uint8_t)((z->a << 4) | (z->a >> 4)); break;          // swapnib
+    case 0x24: {                                                            // mirror a
+        uint8_t v = 0;
+        for (int i = 0; i < 8; ++i) v = (uint8_t)(v | (((z->a >> i) & 1) << (7 - i)));
+        z->a = v;
+        break;
+    }
+    case 0x27: {                                                            // test n
+        const uint8_t keep = z->a;
+        and_a(z, fetch(z));
+        z->a = keep;
+        Z80N_EXTRA(11);
+        break;
+    }
+    case 0x28: { const int n = (z->b & 31) < 16 ? (z->b & 31) : 16;         // bsla de,b
+        set_de(z, (uint16_t)(n >= 16 ? 0 : DE() << n)); break; }
+    case 0x29: { const int n = (z->b & 31) < 16 ? (z->b & 31) : 16;         // bsra de,b
+        const int16_t v = (int16_t)DE();
+        set_de(z, (uint16_t)(n >= 16 ? (v < 0 ? 0xffff : 0) : (uint16_t)(v >> n))); break; }
+    case 0x2a: { const int n = (z->b & 31) < 16 ? (z->b & 31) : 16;         // bsrl de,b
+        set_de(z, (uint16_t)(n >= 16 ? 0 : DE() >> n)); break; }
+    case 0x2b: { const int n = (z->b & 31) < 16 ? (z->b & 31) : 16;         // bsrf de,b
+        set_de(z, (uint16_t)(((uint32_t)DE() | 0xffff0000u) >> n)); break; }
+    case 0x2c: { const int n = z->b & 15;                                   // brlc de,b
+        set_de(z, (uint16_t)((DE() << n) | (DE() >> ((16 - n) & 15)))); break; }
+    case 0x30: set_de(z, (uint16_t)(z->d * z->e)); break;                   // mul d,e
+    case 0x31: set_hl(z, (uint16_t)(HL() + z->a)); break;                   // add hl,a
+    case 0x32: set_de(z, (uint16_t)(DE() + z->a)); break;                   // add de,a
+    case 0x33: set_bc(z, (uint16_t)(BC() + z->a)); break;                   // add bc,a
+    case 0x34: set_hl(z, (uint16_t)(HL() + fetch16(z))); Z80N_EXTRA(16); break;
+    case 0x35: set_de(z, (uint16_t)(DE() + fetch16(z))); Z80N_EXTRA(16); break;
+    case 0x36: set_bc(z, (uint16_t)(BC() + fetch16(z))); Z80N_EXTRA(16); break;
+    case 0x8a: {                                                            // push nn (big endian)
+        const uint8_t hi = fetch(z), lo = fetch(z);
+        push(z, (uint16_t)((hi << 8) | lo));
+        Z80N_EXTRA(23);
+        break;
+    }
+    case 0x90: {                                                            // outinb
+        const uint8_t v = rd(z, HL());
+        out_(z, BC(), v);
+        set_hl(z, (uint16_t)(HL() + 1));
+        Z80N_EXTRA(16);
+        break;
+    }
+    case 0x91: {                                                            // nextreg n,n
+        const uint8_t reg = fetch(z), val = fetch(z);
+        if (z->nextreg_w) z->nextreg_w(z->user, reg, val);
+        Z80N_EXTRA(20);
+        break;
+    }
+    case 0x92: {                                                            // nextreg n,a
+        const uint8_t reg = fetch(z);
+        if (z->nextreg_w) z->nextreg_w(z->user, reg, z->a);
+        Z80N_EXTRA(17);
+        break;
+    }
+    case 0x93: {                                                            // pixeldn
+        uint16_t v = HL();
+        if ((z->h & 7) != 7) v = (uint16_t)(v + 0x100);
+        else if ((z->l & 0xe0) != 0xe0) v = (uint16_t)((v & 0xf8ff) + 0x20);
+        else v = (uint16_t)((v & 0xf81f) + 0x800);
+        set_hl(z, v);
+        break;
+    }
+    case 0x94:                                                              // pixelad
+        set_hl(z, (uint16_t)(0x4000 + ((z->d & 0xc0) << 5) + ((z->d & 0x07) << 8) + ((z->d & 0x38) << 2) + (z->e >> 3)));
+        break;
+    case 0x95: z->a = (uint8_t)(0x80 >> (z->e & 7)); break;                 // setae
+    case 0x98: {                                                            // jp (c)
+        const uint8_t v = in_(z, BC());
+        z->pc = (uint16_t)((z->pc & 0xc000) + (v << 6));
+        Z80N_EXTRA(13);
+        break;
+    }
+    case 0xa4: case 0xac: case 0xb4: case 0xbc: {                           // ldix lddx ldirx lddrx
+        const uint8_t v = rd(z, HL());
+        if (v != z->a) wr(z, DE(), v);
+        set_de(z, (uint16_t)(DE() + 1));
+        set_hl(z, (uint16_t)(HL() + ((opcode & 0x08) ? -1 : 1)));
+        set_bc(z, (uint16_t)(BC() - 1));
+        Z80N_EXTRA(16);
+        if ((opcode & 0x10) && BC() != 0) {
+            z->pc = (uint16_t)(z->pc - 2);
+            z->cycles_ += 5;
+        }
+        break;
+    }
+    case 0xa5:                                                              // ldws
+        wr(z, DE(), rd(z, HL()));
+        z->l = (uint8_t)(z->l + 1);
+        z->d = inc8(z, z->d);
+        Z80N_EXTRA(14);
+        break;
+    case 0xb7: {                                                            // ldpirx
+        const uint8_t v = rd(z, (uint16_t)((HL() & 0xfff8) + (z->e & 7)));
+        if (v != z->a) wr(z, DE(), v);
+        set_de(z, (uint16_t)(DE() + 1));
+        set_bc(z, (uint16_t)(BC() - 1));
+        Z80N_EXTRA(16);
+        if (BC() != 0) {
+            z->pc = (uint16_t)(z->pc - 2);
+            z->cycles_ += 5;
+        }
+        break;
+    }
+    default:
+        return false;
+    }
+    return true;
+}
+#else
+static inline bool exec_z80n(zd_z80 *z, uint8_t opcode) { (void)z, (void)opcode; return false; }
+#endif
+
 static void exec_ed(zd_z80 *z)
 {
     z->fetching_opcode = true;
     uint8_t opcode = fetch(z);
     bump_r_m1(z);
     z->cycles_ += z->t_ed[opcode];
+    if (z->z80n && exec_z80n(z, opcode)) return;
 
     switch (opcode) {
     case 0x40: case 0x48: case 0x50: case 0x58:
@@ -646,8 +789,16 @@ static void exec_ed(zd_z80 *z)
     case 0x45: case 0x55: case 0x65: case 0x75:
     case 0x5d: case 0x6d: case 0x7d:                   // retn
     case 0x4d:                                         // reti
+        if (z->ret_cb) z->ret_cb(z->user, opcode == 0x4d);
         z->iff1 = z->iff2;
-        z->pc = pop(z);
+        if (z->z80n && z->stackless_retn_en && opcode != 0x4d) {
+            // Z80N stackless NMI: the return address is in nextregs C2/C3
+            z->sp = (uint16_t)(z->sp + 2);
+            if (z->nextreg_r) z->pc = (uint16_t)(z->nextreg_r(z->user, 0xc2) | (z->nextreg_r(z->user, 0xc3) << 8));
+        } else {
+            z->pc = pop(z);
+        }
+        if (opcode != 0x4d) z->stackless_retn_en = false;
         z->wz = z->pc;
         break;
     case 0x46: case 0x4e: case 0x66: case 0x6e: z->im = 0; break;
@@ -1162,6 +1313,7 @@ void zd_reset(zd_z80 *z)
     z->halted = false;
     z->after_ei = false;
     z->refetch = false;
+    z->stackless_retn_en = false;
     z->irq_state = ZD_CLEAR;
     z->nmi_state = ZD_CLEAR;
     z->nmi_latched = false;

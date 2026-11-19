@@ -1,10 +1,12 @@
 # Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros,
-# trackfld, pbobble, retofinv, robocop, polepos, polepos2) or computer (GAME: ql, spectrum48, spectrum128,
+# trackfld, pbobble, retofinv, robocop, polepos, polepos2) or computer (GAME: ql, apple2, apple2p, apple2e,
+# apple2ee, spectrum48, spectrum128,
 # plus3, pentagon, pentagon1024, scorpion — Spectrum family shares drivers/computers/zxspec
 # core; each model has its own rom_data_<GAME>.c from roms/<GAME>/).
 idf_build_get_property(GAME GAME)
 include(${CMAKE_CURRENT_LIST_DIR}/drivers/consoles/consoles.cmake)
 set(ZX_GAMES spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion)
+set(A2_GAMES apple2 apple2p apple2e apple2ee)
 set(IS_ZXSPEC 0)
 if(GAME STREQUAL "ql")
     set(D drivers/computers/${GAME})
@@ -19,6 +21,8 @@ elseif(GAME STREQUAL "lynx")
     set(D drivers/consoles/lynx)
 elseif(GAME STREQUAL "msx1" OR GAME STREQUAL "msx2")
     set(D drivers/computers/msx)
+elseif(GAME IN_LIST A2_GAMES)
+    set(D drivers/computers/apple2)
 elseif(GAME IN_LIST CONSOLES)
     set(D drivers/consoles/${GAME})
 else()
@@ -106,6 +110,15 @@ elseif(GAME STREQUAL "msx1" OR GAME STREQUAL "msx2")
     set(QL_SD_REQ fatfs sdmmc)
     set(LF_FILE ${D}/msx.lf)
     set(EXTRA_INCLUDES ${QL_DIR})
+elseif(GAME IN_LIST A2_GAMES)
+    list(FIND A2_GAMES ${GAME} A2_N)
+    set(SRCS ${D}/apple2_cyd.c ${D}/apple2_core.c ${D}/rom_data_${GAME}.c ${QL_DIR}/ql_sd_esp.c cpu/m6502/m65xx.c
+             machine/diskii.c machine/zx_pbuf.c)
+    set(DEFS A2_MODEL=${A2_N})
+    set(QL_SD_REQ fatfs sdmmc)
+    set(LF_FILE ${D}/apple2.lf)
+    set(HOT_SRCS cpu/m6502/m65xx.c)
+    set(EXTRA_INCLUDES ${QL_DIR})
 elseif(GAME STREQUAL "lynx")
     set(SRCS ${D}/lynx_cyd.c ${D}/lynx_core.c ${D}/rom_data.c ${QL_DIR}/ql_sd_esp.c machine/zx_pbuf.c)   # (cpu/m6502/m65xx.c inside lynx_core.c)
     set(DEFS)
@@ -145,7 +158,7 @@ elseif(IS_ZXSPEC)
     set(LF_FILE ${D}/zxspec.lf)
     set(EXTRA_INCLUDES ${QL_DIR})
 else()
-    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2 or a console: ${CONSOLES})")
+    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, apple2, apple2p, apple2e, apple2ee or a console: ${CONSOLES})")
 endif()
 
 # The ROMs that rom_data.c does not have come from the microSD (roms/<set>/,

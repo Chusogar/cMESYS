@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#181a22; color:#e8e8ec; font-family:sans-serif; margin:16px; line-height:1.45 }
+h1 { font-size:1.4em; color:#fff } h2 { font-size:1.1em; color:#f0c040; margin-top:1.4em }
+code, kbd { background:#2a2d38; padding:1px 5px; border-radius:3px }
+td { padding:3px 8px; vertical-align:top } a { color:#8ab4ff }
+</style></head><body>
+<h1>cMESYS Apple II</h1>
+<p>Apple ][, ][+, //e y //e Enhanced con el núcleo Apple II de cMESYS (migrado de dsp-cpp): 6502 (65C02 en el Enhanced), texto de 40 y 80 columnas, baja y alta resolución, doble alta resolución del //e, el altavoz, 64 KB (128 KB en el //e con la tarjeta de 80 columnas extendida), el joystick y la Disk II en el slot 6.</p>
+
+<h2>Menú</h2>
+<p>Se abre con <kbd>Atrás</kbd>, con el icono de la esquina, con el botón <kbd>MENÚ</kbd> del teclado en
+pantalla o con <kbd>START</kbd> de un mando. Mientras está abierto la máquina se detiene.</p>
+<table>
+<tr><td><b>Discos</b></td><td>Meter un disco <code>.dsk .do .po .nib</code> en la unidad 1 (la máquina se enciende de nuevo y lo arranca), sacarlo, o teclear <code>PR#6</code> o <code>CATALOG</code>.</td></tr>
+<tr><td><b>Reset</b></td><td>CTRL-RESET (el botón RESET: la RAM se conserva) o apagar y encender (arranca el disco).</td></tr>
+<tr><td><b>Pausa</b></td><td>Detiene la máquina hasta volver a pulsarlo.</td></tr>
+<tr><td><b>Ajustes</b></td><td>Modelo (][, ][+, //e o //e Enhanced); pantalla, teclado, mando y sonido.</td></tr>
+<tr><td><b>Teclado</b></td><td>Muestra u oculta el teclado en pantalla.</td></tr>
+<tr><td><b>Velocidad</b></td><td>Turbo: la máquina va tan rápido como puede (sin sonido).</td></tr>
+<tr><td><b>Pantalla</b></td><td>Proporción del monitor, píxeles cuadrados, pantalla completa o múltiplo entero.</td></tr>
+<tr><td><b>Teclas Apple</b></td><td>CTRL-RESET, CTRL-C, ESC, RETURN, Open Apple + CTRL-RESET…</td></tr>
+<tr><td><b>Recientes</b></td><td>Los últimos archivos abiertos.</td></tr>
+<tr><td><b>Expulsar</b></td><td>Saca lo que se pueda sacar (o para la cinta).</td></tr>
+</table>
+
+<h2>Teclado en pantalla</h2>
+<p>Es el teclado de cada modelo, dibujado para cMESYS: el del ][ / ][+ (mayúsculas, REPT, RESET y dos flechas) o el del //e (con DELETE, las teclas Open y Solid Apple y cuatro flechas), que cambia con el modelo: la tecla pulsada se hunde. Admite varios dedos a la vez.
+<kbd>SHIFT</kbd>, <kbd>CTRL</kbd> y las teclas <kbd>Open</kbd> / <kbd>Solid Apple</kbd> se quedan pulsadas para la tecla siguiente; dos toques seguidos las bloquean (hundidas y rojizas) hasta volver a tocarlas. <kbd>MENÚ</kbd> abre el menú y <kbd>▼</kbd> oculta el teclado.</p>
+
+<h2>Teclado físico y mandos</h2>
+<p>Las teclas del PC son las del Apple; <kbd>Retroceso</kbd> = ←, <kbd>Supr</kbd> = DELETE, Alt izq. / dcha. = Open / Solid Apple, <kbd>F12</kbd> = RESET. La cruceta y los botones de un mando hacen de el joystick (botones 0 y 1) o los cursores, según los ajustes.</p>
+
+<h2>Al arrancar</h2>
+<p>Sin disco, el ][ entra en el monitor o en Integer BASIC, el ][+ en Applesoft y el //e busca un disco (pulsa CTRL-RESET para ir a BASIC). Con la Disk II, abre un <code>.dsk</code> en <b>Discos</b> y arranca solo. Lo que se escribe en el disco se guarda en el archivo.</p>
+<p>Un archivo también se puede abrir con la app desde un gestor de archivos (<i>Abrir con</i>).</p>
+
+<h2>Créditos</h2>
+<p>cMESYS (Chusogar): núcleo Apple II migrado de dsp-cpp (del emulador DSP), 6502 de cMESYS, Disk II a partir de MAME. Teclados en pantalla dibujados para cMESYS (tools/gen_apple_vkb.py).
+Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a>.</p>
+</body></html>

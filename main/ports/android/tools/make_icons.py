@@ -42,6 +42,9 @@ FONT = {
     "A": [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
     "G": [".###.", "#...#", "#....", "#.###", "#...#", "#...#", ".###."],
     "I": [".###.", "..#..", "..#..", "..#..", "..#..", "..#..", ".###."],
+    "+": [".....", "..#..", "..#..", "#####", "..#..", "..#..", "....."],
+    "E": ["#####", "#....", "#....", "####.", "#....", "#....", "#####"],
+    "T": ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
 }
 
 
@@ -357,8 +360,77 @@ def launcher_arcade(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_specnext(size):
+    """The Next: the dark case, its keys, the four coloured stripes on the right."""
+    im, d = launcher_base()
+    d.rectangle([4, 24, 60, 50], fill=(44, 44, 46, 255), outline=(110, 110, 112, 255))
+    keys_rows(d, 7, 47, 28, 4, (20, 20, 22, 255))
+    for i, c in enumerate([(230, 40, 30), (245, 200, 30), (60, 190, 70), (40, 170, 230)]):
+        d.rectangle([50, 29 + i * 5, 58, 30 + i * 5], fill=c + (255,))
+    text(d, 8, 6, "NEXT", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+def launcher_apple2(size):
+    """An Apple ][: the beige case with its brown keys, the lid's vents."""
+    im, d = launcher_base()
+    d.polygon([(4, 46), (7, 26), (57, 26), (60, 46)], fill=(206, 192, 156, 255), outline=(236, 226, 196, 255))
+    for k in range(12, 52, 4):
+        d.rectangle([k, 28, k + 2, 28], fill=(150, 136, 104, 255))
+    d.rectangle([11, 32, 53, 44], fill=(52, 44, 36, 255))
+    keys_rows(d, 13, 51, 33, 3, (120, 100, 82, 255))
+    d.rectangle([20, 42, 42, 43], fill=(120, 100, 82, 255))
+    text(d, 22, 6, "II", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+def launcher_apple2gs(size):
+    """The IIGS: a platinum box, a monitor with a coloured desktop."""
+    im, d = launcher_base()
+    d.rectangle([12, 22, 52, 48], fill=(210, 206, 196, 255), outline=(240, 238, 230, 255))
+    d.rectangle([16, 25, 48, 43], fill=(30, 40, 160, 255), outline=K)
+    d.rectangle([16, 25, 48, 27], fill=(240, 240, 240, 255))
+    d.rectangle([20, 31, 30, 38], fill=(240, 240, 240, 255))
+    d.rectangle([34, 33, 44, 40], fill=(240, 200, 40, 255))
+    d.rectangle([8, 50, 56, 56], fill=(200, 196, 186, 255), outline=(240, 238, 230, 255))
+    keys_rows(d, 11, 54, 52, 2, (120, 116, 108, 255))
+    text(d, 9, 6, "IIGS", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+def compact_mac(d, x, y):
+    d.rectangle([x, y, x + 25, y + 32], fill=(214, 206, 186, 255), outline=(244, 238, 222, 255))
+    d.rectangle([x + 4, y + 3, x + 21, y + 17], fill=(240, 240, 236, 255), outline=K)
+    d.rectangle([x + 6, y + 6, x + 10, y + 9], fill=K)
+    d.rectangle([x + 13, y + 10, x + 19, y + 14], fill=(140, 140, 140, 255))
+    d.rectangle([x + 14, y + 22, x + 22, y + 23], fill=(120, 116, 104, 255))
+
+
+def launcher_macplus(size):
+    """A compact Mac: the beige box, its black-and-white screen."""
+    im, d = launcher_base()
+    compact_mac(d, 19, 24)
+    text(d, 6, 6, "MAC+", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
+def launcher_macii(size):
+    """A Mac II: the wide box with a colour monitor on it."""
+    im, d = launcher_base()
+    d.rectangle([8, 24, 56, 44], fill=(206, 202, 192, 255), outline=(240, 238, 230, 255))
+    d.rectangle([13, 27, 51, 42], fill=(240, 240, 236, 255), outline=K)
+    for i, c in enumerate([(97, 187, 70), (253, 184, 39), (245, 130, 31), (224, 58, 62), (150, 61, 151), (0, 157, 220)]):
+        d.rectangle([16 + i * 5, 30, 19 + i * 5, 33], fill=c + (255,))
+    d.rectangle([4, 47, 60, 56], fill=(206, 202, 192, 255), outline=(240, 238, 230, 255))
+    d.rectangle([40, 50, 54, 51], fill=(120, 116, 104, 255))
+    text(d, 3, 6, "MACII", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
-             "msx": launcher_msx, "lynx": launcher_lynx, "amiga": launcher_amiga, "arcade": launcher_arcade}
+             "msx": launcher_msx, "lynx": launcher_lynx, "amiga": launcher_amiga,
+             "apple2": launcher_apple2, "apple2gs": launcher_apple2gs, "macplus": launcher_macplus,
+             "macii": launcher_macii, "specnext": launcher_specnext, "arcade": launcher_arcade}
 
 
 ICONS = {

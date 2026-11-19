@@ -26,6 +26,7 @@ int vsnprintf(char *s, size_t n, const char *fmt, va_list ap);
 int vfprintf(FILE *f, const char *fmt, va_list ap);
 int puts(const char *s);
 FILE *fopen(const char *path, const char *mode);
+FILE *fdopen(int fd, const char *mode);
 int fclose(FILE *f);
 size_t fread(void *p, size_t size, size_t n, FILE *f);
 size_t fwrite(const void *p, size_t size, size_t n, FILE *f);

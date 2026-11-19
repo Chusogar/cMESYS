@@ -14,7 +14,7 @@ final class Core {
     static final int LED1 = 1, LED2 = 2, TAPE_LOADED = 4, TAPE_PLAYING = 8, HAS_DISK = 16;
     // commands
     static final int CMD_TAPE_TOGGLE = 1, CMD_AUTOBOOT = 2, CMD_MAGIC = 3, CMD_MONITOR = 4,
-            CMD_FAST_LOAD_ON = 5, CMD_FAST_LOAD_OFF = 6;
+            CMD_FAST_LOAD_ON = 5, CMD_FAST_LOAD_OFF = 6, CMD_RESET_KEY = 7, CMD_DRIVE = 8;
 
     static final int AUDIO_MAX = 4096;
 

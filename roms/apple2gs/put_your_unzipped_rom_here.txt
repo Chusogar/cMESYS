@@ -1,0 +1,1 @@
+Apple IIGS ROM 03: MAME's apple2gs.zip (341-0728, 341-0748, apple2gs.chr); then tools/regen.sh apple2gs

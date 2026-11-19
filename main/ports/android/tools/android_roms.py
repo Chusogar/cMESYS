@@ -16,6 +16,12 @@ gen_roms_ql.py, written as plain binaries that the app gives its core.
   c64     roms/kernal.rom, basic.rom, chargen.rom, dos1541.rom
   msx     roms/msx1/bios.rom, disk.rom; roms/msx2/bios.rom, sub.rom, disk.rom
   lynx    roms/boot.rom (roms/lynx)
+  apple2  roms/<set>/main.rom, chr.rom, disk.rom, aid.rom for each set there
+          (apple2, apple2p, apple2e, apple2ee)
+  apple2gs roms/rom_fc.rom, rom_fe.rom, chr.rom (roms/apple2gs)
+  macplus roms/rom_even.rom, rom_odd.rom (roms/macplus)
+  macii   roms/macii.rom, card.rom (roms/macii)
+  specnext roms/boot.rom: the TBBlue boot ROM (roms/specnext: MAME's tbblue set)
   amiga   roms/kick13.rom (required), kick12.rom, kick204.rom, kick31.rom (roms/amiga:
           the MAME a500 set, its .zip as it is)
 """
@@ -147,6 +153,22 @@ def main():
                 found += [model + "/" + n for n in computers(model, d, os.path.join(out, "roms", model), names)]
     elif machine == "amiga":
         found = amiga(roms, out)
+    elif machine == "apple2":
+        found = []
+        for model in ("apple2", "apple2p", "apple2e", "apple2ee"):
+            d = os.path.join(roms, model)
+            if os.path.isdir(d):
+                found += [model + "/" + n for n in computers(model, d, os.path.join(out, "roms", model),
+                                                             ["main.rom", "chr.rom", "disk.rom", "aid.rom"])]
+    elif machine == "apple2gs":
+        found = computers("apple2gs", os.path.join(roms, "apple2gs"), out,
+                          ["roms/rom_fc.rom", "roms/rom_fe.rom", "roms/chr.rom"])
+    elif machine == "macplus":
+        found = computers("macplus", os.path.join(roms, "macplus"), out, ["roms/rom_even.rom", "roms/rom_odd.rom"])
+    elif machine == "specnext":
+        found = computers("specnext", os.path.join(roms, "specnext"), out, ["roms/boot.rom"])
+    elif machine == "macii":
+        found = computers("macii", os.path.join(roms, "macii"), out, ["roms/macii.rom", "roms/card.rom"])
     elif machine == "lynx":
         found = computers("lynx", os.path.join(roms, "lynx"), out, ["roms/boot.rom"])
     else:

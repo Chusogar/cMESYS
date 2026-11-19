@@ -19,6 +19,11 @@ pantalla de dsp-cpp:
 | `dist/msx_android.apk` | MSX1 y MSX2 (con la ROM de disco) | dibujado aquí al estilo de dsp-cpp (`tools/gen_msx_vkb.py`) |
 | `dist/lynx_android.apk` | Atari Lynx | los mandos de la consola al estilo de dsp-cpp (`tools/gen_lynx_vkb.py`) |
 | `dist/amiga_android.apk` | Commodore Amiga 500 (Kickstart 1.3, 1.2, 2.04 o 3.1) | la foto de un A500 español (`tools/gen_amiga_vkb.py`) |
+| `dist/apple2_android.apk` | Apple ][, ][+, //e y //e Enhanced (el modelo en los ajustes) | el del ][ / ][+ o el del //e, según el modelo (`tools/gen_apple_vkb.py`) |
+| `dist/apple2gs_android.apk` | Apple IIGS (ROM 3) | el teclado ADB del IIGS (`tools/gen_apple_vkb.py`) |
+| `dist/macplus_android.apk` | Macintosh Plus | el M0110A (`tools/gen_apple_vkb.py`) |
+| `dist/macii_android.apk` | Macintosh II | el Apple Extended Keyboard (`tools/gen_apple_vkb.py`) |
+| `dist/specnext_android.apk` | ZX Spectrum Next (la tarjeta SD se usa donde está, sin copiarla) | una foto del teclado del Next (`tools/gen_specnext_vkb.py`) |
 
 El Amiga (dsp-cpp tampoco tiene su teclado) usa la foto de un Amiga 500
 español: `gen_amiga_vkb.py` la recorta y escribe el rectángulo y el código de
@@ -103,14 +108,14 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | | |
 |---|---|
 | `jni/core.h`, `jni/core_jni.c` | lo que da cada máquina y las llamadas de `Core` (frames, imagen ARGB, sonido, teclas, joystick, medios) |
-| `jni/m_ql.c` … `m_amiga.c` | cada máquina sobre su núcleo de `main/drivers/computers` (la Lynx, de `main/drivers/consoles/lynx`) |
+| `jni/m_ql.c` … `m_amiga.c`, `m_apple2.c`, `m_apple2gs.c`, `m_macplus.c`, `m_macii.c`, `m_specnext.c` | cada máquina sobre su núcleo de `main/drivers/computers` (la Lynx, de `main/drivers/consoles/lynx`) |
 | `jni/libc/` | cabeceras mínimas de bionic para compilar sin el NDK |
 | `app/src/.../MachineActivity.java` | pantalla, teclado, menú, medios, teclado físico y mandos |
-| `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx`, `Amiga` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |
+| `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx`, `Amiga`, `Apple2`, `AdbKeys` (`Apple2gs`, `MacPlus`, `MacII`), `SpecNext` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |
 | `app/src/.../Emulator.java` | hilo de emulación al ritmo del sonido (prioridad de audio, ~6 frames de búfer, empieza a sonar con 3 en cola), cola de teclas, turbo, pausa |
 | `app/src/.../ScreenView.java` | imagen escalada por la GPU en el hilo de la interfaz (monitor, cuadrada, completa, entera) y luces; el hilo de emulación solo copia los píxeles, para que nunca se retrase el sonido |
 | `app/src/.../KeyboardView.java` | teclado en pantalla (imágenes y teclas de dsp-cpp) |
-| `app/src/.../Trackpad.java` | la imagen como trackpad del ratón (el Amiga) |
+| `app/src/.../Trackpad.java` | la imagen como trackpad del ratón (el Amiga, el IIGS y los Mac) |
 | `app/src/.../SoftMenu.java` | menú a lo Hataroid (barra de iconos y listas) |
 | `machines/<máquina>/` | recursos de cada APK: nombre, ajustes, lanzador, teclado, ayuda |
 | `tools/import_dsp_keyboards.py` | los teclados de dsp-cpp (`*_vkb_data.inc`) → `keyboard.png` + `keyboard.txt` |

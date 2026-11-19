@@ -1,0 +1,1 @@
+Apple IIe Enhanced: MAME's apple2ee.zip (342-0304-a.e10, 342-0303-a.e8, 342-0265-a.chr, 341-0027-a.p5); then tools/regen.sh apple2ee
