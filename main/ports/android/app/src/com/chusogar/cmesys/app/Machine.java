@@ -31,6 +31,7 @@ abstract class Machine {
             case "apple2gs": return new Apple2gs();
             case "macplus": return new MacPlus();
             case "macii": return new MacII();
+            case "specnext": return new SpecNext();
             default:
                 if (ConsoleInfo.TITLE != null) return new Console();
                 throw new IllegalStateException("unknown machine " + MachineId.ID);
@@ -122,6 +123,10 @@ abstract class Machine {
     String keysLabel() { return "Teclas"; }
 
     abstract List<Object[]> shortcuts();
+
+    /** A file the core uses where it is (a disk image it reads and writes as
+     *  it goes) instead of a copy: by default the large ones. */
+    boolean inPlace(String name, long size) { return size > (64L << 20); }
 
     /** The on-screen keyboard of a model (assets: its keyboard.txt). */
     String keyboardFile(int model) { return "keyboard.txt"; }

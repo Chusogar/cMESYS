@@ -1,0 +1,65 @@
+# tools/gen_specnext_vkb.py (a photo of the ZX Spectrum Next's keyboard), do not edit
+picture keyboard.jpg 1400 457
+crop 0 0 0
+travel 4
+button menu 1176 21 1336 157
+button hide 1176 195 1336 332
+key 74 0 41 11 119 87  # BREAK
+key 73 0 123 11 199 87  # EDIT
+key 24 0 207 11 283 87  # 1
+key 25 0 289 11 365 87  # 2
+key 26 0 373 11 449 87  # 3
+key 27 0 455 11 531 87  # 4
+key 28 0 538 11 614 87  # 5
+key 36 0 620 11 696 87  # 6
+key 35 0 703 11 779 87  # 7
+key 34 0 785 11 861 87  # 8
+key 33 0 868 11 944 87  # 9
+key 32 0 950 11 1026 87  # 0
+key 72 0 1034 11 1155 87  # DELETE
+key 76 0 41 94 138 171  # TRUE VIDEO
+key 75 0 143 94 243 171  # INV VIDEO
+key 16 0 249 94 325 171  # Q
+key 17 0 332 94 408 171  # W
+key 18 0 414 94 490 171  # E
+key 19 0 497 94 573 171  # R
+key 20 0 580 94 655 171  # T
+key 44 0 662 94 738 171  # Y
+key 43 0 745 94 820 171  # U
+key 42 0 827 94 903 171  # I
+key 41 0 910 94 986 171  # O
+key 40 0 992 94 1068 171  # P
+key 48 0 1076 94 1155 171  # ENTER (top)
+key 78 0 41 176 157 253  # CAPS LOCK
+key 77 0 164 176 262 253  # GRAPH
+key 8 0 268 176 344 253  # A
+key 9 0 351 176 427 253  # S
+key 10 0 433 176 509 253  # D
+key 11 0 516 176 592 253  # F
+key 12 0 599 176 674 253  # G
+key 52 0 681 176 757 253  # H
+key 51 0 764 176 839 253  # J
+key 50 0 846 176 922 253  # K
+key 49 0 929 176 1004 253  # L
+key 48 0 1013 176 1155 253  # ENTER
+key 0 1 41 259 221 336  # CAPS SHIFT (left)
+key 79 0 228 259 325 336  # EXTEND MODE
+key 1 0 332 259 408 336  # Z
+key 2 0 414 259 490 336  # X
+key 3 0 497 259 573 336  # C
+key 4 0 580 259 655 336  # V
+key 60 0 662 259 738 336  # B
+key 59 0 745 259 820 336  # N
+key 58 0 827 259 903 336  # M
+key 68 0 910 259 986 336  # UP
+key 0 1 992 259 1155 336  # CAPS SHIFT (right)
+key 57 1 41 341 119 420  # SYMBOL SHIFT (left)
+key 64 0 123 341 199 420  # ;
+key 65 0 207 341 283 420  # "
+key 66 0 289 341 365 420  # ,
+key 67 0 373 341 449 420  # .
+key 56 0 455 341 820 420  # SPACE
+key 70 0 827 341 903 420  # LEFT
+key 69 0 910 341 986 420  # DOWN
+key 71 0 992 341 1068 420  # RIGHT
+key 57 1 1076 341 1155 420  # SYMBOL SHIFT (right)

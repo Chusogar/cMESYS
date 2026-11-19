@@ -12,6 +12,7 @@ import android.database.Cursor;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
 import android.preference.PreferenceManager;
 import android.provider.OpenableColumns;
 import android.view.Gravity;
@@ -544,6 +545,8 @@ public final class MachineActivity extends Activity implements KeyboardView.List
         return new Runnable() {
             @Override public void run() {
                 Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
                 i.addCategory(Intent.CATEGORY_OPENABLE);
                 i.setType("*/*");
                 try {
@@ -648,20 +651,78 @@ public final class MachineActivity extends Activity implements KeyboardView.List
         if (result != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
         try {
-            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        } catch (Exception ignored) {
+            // (reading and writing: disk images used in place are written)
+            getContentResolver().takePersistableUriPermission(uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        } catch (Exception e) {
+            try {
+                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (Exception ignored) {
+            }
         }
         loadUri(uri, request - PICK);
     }
 
     private void loadUri(Uri uri, int slot) {
         String name = displayName(uri);
+        if (loadInPlace(uri, name, slot)) {
+            addRecent(uri, name);
+            return;
+        }
         try (InputStream in = getContentResolver().openInputStream(uri)) {
             if (in == null) throw new IOException();
             if (loadStream(in, name, slot)) addRecent(uri, name);
         } catch (IOException | SecurityException e) {
             toast("No se puede leer el archivo");
         }
+    }
+
+    /** Disk images used where they are (Machine.inPlace: an SD card image,
+     *  a large hard disk): the core gets "/proc/self/fd/N" and works on a
+     *  copy of that descriptor (blkfile.c), writing to the file itself. */
+    private boolean loadInPlace(Uri uri, final String name, final int slot) {
+        ParcelFileDescriptor pfd = null;
+        try {
+            try {
+                pfd = getContentResolver().openFileDescriptor(uri, "rw");
+            } catch (Exception e) {
+                pfd = getContentResolver().openFileDescriptor(uri, "r");
+            }
+            if (pfd == null) return false;
+            if (!machine.inPlace(name, pfd.getStatSize())) {
+                pfd.close();
+                return false;
+            }
+        } catch (Exception e) {
+            if (pfd != null) {
+                try {
+                    pfd.close();
+                } catch (IOException ignored) {
+                }
+            }
+            return false;
+        }
+        final ParcelFileDescriptor fd = pfd;
+        emu.post(new Runnable() {
+            @Override public void run() {
+                final String err = Core.load("/proc/self/fd/" + fd.getFd(), slot);
+                try {
+                    fd.close();
+                } catch (IOException ignored) {
+                }
+                runOnUiThread(new Runnable() {
+                    @Override public void run() {
+                        if (err == null) {
+                            slotName[machine.nameSlot(slot)] = name;
+                            toast("Cargado: " + name);
+                        } else {
+                            toast(name + ": " + err);
+                        }
+                    }
+                });
+            }
+        });
+        return true;
     }
 
     /** Copies the file to the app's cache with its own name (the cores tell

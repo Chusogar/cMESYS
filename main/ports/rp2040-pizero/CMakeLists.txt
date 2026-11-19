@@ -8,7 +8,7 @@
 # or ./build_pico.sh for all of them (-> dist/). GAME: indytemp, roadrunn,
 # gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql,
 # spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2,
-# amiga, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii (RP2350 only: their RAM, disks or
+# amiga, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext (RP2350 only: their RAM, disks or
 # both are in the PSRAM).
 cmake_minimum_required(VERSION 3.13)
 
@@ -50,7 +50,7 @@ endif()
 pico_sdk_init()
 
 if(NOT GAME)
-    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|apple2|apple2p|apple2e|apple2ee|apple2gs|macplus|macii>")
+    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|apple2|apple2p|apple2e|apple2ee|apple2gs|macplus|macii|specnext>")
 endif()
 # HDMI: PicoDVI on the RP2040; on the RP2350 rp2350/hdmi (pico_lib's DVI,
 # which also sends the sound to the TV, in data islands)
@@ -83,7 +83,7 @@ elseif(GAME STREQUAL "msx1" OR GAME STREQUAL "msx2")
     set(D ${M}/drivers/computers/msx)
 elseif(GAME IN_LIST A2_GAMES)
     set(D ${M}/drivers/computers/apple2)
-elseif(GAME STREQUAL "apple2gs" OR GAME STREQUAL "macplus" OR GAME STREQUAL "macii")
+elseif(GAME STREQUAL "apple2gs" OR GAME STREQUAL "macplus" OR GAME STREQUAL "macii" OR GAME STREQUAL "specnext")
     set(D ${M}/drivers/computers/${GAME})
 elseif(GAME IN_LIST CONSOLES)
     set(D ${M}/drivers/consoles/${GAME})
@@ -188,7 +188,8 @@ elseif(GAME STREQUAL "amiga")
     set(DEFS M68K_FLASH_TABLES)
     set(RAM_CODE m68kcpu.c.o amiga_core.c.o amiga_chipset.c.o)
     set(HOT_MAX 120)                # (the hottest 68000 handlers of amiga.lf)
-elseif(GAME IN_LIST A2_GAMES OR GAME STREQUAL "apple2gs" OR GAME STREQUAL "macplus" OR GAME STREQUAL "macii")
+elseif(GAME IN_LIST A2_GAMES OR GAME STREQUAL "apple2gs" OR GAME STREQUAL "macplus" OR GAME STREQUAL "macii"
+       OR GAME STREQUAL "specnext")
     if(NOT PIZERO STREQUAL "2350")
         message(FATAL_ERROR "${GAME}: the RP2350-PiZero only (-DPIZERO=2350): its RAM and disks go in the PSRAM")
     endif()
@@ -209,6 +210,11 @@ elseif(GAME IN_LIST A2_GAMES OR GAME STREQUAL "apple2gs" OR GAME STREQUAL "macpl
                  ${M}/machine/mac_dcmp.c ${M}/machine/blkfile.c)
         set(DEFS M68K_FLASH_TABLES)
         set(RAM_CODE m68kcpu.c.o macplus_core.c.o via6522.c.o iwm.c.o)
+    elseif(GAME STREQUAL "specnext")
+        set(SRCS ${D}/specnext_pico.c ${D}/specnext_core.c ${D}/rom_data.c ${M}/cpu/z80dsp/z80dsp.c
+                 ${M}/sound/ay8910.c ${M}/machine/sdcard_spi.c ${M}/machine/zxn_dma.c ${M}/machine/blkfile.c)
+        set(DEFS)
+        set(RAM_CODE z80dsp.c.o specnext_core.c.o)
     else()
         # Musashi 4 (the 68020), found by relative path from macii_core.c
         set(SRCS ${D}/macii_pico.c ${D}/macii_core.c ${D}/rom_data.c ${M}/cpu/musashi/m68kcpu.c

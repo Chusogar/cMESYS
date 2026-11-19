@@ -1,0 +1,1 @@
+ZX Spectrum Next: MAME's tbblue.zip (boot-30204.bin, the boot ROM; then tools/regen.sh specnext to build it in). NextZXOS comes from the SD card image (an .img next to it is not looked for: open it with F9 or give it on the command line).

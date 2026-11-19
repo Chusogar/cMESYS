@@ -43,6 +43,8 @@ FONT = {
     "G": [".###.", "#...#", "#....", "#.###", "#...#", "#...#", ".###."],
     "I": [".###.", "..#..", "..#..", "..#..", "..#..", "..#..", ".###."],
     "+": [".....", "..#..", "..#..", "#####", "..#..", "..#..", "....."],
+    "E": ["#####", "#....", "#....", "####.", "#....", "#....", "#####"],
+    "T": ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
 }
 
 
@@ -358,6 +360,17 @@ def launcher_arcade(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_specnext(size):
+    """The Next: the dark case, its keys, the four coloured stripes on the right."""
+    im, d = launcher_base()
+    d.rectangle([4, 24, 60, 50], fill=(44, 44, 46, 255), outline=(110, 110, 112, 255))
+    keys_rows(d, 7, 47, 28, 4, (20, 20, 22, 255))
+    for i, c in enumerate([(230, 40, 30), (245, 200, 30), (60, 190, 70), (40, 170, 230)]):
+        d.rectangle([50, 29 + i * 5, 58, 30 + i * 5], fill=c + (255,))
+    text(d, 8, 6, "NEXT", W, 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
 def launcher_apple2(size):
     """An Apple ][: the beige case with its brown keys, the lid's vents."""
     im, d = launcher_base()
@@ -417,7 +430,7 @@ def launcher_macii(size):
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
              "msx": launcher_msx, "lynx": launcher_lynx, "amiga": launcher_amiga,
              "apple2": launcher_apple2, "apple2gs": launcher_apple2gs, "macplus": launcher_macplus,
-             "macii": launcher_macii, "arcade": launcher_arcade}
+             "macii": launcher_macii, "specnext": launcher_specnext, "arcade": launcher_arcade}
 
 
 ICONS = {

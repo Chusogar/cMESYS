@@ -7,7 +7,7 @@ Usage:
   tools/gen_roms_computers.py --loaders [<repo root>]   (writes every rom_load.c)
 
 <machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga | apple2 | apple2p | apple2e | apple2ee |
-apple2gs | macplus | macii, or a console of
+apple2gs | macplus | macii | specnext, or a console of
 main/drivers/consoles with a BIOS (coleco, ...). <romdir> is roms/<machine>/, unzipped or the
 MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   cpc6128  cpc6128.rom (32 KB: OS + BASIC), amsdos.rom | cpcados.rom (16 KB)
@@ -31,6 +31,7 @@ MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   apple2gs (MAME apple2gs, ROM 03) 341-0728 + 341-0748 (256 KB), apple2gs.chr (4 KB)
   macplus  (MAME macplus) 342-0341-c.u6d + 342-0342-b.u8d (v3; or -b + -a, -a + -a: 64 KB each, even / odd)
   macii    (MAME macii) 9779d2c4.rom | 97851db6.rom (256 KB), 3410868.bin (Display Card 8*24, 32 KB)
+  specnext (MAME tbblue) boot-30204.bin (the TBBlue boot ROM, 8 KB)
 """
 from __future__ import print_function
 import os
@@ -116,6 +117,12 @@ SETS = {
     'macii': [
         ('macii_rom', 0x40000, [('9779d2c4.rom', 0x4df6d054), ('97851db6.rom', 0x8c8b9d03)], True),
         ('macii_rom_card', 0x8000, [('3410868.bin', 0x57f925fa)], True),
+    ],
+    # ZX Spectrum Next: the TBBlue boot ROM (MAME's tbblue set; NextZXOS and
+    # its ROMs come from the SD card image)
+    'specnext': [
+        ('specnext_rom_boot', 0x2000, [('boot-30204.bin', 0x95118eb6), ('boot-30200.bin', None),
+                                       ('boot-30100.bin', 0xccbd55ba), ('tbblue_loader.rom', None)], True),
     ],
     # consoles (main/drivers/consoles): their BIOS, all optional
     'coleco': [
@@ -237,6 +244,7 @@ LOADERS = {   # machine: (function, set names searched, ROMs required)
     'apple2gs': ('apple2gs_rom_load', ['apple2gs'], True),
     'macplus': ('macplus_rom_load', ['macplus'], True),
     'macii': ('macii_rom_load', ['macii', 'nb_mdc824'], True),
+    'specnext': ('specnext_rom_load', ['specnext', 'tbblue'], True),
 }
 LOADER_FILES = {   # rom_load.c -> the machines in it (#if MSX_MODEL for the two MSX)
     'main/drivers/computers/cpc/rom_load.c': ['cpc6128'],
@@ -248,6 +256,7 @@ LOADER_FILES = {   # rom_load.c -> the machines in it (#if MSX_MODEL for the two
     'main/drivers/computers/apple2gs/rom_load.c': ['apple2gs'],
     'main/drivers/computers/macplus/rom_load.c': ['macplus'],
     'main/drivers/computers/macii/rom_load.c': ['macii'],
+    'main/drivers/computers/specnext/rom_load.c': ['specnext'],
 }
 # rom_load.c with several models: (the build's model macro, its loader, the models' values)
 MULTI = {

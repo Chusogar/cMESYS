@@ -3,8 +3,8 @@
 // the hooks their ULA timing needs (base T-states elapsed inside the current
 // instruction, contended internal T-states, a hook before each opcode fetch
 // and one per M1 for RZX playback), and the replaceable timing tables, IRQ
-// acknowledge callback and IRQ cycle alignment the Amstrad CPC needs. The
-// Z80N (Spectrum Next) opcodes are left out.
+// acknowledge callback and IRQ cycle alignment the Amstrad CPC needs, and
+// the Z80N (Spectrum Next: z80n with its nextreg handlers).
 #ifndef Z80DSP_H
 #define Z80DSP_H
 #include <stdint.h>
@@ -27,10 +27,19 @@ struct zd_z80 {
     void (*internal)(void *user, uint16_t addr);  // contended internal T-states (optional)
     void *user;
     void (*irq_ack)(void *user);                  // an interrupt is taken (optional)
+    uint8_t (*opcode_read)(void *user, uint16_t addr);  // M1 fetches (optional; else read)
     // T-state tables (NULL before zd_init: the standard ones), as dsp-cpp's
     // set_timing_tables(); irq_align > 1 rounds an interrupt's T-states up to it
     const uint8_t *t_main, *t_cb, *t_ed, *t_index, *t_index_cb, *t_extra;
     int irq_align;
+    // Z80N (ZX Spectrum Next): the extended ED opcodes (SWAPNIB, MIRROR, TEST,
+    // the barrel shifts, MUL, ADD rr,A/nn, PUSH nn, OUTINB, NEXTREG, PIXELDN,
+    // PIXELAD, SETAE, JP (C), the LDIX family); NEXTREG writes go to nextreg_w;
+    // the NMI return address to nextregs C2/C3 (stackless with nmi_stackless)
+    bool z80n, nmi_stackless;
+    void (*nextreg_w)(void *user, uint8_t reg, uint8_t value);
+    uint8_t (*nextreg_r)(void *user, uint8_t reg);
+    void (*ret_cb)(void *user, bool reti);        // RETI / RETN, before the pop (optional)
 
     uint8_t a, f, b, c, d, e, h, l;
     uint8_t a2, f2, b2, c2, d2, e2, h2, l2;
@@ -40,6 +49,7 @@ struct zd_z80 {
 
     // private
     bool fetching_opcode, after_ei, nmi_latched;
+    bool stackless_retn_en;
     bool refetch;        // the opcode after an ignored DD/FD prefix: its M1 was already counted
     int t_in_instr;      // base T-states elapsed inside the current instruction
     int cycles_, executed;

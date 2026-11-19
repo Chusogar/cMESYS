@@ -66,6 +66,7 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Apple IIGS (ROM 3) | `apple2gs` | 65C816 | Ensoniq 5503 | `apple2gs/apple2gs_core.c` |
 | Macintosh Plus | `macplus` | 68000 | PWM (VIA) | `macplus/macplus_core.c` |
 | Macintosh II | `macii` | 68020 + FPU (Musashi 4) | ASC | `macii/macii_core.c` |
+| ZX Spectrum Next (TBBlue 3.02) | `specnext` | Z80N | 3 AY (TurboSound) + DAC | `specnext/specnext_core.c` |
 
 ### Consolas (`main/drivers/consoles/`)
 
@@ -105,6 +106,7 @@ Las 19 primeras usan la API común de consolas (`common/cons.h`). La Lynx es un 
 | Lynx | sí | sí | sí | sí | — | sí |
 | Apple ][, ][+, //e, //e Enhanced | sí | sí | sí, en una app | sí | — | sí |
 | Apple IIGS, Macintosh Plus, Macintosh II | sí | sí | sí | — (4-5 MB de RAM) | — | sí, con PSRAM² |
+| ZX Spectrum Next | sí | sí | sí | — (2 MB de RAM) | — | sí, con PSRAM² |
 | Las 19 consolas de la API común | sí | sí | sí | sí¹ | sí¹ | sí¹ |
 
 ¹ Se compilan todas, pero las que no caben avisan en pantalla con «OUT OF MEMORY FOR THIS CONSOLE». Mega Drive, SNES, 32X, GBA y PlayStation guardan su estado en el heap; en la RP2350 va a la PSRAM. La PlayStation (unos 10 MB) no cabe en ninguna placa.
@@ -355,6 +357,7 @@ En los **ordenadores** el teclado del PC es el de la máquina, así que las tecl
 | MSX / MSX2 | por posición. F1-F5 los del MSX, F6 = SELECT, Fin = STOP, Alt izq. = GRAPH, Alt dcho. = CODE. F10 reset, F11 saca el cartucho, F8 cursores como joystick, F12 TURBO |
 | Apple ][ / //e | Retroceso = ←, Supr = DELETE, Alt izq. / dcho. = Open / Solid Apple. Joystick en el teclado numérico (8 4 6 2, 0 / 5 botones). F9 menú (disco en la unidad 1, que arranca), F10 RESET (CTRL-RESET), F11 apagar y encender, F12 TURBO |
 | Apple IIGS | Alt = Option, Windows = ⌘; el ratón es el suyo. F9 menú (discos SmartPort: el primero arranca), F10 CTRL-RESET, F11 apagar y encender, Pausa = RESET, F12 TURBO |
+| ZX Spectrum Next | Mayúsculas = CAPS SHIFT, Ctrl = SYMBOL SHIFT; Retroceso DELETE, ` EDIT, Esc BREAK, Tab EXTEND MODE, Bloq Mayús CAPS LOCK, Insert GRAPH, Inicio TRUE VIDEO, Fin INV VIDEO, cursores, ; " , . Joystick Kempston en el teclado numérico. F9 menú (imagen de tarjeta SD o .nex), F7 botón NMI, F8 botón DRIVE, F10 RESET, F11 apagar y encender, F12 TURBO |
 | Macintosh Plus / II | Alt = Option, Windows (y Ctrl en el Plus) = ⌘; el ratón es el suyo. F9 menú (disquete o disco SCSI, por el tamaño; F11 en el Mac II, cuyo F1-F10 son los suyos), F12 TURBO |
 | Amiga 500 | por posición (distribución española). Windows izq. / RePág = Amiga izq., Windows dcha. / AvPág = Amiga dcha., Fin = HELP. Joystick en el teclado numérico, disparo 0 / 5 / Ctrl dcho. F11 menú (DF0 / DF1, expulsar, reset), F12 TURBO. Un clic captura el ratón; el botón central lo suelta. `--kick fichero.rom` arranca con otro Kickstart |
 
@@ -486,6 +489,7 @@ tools/regen.sh --stub <id>
 | `apple2gs` | set `apple2gs` de MAME: `341-0728`, `341-0748` y la ROM de vídeo |
 | `macplus` | set `macplus` de MAME: las dos ROM de 64 KB (par e impar) |
 | `macii` | set `macii` de MAME: la ROM de 256 KB y la de la Display Card 8*24 |
+| `specnext` | set `tbblue` de MAME: `boot-30204.bin` (la ROM de arranque). El sistema (TBBLUE.FW, NextZXOS) va en la imagen de la tarjeta SD |
 
 Cada modelo Spectrum lee solo su directorio y genera su propio `rom_data_<modelo>.c`, así que regenerar uno no pisa otro.
 
@@ -593,6 +597,12 @@ Probado con Shadow of the Beast y North & South. En la RP2350 la chip RAM y los 
 Migrados de dsp-cpp. El **Apple II** es un solo núcleo para los cuatro modelos: 6502 / 65C02, texto de 40 y 80 columnas, baja, alta y doble alta resolución, el codificador del teclado de cada modelo, el joystick y la Disk II en el slot 6 (`machine/diskii`: `.dsk .do .po .nib`, con escritura). El **IIGS** (ROM 3): 65C816, 4 MB (8 en el escritorio), Mega II, Super Hi-Res, el Ensoniq 5503 (`sound/es5503`), ADB, el reloj y cuatro discos SmartPort (`.po .2mg .hdv`, leídos y escritos en su sitio con `machine/blkfile`). El **Mac Plus**: 68000 (Musashi), 4 MB, la VIA, el SCC, la IWM con la disquetera de 800K y la SuperDrive de 1,44 MB (`machine/iwm`, `mac_dsk`), el reloj y el SCSI (`machine/ncr5380`). El **Mac II**: 68020 con FPU (Musashi 4 en `cpu/musashi`), 8 MB, la Display Card 8*24 a 640 x 480, el ASC (`sound/asc`), ADB y SCSI.
 
 Las imágenes son idénticas píxel a píxel a las de dsp-cpp en el arranque, DOS 3.3, ProDOS y GS/OS (Apple II e IIGS) y en System 6.0.8 hasta el Finder (Mac Plus desde el disquete de 1,44 MB; Mac II desde la misma imagen como disco SCSI, en color).
+
+### ZX Spectrum Next
+
+Migrado de dsp-cpp (que sigue el driver `specnext` de MAME): Z80N a 3,5 / 7 / 14 / 28 MHz (el Z80 de `cpu/z80dsp` con las instrucciones del Z80N), 2 MB de SRAM tras la MMU, la ROM de arranque y el modo de configuración, DivMMC con su automapeo, Multiface, los registros Next, la ULA (Timex, ULANext, ULA+), LoRes, Layer 2 (256x192, 320x256, 640x256), el tilemap de 40 / 80 columnas, 128 sprites con anclas y relativos, el copper, el zxnDMA (`machine/zxn_dma`), la CTC, el controlador de interrupciones IM2, tres AY, cuatro DAC y una tarjeta SD por SPI (`machine/sdcard_spi`). Arranca como el real: la ROM de arranque carga TBBLUE.FW de la imagen de la tarjeta (`.img .mmc .hdf`, por ejemplo la de CSpect) y el firmware, NextZXOS; lo que escribe el Next se guarda en la imagen. Los programas `.nex` se cargan cuando NextZXOS ha arrancado. La imagen es la zona VGA de 320x256 a 640 puntos de ancho (los modos de alta resolución conservan cada punto); en la RP2350 se ve a 320x240.
+
+La primera vez con una tarjeta nueva el firmware pide el modo de vídeo (ENTER y luego Y). Idéntico píxel a píxel a dsp-cpp en el arranque; llega al menú de NextZXOS 2.10.
 
 ## Consolas: notas
 

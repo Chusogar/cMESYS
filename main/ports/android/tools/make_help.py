@@ -256,6 +256,35 @@ vuelve a tocar sobre el título y baja). Un ratón USB o Bluetooth también vale
         kbcredit="Teclado en pantalla dibujado para cMESYS (tools/gen_apple_vkb.py).",
         credits="núcleo Mac II migrado de dsp-cpp (del emulador DSP), 68020 de Musashi 4 (Karl Stenerud y "
                 "colaboradores, con SoftFloat de John R. Hauser)"),
+    "specnext": dict(
+        title="cMESYS Spectrum Next",
+        intro="ZX Spectrum Next con el núcleo Next de cMESYS (migrado de dsp-cpp): Z80N a 3,5, 7, 14 y 28 MHz, "
+              "2 MB de RAM, la ULA con los modos Timex, ULANext y ULA+, LoRes, Layer 2, el tilemap, 128 sprites, "
+              "el copper, el zxnDMA, la CTC, tres AY (TurboSound), los DAC, la DivMMC, el Multiface y una "
+              "tarjeta SD. Arranca como el real: la ROM de arranque carga TBBLUE.FW de la tarjeta y el firmware, "
+              "NextZXOS.",
+        media=("Tarjeta SD", "Meter una imagen de tarjeta SD (<code>.img .mmc .hdf</code>, por ejemplo la de "
+               "CSpect o la de la distribución oficial): se usa donde está, sin copiarla, y lo que escribe el "
+               "Next se guarda en ella, como en una tarjeta de verdad. También abre programas <code>.nex</code> "
+               "(se cargan cuando NextZXOS ha arrancado). Y los botones NMI y DRIVE."),
+        reset="el botón RESET (reinicio suave) o apagar y encender.",
+        settings="el mando (Kempston o cursores) y abrir la última tarjeta al arrancar",
+        keys=("Teclas Next", "BREAK, EDIT, DELETE, EXTEND MODE, ENTER, ESPACIO, Y, N…"),
+        keyboard=("una foto del teclado del Next, con todas sus teclas: las 40 del Spectrum, BREAK, EDIT, "
+                  "TRUE VIDEO, INV VIDEO, CAPS LOCK, GRAPH, EXTEND MODE, DELETE, los cursores y ; \" , ."),
+        same="la tecla pulsada se hunde",
+        mods="<kbd>CAPS SHIFT</kbd> y <kbd>SYMBOL SHIFT</kbd>",
+        physical="Las teclas del PC son las del Next: Mayúsculas = CAPS SHIFT, Ctrl o Alt = SYMBOL SHIFT, "
+                 "<kbd>Retroceso</kbd> = DELETE, <kbd>Esc</kbd> = BREAK, <kbd>Tab</kbd> = EXTEND MODE, "
+                 "<kbd>`</kbd> = EDIT, los cursores y ; \" , . - = / + *.",
+        pad="el joystick Kempston o los cursores",
+        start="<p>Sin tarjeta, la ROM de arranque no tiene qué cargar: mete la imagen de la tarjeta SD en "
+              "<b>Tarjeta SD</b> (se recuerda para la próxima vez). La primera vez con una tarjeta nueva, el "
+              "firmware pregunta el modo de vídeo: <b>ENTER</b> y luego <b>Y</b>. NextZXOS empieza con una "
+              "pantalla de bienvenida: <b>ESPACIO</b> va al menú.</p>",
+        kbcredit="Teclado en pantalla: una foto del teclado del ZX Spectrum Next (tools/gen_specnext_vkb.py).",
+        credits="núcleo Next migrado de dsp-cpp (del emulador DSP, a partir del de MAME: Andrei I. Holub), Z80 "
+                "de dsp-cpp; la ROM de arranque, NextZXOS y el firmware son del proyecto ZX Spectrum Next"),
 }
 
 

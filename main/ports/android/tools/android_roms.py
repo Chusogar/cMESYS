@@ -21,6 +21,7 @@ gen_roms_ql.py, written as plain binaries that the app gives its core.
   apple2gs roms/rom_fc.rom, rom_fe.rom, chr.rom (roms/apple2gs)
   macplus roms/rom_even.rom, rom_odd.rom (roms/macplus)
   macii   roms/macii.rom, card.rom (roms/macii)
+  specnext roms/boot.rom: the TBBlue boot ROM (roms/specnext: MAME's tbblue set)
   amiga   roms/kick13.rom (required), kick12.rom, kick204.rom, kick31.rom (roms/amiga:
           the MAME a500 set, its .zip as it is)
 """
@@ -164,6 +165,8 @@ def main():
                           ["roms/rom_fc.rom", "roms/rom_fe.rom", "roms/chr.rom"])
     elif machine == "macplus":
         found = computers("macplus", os.path.join(roms, "macplus"), out, ["roms/rom_even.rom", "roms/rom_odd.rom"])
+    elif machine == "specnext":
+        found = computers("specnext", os.path.join(roms, "specnext"), out, ["roms/boot.rom"])
     elif machine == "macii":
         found = computers("macii", os.path.join(roms, "macii"), out, ["roms/macii.rom", "roms/card.rom"])
     elif machine == "lynx":

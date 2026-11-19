@@ -27,11 +27,13 @@ enum {
 enum {
     MC_CMD_TAPE_TOGGLE = 1,                 // play / pause the tape
     MC_CMD_AUTOBOOT = 2,                    // QL: F1 and boot MDV1
-    MC_CMD_MAGIC = 3,                       // Spectrum clones: the magic button (NMI)
+    MC_CMD_MAGIC = 3,                       // Spectrum clones: the magic button (NMI); the Next's NMI button
     MC_CMD_MONITOR = 4,                     // CPC: colour / green monitor
     MC_CMD_FAST_LOAD_ON = 5,                // C64: LOAD from the .d64 at once
     MC_CMD_FAST_LOAD_OFF = 6,
-    MC_CMD_RESET_KEY = 7,                   // Apple II / IIGS: CTRL-RESET (the RESET line, RAM kept)
+    MC_CMD_RESET_KEY = 7,                   // Apple II / IIGS: CTRL-RESET (the RESET line, RAM kept);
+                                            // Spectrum Next: its RESET button (a soft reset)
+    MC_CMD_DRIVE = 8,                       // Spectrum Next: the DRIVE button (DivMMC NMI)
 };
 
 // roms[i] (malloc'd, lens[i] bytes, NULL when absent) are the machine's:
