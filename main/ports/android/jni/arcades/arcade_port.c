@@ -16,7 +16,7 @@
 #include <setjmp.h>
 
 #include "sdl_port.h"
-#include "../../../rom/romfs.h"
+#include "../../../../rom/romfs.h"
 
 extern int cmesys_game_main(int argc, char **argv);
 extern int chdir(const char *path);

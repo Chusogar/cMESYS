@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""ConsoleInfo.java for build_apk.sh from machines/<id>/console.txt (key = value
+"""ConsoleInfo.java for build_apk.sh from machines/consoles/<id>/console.txt (key = value
 lines: title, media, exts, buttons (4, '-' unused), start, select, keys (0 none,
 1 keypad, 2 keyboard), aspect). No file (a computer): TITLE null.
 
-usage: console_info.py machines/<id>/console.txt > ConsoleInfo.java"""
+usage: console_info.py machines/consoles/<id>/console.txt > ConsoleInfo.java"""
 import os
 import sys
 

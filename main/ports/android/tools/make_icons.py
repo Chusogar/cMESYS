@@ -8,6 +8,7 @@ launcher icon. Original drawings for cMESYS (not Hataroid's files).
 """
 import os
 from PIL import Image, ImageDraw
+from android_dirs import machine_dir
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RES = os.path.join(HERE, "..", "app", "res")
@@ -477,10 +478,10 @@ def main():
             out = os.path.join(RES, "drawable-" + dens)
             os.makedirs(out, exist_ok=True)
             im.resize((int(32 * f), int(32 * f)), Image.NEAREST).save(os.path.join(out, name + ".png"))
-    # each machine's launcher icon: machines/<machine>/res/mipmap-*
+    # each machine's launcher icon: machines/{computers,consoles}/<machine>/res/mipmap-*
     for machine, fn in LAUNCHERS.items():
         for dens, f in DENSITIES.items():
-            out = os.path.join(HERE, "..", "arcade" if machine == "arcade" else os.path.join("machines", machine),
+            out = os.path.join(HERE, "..", "arcade" if machine == "arcade" else machine_dir(machine),
                                "res", "mipmap-" + dens)
             os.makedirs(out, exist_ok=True)
             fn(int(48 * f)).save(os.path.join(out, "ic_launcher.png"))

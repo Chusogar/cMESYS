@@ -9,7 +9,7 @@ cross and the PV-2000's keyboard. The consoles have no keyboard, so this is
 their keyboard: codes are m_cons.c's (Console.java): 100 up, 101 down, 102
 left, 103 right, 104-107 buttons 1-4, 108 START, 109 SELECT, 111-114 the
 diagonals (up-left, up-right, down-left, down-right), and cons.h's CK_*
-(0..) for the keys. Writes machines/<id>/assets/keyboard.png +
+(0..) for the keys. Writes machines/consoles/<id>/assets/keyboard.png +
 keyboard.txt for each console.
 
 usage: gen_consoles_vkb.py [--preview DIR] [id ...]
@@ -20,7 +20,7 @@ import sys
 from vkb_common import Canvas, FONT, lerp
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MACHINES = os.path.join(HERE, "..", "machines")
+from android_dirs import machine_dir
 
 UP, DOWN, LEFT, RIGHT, B1, B2, B3, B4, START, SELECT = 100, 101, 102, 103, 104, 105, 106, 107, 108, 109
 UL, UR, DL, DR = 111, 112, 113, 114
@@ -344,7 +344,7 @@ class Pad:
 
     def write(self, preview_dir=None):
         img = self.c.final()
-        out = os.path.join(MACHINES, self.cid, "assets")
+        out = os.path.join(machine_dir(self.cid), "assets")
         os.makedirs(out, exist_ok=True)
         img.save(os.path.join(out, "keyboard.png"), optimize=True)
         with open(os.path.join(out, "keyboard.txt"), "w") as f:

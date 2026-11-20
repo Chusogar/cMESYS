@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Amiga app's on-screen keyboard (machines/amiga/assets/keyboard.jpg and
+"""The Amiga app's on-screen keyboard (machines/computers/amiga/assets/keyboard.jpg and
 keyboard.txt) from a photo of a Spanish Amiga 500 (2048x1294, the one given
 for it): the keyboard cropped out of the photo (as the QL's), and the
 rectangle and raw key code (amiga_core.h) of each key on it, measured on
@@ -10,9 +10,10 @@ the photo. Modifiers stay down for the next key (flag 1); Caps Lock locks (2).
 import os
 import sys
 from PIL import Image
+from android_dirs import machine_dir
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "machines", "amiga", "assets")
+OUT = os.path.join(machine_dir("amiga"), "assets")
 CROP = (40, 600, 2010, 1180)        # the keyboard in the 2048x1294 photo
 W = 1400                            # the picture's width in the app
 

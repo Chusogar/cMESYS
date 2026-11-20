@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Spectrum Next app's on-screen keyboard (machines/specnext/assets/
+"""The Spectrum Next app's on-screen keyboard (machines/computers/specnext/assets/
 keyboard.jpg and keyboard.txt) from a photo of the Next's keyboard (KS1,
 1536x719 on a red backdrop, the one given for it): the keyboard and the case
 around it cropped out (the red backdrop round the case painted the app's
@@ -16,9 +16,10 @@ right of the keys.
 import os
 import sys
 from PIL import Image
+from android_dirs import machine_dir
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "machines", "specnext", "assets")
+OUT = os.path.join(machine_dir("specnext"), "assets")
 CROP = (22, 214, 1498, 696)         # the keyboard and its case in the 1536x719 photo
 W = 1400                            # the picture's width in the app
 

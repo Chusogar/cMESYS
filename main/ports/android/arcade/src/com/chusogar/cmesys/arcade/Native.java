@@ -8,7 +8,7 @@ import android.os.Process;
 import android.os.SystemClock;
 
 /** The game's library (libgame_<id>.so: the game's desktop frontend on
- *  jni/arcade_port.c) and what it calls back on the emulation thread: the
+ *  jni/arcades/arcade_port.c) and what it calls back on the emulation thread: the
  *  window's opening, the sound and each frame.
  *
  *  Pacing as on the desktop (main/ports/sdl2/sdl_port.c): by the clock at

@@ -8,7 +8,7 @@ The international MSX layout: the five wide function keys (F1/F6..F5/F10),
 SELECT, STOP, HOME/CLS, INS, DEL; ESC .. BS; TAB .. the L-shaped RETURN;
 CTRL .. ; ' `; SHIFT .. the dead key; CAPS, GRAPH, SPACE, CODE; the
 cursor keys as an inverted T. Key codes are the matrix row * 8 + bit of
-msx_core.h. Writes machines/msx/assets/keyboard.png + keyboard.txt (and,
+msx_core.h. Writes machines/computers/msx/assets/keyboard.png + keyboard.txt (and,
 with --inc, an include in dsp-cpp's format).
 
 usage: gen_msx_vkb.py [--inc out.inc] [--preview out.png]
@@ -17,9 +17,10 @@ import os
 import sys
 
 from vkb_common import Canvas, lerp, write_inc
+from android_dirs import machine_dir
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "machines", "msx", "assets")
+OUT = os.path.join(machine_dir("msx"), "assets")
 
 W, H = 1536, 560
 U = 76.0

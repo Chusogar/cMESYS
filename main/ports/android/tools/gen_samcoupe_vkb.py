@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The SAM Coupe app's on-screen keyboard (machines/samcoupe/assets/
+"""The SAM Coupe app's on-screen keyboard (machines/computers/samcoupe/assets/
 keyboard.jpg and keyboard.txt) from a photo of the SAM's keyboard (1920x1280,
 the machine seen from above, the one given for it): the keyboard and the case
 round it cropped out, down to the case under the keys (where MENÚ and ▼ go),
@@ -12,9 +12,10 @@ next key (flag 1). The keypad's "." is the main block's.
 import os
 import sys
 from PIL import Image
+from android_dirs import machine_dir
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "machines", "samcoupe", "assets")
+OUT = os.path.join(machine_dir("samcoupe"), "assets")
 CROP = (205, 290, 1730, 900)        # the keyboard and its case in the 1920x1280 photo
 W = 1400                            # the picture's width in the app
 

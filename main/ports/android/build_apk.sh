@@ -99,14 +99,17 @@ sources() {
 
 is_console() { case " $CONSOLES " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 
+# machines/computers/<id> or machines/consoles/<id>; its glue in jni/computers or jni/consoles
+group() { if is_console "$1"; then echo consoles; else echo computers; fi; }
+
 jni_file() {
-    if is_console "$1"; then echo m_cons.c; return; fi
-    case $1 in zxspec) echo m_zx.c ;; *) echo "m_$1.c" ;; esac
+    if is_console "$1"; then echo consoles/m_cons.c; return; fi
+    case $1 in zxspec) echo computers/m_zx.c ;; *) echo "computers/m_$1.c" ;; esac
 }
 
 build() {
     local mach=$1
-    local OUT="$OUTBASE/$mach" MD="$HERE/machines/$mach" PKG="com.chusogar.cmesys.$mach"
+    local OUT="$OUTBASE/$mach" MD="$HERE/machines/$(group "$mach")/$mach" PKG="com.chusogar.cmesys.$mach"
     local APK="$ROOT/dist/${mach}_android.apk"
     echo "=== $mach -> $APK"
     rm -rf "$OUT"

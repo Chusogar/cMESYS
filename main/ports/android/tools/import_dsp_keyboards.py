@@ -2,7 +2,7 @@
 """Takes the on-screen keyboards of dsp-cpp into the Android port: the
 pictures and key tables of src/drivers/computers/*_vkb_data.inc (made by
 dsp-cpp's tools/gen_*_vkb.py) and the QL's photo (tools/ql_keyboard.jpg),
-written as main/ports/android/machines/<machine>/assets/keyboard.(png|jpg)
+written as main/ports/android/machines/{computers,consoles}/<machine>/assets/keyboard.(png|jpg)
 plus keyboard.txt, which KeyboardView reads:
 
   picture <file> <width> <height>
@@ -28,7 +28,7 @@ import zlib
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MACHINES = os.path.join(HERE, "..", "machines")
+from android_dirs import machine_dir
 
 # where the app's MENÚ / ▼ buttons go on each picture (free space on it)
 BUTTONS = {
@@ -73,7 +73,7 @@ def keys(text, name):
 
 
 def write(machine, pic_line, keylines, extra=()):
-    d = os.path.join(MACHINES, machine, "assets")
+    d = os.path.join(machine_dir(machine), "assets")
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "keyboard.txt"), "w") as f:
         f.write("# from dsp-cpp (tools/import_dsp_keyboards.py), do not edit\n")

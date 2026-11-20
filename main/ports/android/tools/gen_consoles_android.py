@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Writes the Android app files of every console of
-main/drivers/consoles/consoles.mk (machines/<id>/): console.txt (for
+main/drivers/consoles/consoles.mk (machines/consoles/<id>/): console.txt (for
 console_info.py), res/values/strings.xml, res/values/machine_arrays.xml,
 res/xml/machine.xml, the launcher icons and assets/help.html (in Spanish).
 
@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 from PIL import Image, ImageDraw, ImageFont
+from android_dirs import machine_dir
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ANDROID = os.path.dirname(HERE)
@@ -188,7 +189,7 @@ def help_page(cid, d, short, media):
 def write(cid):
     d = info(cid)
     short, media, aspect, colour = EXTRA.get(cid, (d["title"], "Cartucho", 4 / 3, (60, 60, 60)))
-    md = os.path.join(ANDROID, "machines", cid)
+    md = machine_dir(cid)
     res = os.path.join(md, "res")
     for sub in ("values", "xml"):
         os.makedirs(os.path.join(res, sub), exist_ok=True)
