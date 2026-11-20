@@ -19,6 +19,9 @@ A2_MODEL_apple2 := 0
 A2_MODEL_apple2p := 1
 A2_MODEL_apple2e := 2
 A2_MODEL_apple2ee := 3
+EXELV_GAMES := exl100 exeltel
+EXELV_MODEL_exl100 := 0
+EXELV_MODEL_exeltel := 1
 include $(M)/drivers/consoles/consoles.mk
 ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
@@ -34,6 +37,8 @@ else ifneq ($(filter $(GAME),msx1 msx2),)
   D     := $(M)/drivers/computers/msx
 else ifneq ($(filter $(GAME),$(A2_GAMES)),)
   D     := $(M)/drivers/computers/apple2
+else ifneq ($(filter $(GAME),$(EXELV_GAMES)),)
+  D     := $(M)/drivers/computers/exelv
 else ifneq ($(filter $(GAME),apple2gs macplus macii specnext samcoupe),)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),$(CONSOLES)),)
@@ -137,7 +142,7 @@ else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   LDFLAGS += -sFORCE_FILESYSTEM=1 \
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
-else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2 amiga $(A2_GAMES) apple2gs macplus macii specnext samcoupe),)
+else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2 amiga $(A2_GAMES) apple2gs macplus macii specnext samcoupe $(EXELV_GAMES)),)
   ifneq ($(filter $(GAME),$(A2_GAMES)),)
     SRC := $(D)/apple2_sdl.c $(D)/apple2_core.c $(D)/rom_data_$(GAME).c $(M)/cpu/m6502/m65xx.c $(M)/machine/diskii.c \
            $(M)/machine/zx_pbuf.c
@@ -152,6 +157,9 @@ else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2 amiga $(A2_GAMES) apple2
   else ifeq ($(GAME),specnext)
     SRC := $(D)/specnext_sdl.c $(D)/specnext_core.c $(D)/rom_data.c $(M)/cpu/z80dsp/z80dsp.c $(M)/sound/ay8910.c \
            $(M)/machine/sdcard_spi.c $(M)/machine/zxn_dma.c $(M)/machine/blkfile.c
+  else ifneq ($(filter $(GAME),$(EXELV_GAMES)),)
+    SRC := $(D)/exelv_sdl.c $(D)/exelv_core.c $(D)/exelv_tape.c $(D)/rom_data_$(GAME).c $(M)/cpu/tms7000/tms7000.c \
+           $(M)/video/tms3556.c $(M)/sound/tms5220.c $(M)/drivers/consoles/common/cons_util.c
   else ifeq ($(GAME),samcoupe)
     SRC := $(D)/samcoupe_sdl.c $(D)/samcoupe_core.c $(D)/rom_data.c $(M)/cpu/z80dsp/z80dsp.c $(M)/sound/saa1099.c \
            $(M)/machine/wd1772.c $(M)/machine/sam_disk.c $(M)/machine/sam_tape.c
@@ -173,7 +181,8 @@ else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2 amiga $(A2_GAMES) apple2
     SRC := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/machine/zx_pbuf.c
   endif
   DEFS := $(if $(filter $(GAME),msx1 msx2),-DMSX_MODEL=$(subst msx,,$(GAME))) \
-          $(if $(filter $(GAME),$(A2_GAMES)),-DA2_MODEL=$(A2_MODEL_$(GAME)))
+          $(if $(filter $(GAME),$(A2_GAMES)),-DA2_MODEL=$(A2_MODEL_$(GAME))) \
+          $(if $(filter $(GAME),$(EXELV_GAMES)),-DEXELV_MODEL=$(EXELV_MODEL_$(GAME)))
   # the upload bar / drag-and-drop (common/comp_sdl.h)
   LDFLAGS += -sFORCE_FILESYSTEM=1 \
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
@@ -186,7 +195,7 @@ else ifneq ($(filter $(GAME),$(CONSOLES)),)
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe or a console: $(CONSOLES))
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe, exl100, exeltel or a console: $(CONSOLES))
 endif
 
 # The ROMs that rom_data.c does not have: from the page's server
@@ -207,7 +216,7 @@ endif
 PORTSRC := $(M)/ports/web/sdl_port.c
 GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql \
            spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga \
-           apple2 apple2p apple2e apple2ee apple2gs macplus macii specnext samcoupe $(CONSOLES)
+           apple2 apple2p apple2e apple2ee apple2gs macplus macii specnext samcoupe exl100 exeltel $(CONSOLES)
 
 $(OUT)/$(GAME).html: $(SRC) $(PORTSRC) $(wildcard $(PP)/*.inc) $(M)/ports/web/shell.html $(M)/ports/web/Makefile
 	@mkdir -p $(OUT)

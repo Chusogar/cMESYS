@@ -311,6 +311,30 @@ vuelve a tocar sobre el título y baja). Un ratón USB o Bluetooth también vale
         kbcredit="Teclado en pantalla: una foto del teclado del SAM Coupé (tools/gen_samcoupe_vkb.py).",
         credits="núcleo SAM migrado de dsp-cpp (del emulador DSP; el comportamiento del FDC y del ASIC "
                 "contrastado con SimCoupe de Simon Owen), Z80 de dsp-cpp; la ROM del SAM es de MGT"),
+    "exelv": dict(
+        title="cMESYS Exelvision",
+        intro="Exelvision EXL 100 (1984) y EXELTEL (1986), el modelo se elige en los ajustes, con el núcleo "
+              "Exelvision de cMESYS (migrado de dsp-cpp): TMS7020 / TMS7040 a 2,4576 MHz, la CPU de E/S TMS7041 "
+              "con el sintetizador de voz TMS5220 y el teclado de infrarrojos, el vídeo TMS3556 y, en el "
+              "EXELTEL, su sistema de telemática en ROM.",
+        media=("Cartuchos y casetes", "Meter un cartucho (<code>.bin .rom</code>; el ordenador se reinicia con él) "
+               "o un casete (<code>.k7 .wav</code>, carga rápida), reproducir o parar el casete y sacarlos."),
+        reset="reiniciar el ordenador.",
+        settings="el modelo (EXL 100 o EXELTEL), el mando (joystick o cursores) y abrir el último cartucho al arrancar",
+        keys=("Teclas EXL", "ENTER, ESC, ESPACIO, FCT, CTL, SHIFT, 1, 2, 3"),
+        keyboard=("el teclado AZERTY del EXL 100 dibujado, con todas sus teclas: LOCK, CTL, FCT, SHIFT, ↖, ⌫ y las "
+                  "flechas"),
+        same="la tecla pulsada se hunde",
+        mods="<kbd>SHIFT</kbd>, <kbd>CTL</kbd> y <kbd>FCT</kbd> (en el EXL 100 se pulsan antes que la tecla, no a la vez)",
+        physical="Las teclas del teclado físico son las de MAME para la máquina: letras y números, Mayúsculas = "
+                 "SHIFT, Ctrl = CTL, Alt izquierdo = FCT, Bloq Mayús = LOCK, Retroceso, Esc, Tab, Inicio = ↖ y "
+                 "las flechas.",
+        pad="el joystick (las flechas y ESPACIO) o los cursores",
+        start="<p>Sin cartucho el EXL 100 muestra su logotipo: mete un cartucho desde el menú. El EXELTEL arranca "
+              "en su menú de telemática (flechas y ENTER).</p>",
+        kbcredit="Teclado en pantalla: dibujado (tools/gen_exelv_vkb.py).",
+        credits="núcleo Exelvision migrado de dsp-cpp (que sigue el driver exelv de MAME, de Raphael Nabet y "
+                "Robbbert); las ROM son de Exelvision"),
 }
 
 

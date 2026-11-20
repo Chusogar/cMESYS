@@ -1,0 +1,1 @@
+Exelvision exeltel: MAME's exeltel set (exeltel_7040.bin, exeltel_7042.bin and exeltel14.bin); then tools/regen.sh exeltel to build it in. Cartridges (.bin .rom) and cassettes (.k7 .wav) are opened from the menu (F9) or given on the command line.

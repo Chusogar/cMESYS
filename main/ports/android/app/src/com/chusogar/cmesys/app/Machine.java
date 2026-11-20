@@ -33,6 +33,7 @@ abstract class Machine {
             case "macii": return new MacII();
             case "specnext": return new SpecNext();
             case "samcoupe": return new SamCoupe();
+            case "exelv": return new Exelv();
             default:
                 if (ConsoleInfo.TITLE != null) return new Console();
                 throw new IllegalStateException("unknown machine " + MachineId.ID);
