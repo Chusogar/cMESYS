@@ -1,0 +1,1 @@
+Exelvision exl100: MAME's exl100 set (exl100in.bin and exl100_7041.bin); then tools/regen.sh exl100 to build it in. Cartridges (.bin .rom) and cassettes (.k7 .wav) are opened from the menu (F9) or given on the command line.

@@ -7,7 +7,7 @@ Usage:
   tools/gen_roms_computers.py --loaders [<repo root>]   (writes every rom_load.c)
 
 <machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga | apple2 | apple2p | apple2e | apple2ee |
-apple2gs | macplus | macii | specnext | samcoupe, or a console of
+apple2gs | macplus | macii | specnext | samcoupe | exl100 | exeltel, or a console of
 main/drivers/consoles with a BIOS (coleco, ...). <romdir> is roms/<machine>/, unzipped or the
 MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   cpc6128  cpc6128.rom (32 KB: OS + BASIC), amsdos.rom | cpcados.rom (16 KB)
@@ -33,6 +33,8 @@ MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   macii    (MAME macii) 9779d2c4.rom | 97851db6.rom (256 KB), 3410868.bin (Display Card 8*24, 32 KB)
   specnext (MAME tbblue) boot-30204.bin (the TBBlue boot ROM, 8 KB)
   samcoupe (MAME samcoupe) rom30.z5 (ROM 3.0) | rom31.z5 | rom25.z5 ... | atom.z5 (32 KB)
+  exl100   (MAME exl100) exl100in.bin (TMS7020, 2 KB) + exl100_7041.bin (the I/O CPU, 4 KB)
+  exeltel  (MAME exeltel) exeltel_7040.bin (4 KB) + exeltel_7042.bin (4 KB) + exeltel14.bin (64 KB)
 """
 from __future__ import print_function
 import os
@@ -133,6 +135,17 @@ SETS = {
                                   ('rom18.z5', 0xf626063f), ('rom14.z5', 0x08799596), ('rom13.z5', 0x2093768c),
                                   ('rom12.z5', 0x7fe37dd8), ('rom10.z5', 0x3659d31f), ('rom04.z5', 0xf439e84e),
                                   ('rom01.z5', 0xc04acfdf), ('atom.z5', 0xdec75f58)], True),
+    ],
+    # Exelvision (drivers/computers/exelv): one rom_data_<model>.c each
+    'exl100': [
+        ('exelv_rom_main', 0x800, [('exl100in.bin', 0x049109a3), ('exl100.bin', None)], True),
+        ('exelv_rom_sub', 0x1000, [('exl100_7041.bin', 0x38f6fc7a), ('exl100io.bin', None)], False),
+        ('exelv_rom_sys', 0x10000, [], False),
+    ],
+    'exeltel': [
+        ('exelv_rom_main', 0x1000, [('exeltel_7040.bin', 0x2792f02f), ('exeltel.bin', None)], True),
+        ('exelv_rom_sub', 0x1000, [('exeltel_7042.bin', 0xa0163507)], False),
+        ('exelv_rom_sys', 0x10000, [('exeltel14.bin', 0x52a80dd4), ('amper.bin', None), ('exeltel.rom', None)], False),
     ],
     # consoles (main/drivers/consoles): their BIOS, all optional
     'coleco': [
@@ -256,6 +269,8 @@ LOADERS = {   # machine: (function, set names searched, ROMs required)
     'macii': ('macii_rom_load', ['macii', 'nb_mdc824'], True),
     'specnext': ('specnext_rom_load', ['specnext', 'tbblue'], True),
     'samcoupe': ('samcoupe_rom_load', ['samcoupe'], True),
+    'exl100': ('exl100_rom_load', ['exl100'], True),
+    'exeltel': ('exeltel_rom_load', ['exeltel'], True),
 }
 LOADER_FILES = {   # rom_load.c -> the machines in it (#if MSX_MODEL for the two MSX)
     'main/drivers/computers/cpc/rom_load.c': ['cpc6128'],
@@ -269,11 +284,13 @@ LOADER_FILES = {   # rom_load.c -> the machines in it (#if MSX_MODEL for the two
     'main/drivers/computers/macii/rom_load.c': ['macii'],
     'main/drivers/computers/specnext/rom_load.c': ['specnext'],
     'main/drivers/computers/samcoupe/rom_load.c': ['samcoupe'],
+    'main/drivers/computers/exelv/rom_load.c': ['exl100', 'exeltel'],
 }
 # rom_load.c with several models: (the build's model macro, its loader, the models' values)
 MULTI = {
     ('msx1', 'msx2'): ('MSX_MODEL', 'msx_rom_load', ['1', '2']),
     ('apple2', 'apple2p', 'apple2e', 'apple2ee'): ('A2_MODEL', 'a2_rom_load', ['0', '1', '2', '3']),
+    ('exl100', 'exeltel'): ('EXELV_MODEL', 'exelv_rom_load', ['0', '1']),
 }
 for _c in ('coleco', 'scv', 'vectrex', 'pv2000', 'sega32x', 'gba', 'psx'):
     LOADER_FILES['main/drivers/consoles/%s/rom_load.c' % _c] = [_c]

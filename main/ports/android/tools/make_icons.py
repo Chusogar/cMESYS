@@ -440,10 +440,24 @@ def launcher_samcoupe(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_exelv(size):
+    """An Exelvision EXL 100: the black console with its cartridge slot, the
+    wireless keyboard in front, "EXL" in red."""
+    im, d = launcher_base()
+    d.rectangle([8, 22, 56, 36], fill=(30, 30, 34, 255), outline=(110, 110, 116, 255))
+    d.rectangle([12, 26, 30, 28], fill=(10, 10, 12, 255))
+    d.rectangle([48, 26, 51, 28], fill=(220, 40, 40, 255))
+    d.polygon([(6, 54), (9, 40), (55, 40), (58, 54)], fill=(36, 36, 40, 255), outline=(120, 120, 126, 255))
+    keys_rows(d, 12, 44, 27, 3, (170, 170, 176, 255))
+    d.rectangle([18, 51, 44, 52], fill=(170, 170, 176, 255))
+    text(d, 14, 6, "EXL", (230, 50, 50, 255), 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
              "msx": launcher_msx, "lynx": launcher_lynx, "amiga": launcher_amiga,
              "apple2": launcher_apple2, "apple2gs": launcher_apple2gs, "macplus": launcher_macplus,
-             "macii": launcher_macii, "specnext": launcher_specnext, "samcoupe": launcher_samcoupe,
+             "macii": launcher_macii, "specnext": launcher_specnext, "samcoupe": launcher_samcoupe, "exelv": launcher_exelv,
              "arcade": launcher_arcade}
 
 

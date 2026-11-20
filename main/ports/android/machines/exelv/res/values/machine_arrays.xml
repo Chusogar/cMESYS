@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="model_entries">
+        <item>EXL 100 (1984)</item>
+        <item>EXELTEL (1986, telemática)</item>
+    </string-array>
+    <string-array name="model_values">
+        <item>0</item>
+        <item>1</item>
+    </string-array>
+    <string-array name="pad_entries">
+        <item>Joystick (flechas y ESPACIO)</item>
+        <item>Cursores, ESPACIO, ENTER, ESC</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>joy</item>
+        <item>cursors</item>
+    </string-array>
+</resources>

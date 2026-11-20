@@ -129,6 +129,7 @@ static void chip_reset(tms5220 *t)
     memset(t->x, 0, sizeof t->x);
     t->out_sample = 0;
     t->cycle_acc = 0;
+    t->update_acc = 0;
 }
 
 void tms5220_reset(tms5220 *t)
@@ -421,4 +422,16 @@ void tms5220_tick(tms5220 *t, int cycles)
         t->cycle_acc -= CLOCKS_PER_SAMPLE;
         process_sample(t);
     }
+}
+
+void tms5220_strobe_ws_rs(tms5220 *t, uint8_t ws_rs) { apply_rs_ws(t, (ws_rs & 1) != 0, (ws_rs & 2) != 0); }
+
+int16_t tms5220_update(tms5220 *t, uint32_t rate)
+{
+    t->update_acc += t->clock;
+    const uint32_t cycles = t->update_acc / rate;
+    t->update_acc %= rate;
+    tms5220_tick(t, (int)cycles);
+    const int32_t v = t->out_sample;
+    return (int16_t)(v < -32768 ? -32768 : v > 32767 ? 32767 : v);
 }

@@ -68,6 +68,7 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Macintosh II | `macii` | 68020 + FPU (Musashi 4) | ASC | `macii/macii_core.c` |
 | ZX Spectrum Next (TBBlue 3.02) | `specnext` | Z80N | 3 AY (TurboSound) + DAC | `specnext/specnext_core.c` |
 | SAM Coupé (512 KB) | `samcoupe` | Z80 (6 MHz) | SAA1099 | `samcoupe/samcoupe_core.c` |
+| Exelvision EXL 100 / EXELTEL | `exl100`, `exeltel` | TMS7020 / TMS7040 + TMS7041 | TMS5220 (voz) | `exelv/exelv_core.c` |
 
 ### Consolas (`main/drivers/consoles/`)
 
@@ -109,6 +110,7 @@ Las 19 primeras usan la API común de consolas (`common/cons.h`). La Lynx es un 
 | Apple IIGS, Macintosh Plus, Macintosh II | sí | sí | sí | — (4-5 MB de RAM) | — | sí, con PSRAM² |
 | ZX Spectrum Next | sí | sí | sí | — (2 MB de RAM) | — | sí, con PSRAM² |
 | SAM Coupé | sí | sí | sí | — (512 KB de RAM + disco) | — | sí, con PSRAM |
+| Exelvision EXL 100, EXELTEL | sí | sí | sí, en una app | — | — | sí |
 | Las 19 consolas de la API común | sí | sí | sí | sí¹ | sí¹ | sí¹ |
 
 ¹ Se compilan todas, pero las que no caben avisan en pantalla con «OUT OF MEMORY FOR THIS CONSOLE». Mega Drive, SNES, 32X, GBA y PlayStation guardan su estado en el heap; en la RP2350 va a la PSRAM. La PlayStation (unos 10 MB) no cabe en ninguna placa.
@@ -361,6 +363,7 @@ En los **ordenadores** el teclado del PC es el de la máquina, así que las tecl
 | Apple IIGS | Alt = Option, Windows = ⌘; el ratón es el suyo. F9 menú (discos SmartPort: el primero arranca), F10 CTRL-RESET, F11 apagar y encender, Pausa = RESET, F12 TURBO |
 | ZX Spectrum Next | Mayúsculas = CAPS SHIFT, Ctrl = SYMBOL SHIFT; Retroceso DELETE, ` EDIT, Esc BREAK, Tab EXTEND MODE, Bloq Mayús CAPS LOCK, Insert GRAPH, Inicio TRUE VIDEO, Fin INV VIDEO, cursores, ; " , . Joystick Kempston en el teclado numérico. F9 menú (imagen de tarjeta SD o .nex), F7 botón NMI, F8 botón DRIVE, F10 RESET, F11 apagar y encender, F12 TURBO |
 | SAM Coupé | Mayúsculas = SHIFT, Ctrl izquierdo = CNTRL, Alt / Ctrl derecho = SYMBOL; Esc, Tab, Bloq Mayús CAPS, Retroceso DELETE, Inicio EDIT, Fin INV, F1-F10 = F1-F9 y F0, cursores, ; : " , . - + =. Joystick 1 (teclas 6-0) en el teclado numérico. F11 menú (disco en la unidad 1 / 2, cinta, BOOT, reproducir / parar la cinta, sacar, reset), F12 TURBO. F9 en BASIC arranca el disco; un disco dado en la línea de órdenes arranca solo |
+| Exelvision EXL 100 / EXELTEL | Las teclas de MAME para la máquina: letras y números, Mayúsculas = SHIFT, Ctrl = CTL, Alt izquierdo = FCT, Bloq Mayús = LOCK, Retroceso, Esc, Tab, Inicio = ↖, cursores; - = «# )», = «_ -», ' «+ =», ; «% @», , «? ,», . «. ;», / «/ :», [ «~ ^», ] «< [», \\ «> ]», Alt Gr «* \\». SHIFT, CTL y FCT se mandan antes que la tecla, como en el real. Mando = flechas y ESPACIO. F9 menú (cartucho o casete, reproducir / parar el casete, sacarlos, reset), F12 TURBO |
 | Macintosh Plus / II | Alt = Option, Windows (y Ctrl en el Plus) = ⌘; el ratón es el suyo. F9 menú (disquete o disco SCSI, por el tamaño; F11 en el Mac II, cuyo F1-F10 son los suyos), F12 TURBO |
 | Amiga 500 | por posición (distribución española). Windows izq. / RePág = Amiga izq., Windows dcha. / AvPág = Amiga dcha., Fin = HELP. Joystick en el teclado numérico, disparo 0 / 5 / Ctrl dcho. F11 menú (DF0 / DF1, expulsar, reset), F12 TURBO. Un clic captura el ratón; el botón central lo suelta. `--kick fichero.rom` arranca con otro Kickstart |
 
@@ -494,6 +497,8 @@ tools/regen.sh --stub <id>
 | `macii` | set `macii` de MAME: la ROM de 256 KB y la de la Display Card 8*24 |
 | `specnext` | set `tbblue` de MAME: `boot-30204.bin` (la ROM de arranque). El sistema (TBBLUE.FW, NextZXOS) va en la imagen de la tarjeta SD |
 | `samcoupe` | set `samcoupe` de MAME: `rom30.z5` (ROM 3.0; vale cualquier otra versión del set, 32 KB) |
+| `exl100` | set `exl100` de MAME: `exl100in.bin` (TMS7020) y `exl100_7041.bin` (la CPU de E/S) |
+| `exeltel` | set `exeltel` de MAME: `exeltel_7040.bin`, `exeltel_7042.bin` (su BAD_DUMP se corrige al cargarla, como en dsp-cpp) y `exeltel14.bin` (la ROM de sistema de 64 KB) |
 
 Cada modelo Spectrum lee solo su directorio y genera su propio `rom_data_<modelo>.c`, así que regenerar uno no pisa otro.
 
@@ -611,6 +616,10 @@ La primera vez con una tarjeta nueva el firmware pide el modo de vídeo (ENTER y
 ### SAM Coupé
 
 Migrado de dsp-cpp: Z80 a 6 MHz (`cpu/z80dsp`), 384 T-estados por línea y 312 líneas (50,08 Hz), 512 KB de RAM en páginas de 16 KB con el paginado del ASIC (LMPR / HMPR / VMPR), los cuatro modos de pantalla, la CLUT de 16 de 128 colores que la interrupción de línea cambia línea a línea, el borde T-estado a T-estado, el teclado de 9 columnas, el SAA1099 (`sound/saa1099`, en coma fija), dos unidades de disco con el WD1772 (`machine/wd1772`, `machine/sam_disk`: MGT / SAD, SDF y (E)DSK) y las cintas `.tap .tzx` en la línea EAR (`machine/sam_tape`, que reescribe las cabeceras del Spectrum como las del SAM). BOOT pulsa RETURN y F9, como haría uno (la ROM toma la primera tecla tras encender solo para quitar su pantalla de inicio). En escritorio lo que el SAM escribe en un disco MGT se guarda en su fichero al sacarlo; en Android y en la RP2350 se queda en memoria. Se diferencia de dsp-cpp en que WRITE SECTOR ($A0-$BF) sí escribe (dsp-cpp lo tomaba por READ SECTOR). Idéntico píxel a píxel a dsp-cpp al arrancar The Abbey of Crime y el disco 48K (Tapper), en BASIC (modos 1-4, PALETTE, CIRCLE) y al cargar de cinta; en la RP2350 se ve a 320x240.
+
+### Exelvision EXL 100 y EXELTEL
+
+Migrados de dsp-cpp (que sigue el driver `exelv` de MAME): el TMS7020 (EXL 100) o TMS7040 (EXELTEL) a 2,4576 MHz (`cpu/tms7000`, con LVDP en lugar de SWAP R), la CPU de E/S TMS7041 / 7042 con el sintetizador de voz TMS5220 y el teclado de infrarrojos (los bits con sus tiempos, SHIFT / CTL / FCT mandados antes que la tecla), el vídeo TMS3556 (`video/tms3556`: texto, mapa de bits y mixto, 320x250 en 8 colores), los cartuchos (`.bin .rom`, o un `.zip`) en $0200-$7FFF, la ROM de sistema del EXELTEL paginada con ellos, y los casetes `.k7` y `.wav` en carga rápida; en escritorio, lo que graba un SAVE se añade a `<casete>-save.k7`. Idéntico píxel a píxel a dsp-cpp, y con el mismo sonido muestra a muestra, con el cartucho de Tennis y en los menús del EXELTEL. En la RP2350 se ve a 320x240 (se omite una de cada 25 líneas).
 
 ## Consolas: notas
 

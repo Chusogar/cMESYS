@@ -38,6 +38,7 @@ typedef struct tms5220 {
 
     int32_t out_sample;
     int64_t cycle_acc;
+    uint32_t update_acc;
 } tms5220;
 
 void tms5220_init(tms5220 *t, uint32_t clock, bool tms5220c);
@@ -51,6 +52,10 @@ static inline bool tms5220_intq(const tms5220 *t) { return !t->irq_pin; }
 static inline void tms5220_set_data_latch(tms5220 *t, uint8_t v) { t->write_latch = v; t->data_latched = true; }
 static inline void tms5220_set_clock(tms5220 *t, uint32_t clock) { t->clock = clock ? clock : 1; }
 void tms5220_tick(tms5220 *t, int cycles);
+// /WS (bit 0) and /RS (bit 1) at once
+void tms5220_strobe_ws_rs(tms5220 *t, uint8_t ws_rs);
+// One sample at `rate` Hz (the chip run for the clocks of one sample period)
+int16_t tms5220_update(tms5220 *t, uint32_t rate);
 static inline int16_t tms5220_last_sample(const tms5220 *t) { return (int16_t)t->out_sample; }
 
 #endif

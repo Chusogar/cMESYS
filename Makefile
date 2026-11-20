@@ -4,7 +4,7 @@
 #   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | ql
 #                             | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion
 #                             | cpc6128 | c64 | lynx | msx1 | msx2 | amiga
-#                             | apple2 | apple2p | apple2e | apple2ee | apple2gs | macplus | macii | specnext | samcoupe
+#                             | apple2 | apple2p | apple2e | apple2ee | apple2gs | macplus | macii | specnext | samcoupe | exl100 | exeltel
 #                             | a console of main/drivers/consoles/consoles.mk)  -> build/sdl/<game>
 #                             (ql / spectrum*: computers in main/drivers/computers/)
 #   make TARGET=windows ...   same, but MinGW -> build/win/<game>.exe  (see ./build_windows.sh)
@@ -26,6 +26,9 @@ A2_MODEL_apple2 := 0
 A2_MODEL_apple2p := 1
 A2_MODEL_apple2e := 2
 A2_MODEL_apple2ee := 3
+EXELV_GAMES := exl100 exeltel
+EXELV_MODEL_exl100 := 0
+EXELV_MODEL_exeltel := 1
 include $(M)/drivers/consoles/consoles.mk
 ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
@@ -41,6 +44,8 @@ else ifneq ($(filter $(GAME),msx1 msx2),)
   D     := $(M)/drivers/computers/msx
 else ifneq ($(filter $(GAME),$(A2_GAMES)),)
   D     := $(M)/drivers/computers/apple2
+else ifneq ($(filter $(GAME),$(EXELV_GAMES)),)
+  D     := $(M)/drivers/computers/exelv
 else ifneq ($(filter $(GAME),apple2gs macplus macii specnext samcoupe),)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
@@ -196,6 +201,10 @@ else ifeq ($(GAME),specnext)
   SRC  := $(D)/specnext_sdl.c $(D)/specnext_core.c $(D)/rom_data.c $(M)/cpu/z80dsp/z80dsp.c \
           $(M)/sound/ay8910.c $(M)/machine/sdcard_spi.c $(M)/machine/zxn_dma.c $(M)/machine/blkfile.c
   DEFS :=
+else ifneq ($(filter $(GAME),$(EXELV_GAMES)),)
+  SRC  := $(D)/exelv_sdl.c $(D)/exelv_core.c $(D)/exelv_tape.c $(D)/rom_data_$(GAME).c $(M)/cpu/tms7000/tms7000.c \
+          $(M)/video/tms3556.c $(M)/sound/tms5220.c $(M)/drivers/consoles/common/cons_util.c
+  DEFS := -DEXELV_MODEL=$(EXELV_MODEL_$(GAME))
 else ifeq ($(GAME),samcoupe)
   SRC  := $(D)/samcoupe_sdl.c $(D)/samcoupe_core.c $(D)/rom_data.c $(M)/cpu/z80dsp/z80dsp.c $(M)/sound/saa1099.c \
           $(M)/machine/wd1772.c $(M)/machine/sam_disk.c $(M)/machine/sam_tape.c
@@ -245,7 +254,7 @@ ifeq ($(PORT),picohost)
   PORTSRC := tools/pico_host.c
   CFLAGS += -I$(M)/ports/rp2040-pizero -I$(M)/drivers/computers/ql -DPICO_BAND=4
   # microSD is board-only; stub the API so ql / zxspec *_pico.c link on the host.
-  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2 amiga $(A2_GAMES) apple2gs macplus macii specnext samcoupe $(CONSOLES)),)
+  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2 amiga $(A2_GAMES) apple2gs macplus macii specnext samcoupe $(EXELV_GAMES) $(CONSOLES)),)
     PORTSRC += tools/ql_sd_host_stub.c
   endif
   SDL_CFLAGS :=
