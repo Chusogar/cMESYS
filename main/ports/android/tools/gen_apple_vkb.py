@@ -26,7 +26,7 @@ import sys
 from vkb_common import Canvas, lerp
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MACHINES = os.path.join(HERE, "..", "machines")
+from android_dirs import MACHINES, machine_dir
 SYMBOLS = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 GAP = 0.07
@@ -117,7 +117,7 @@ class Board:
 
     def save(self, machine, name, title, preview=None):
         img = self.c.final()
-        out = os.path.join(MACHINES, machine, "assets")
+        out = os.path.join(machine_dir(machine), "assets")
         os.makedirs(out, exist_ok=True)
         img.save(os.path.join(out, name + ".png"), optimize=True)
         with open(os.path.join(out, name + ".txt"), "w", encoding="utf-8") as f:

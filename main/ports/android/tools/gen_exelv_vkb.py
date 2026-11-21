@@ -15,7 +15,8 @@ usage: gen_exelv_vkb.py [--preview <dir>]
 import os
 import sys
 
-from gen_apple_vkb import Board, pal, MOD, MACHINES
+from gen_apple_vkb import Board, pal, MOD
+from android_dirs import machine_dir
 
 EXL = {"key": pal((44, 44, 48), (238, 238, 238)), "mod": pal((150, 30, 34), (250, 238, 238)),
        "grey": pal((96, 98, 104), (245, 245, 245))}
@@ -91,7 +92,7 @@ def exelv(preview):
     for i, (sym, code, name) in enumerate([("←", ch(0, 4), "LEFT"), ("↓", ch(0, 3), "DOWN"), ("→", ch(0, 2), "RIGHT")]):
         b.cap(12 + i, y, 1, 1, [sym], code, size=0.36 * b.U, pal="grey", sym=True, name=name)
     b.save("exelv", "keyboard", "the Exelvision EXL-100", preview)
-    txt = os.path.join(MACHINES, "exelv", "assets", "keyboard.txt")
+    txt = os.path.join(machine_dir("exelv"), "assets", "keyboard.txt")
     lines = open(txt, encoding="utf-8").read().split("\n")
     lines[0] = "# tools/gen_exelv_vkb.py (the Exelvision EXL-100), do not edit"
     open(txt, "w", encoding="utf-8").write("\n".join(lines))

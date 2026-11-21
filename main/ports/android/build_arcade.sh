@@ -2,7 +2,7 @@
 # build_arcade.sh - cMESYS's arcade games for Android: one app (cMESYS
 # Arcade, dist/arcade_android.apk) with the list of games, each game a
 # library (libgame_<id>.so) of its desktop frontend (<game>_sdl.c) on
-# jni/arcade_port.c, the Android side of main/ports/sdl2/sdl_port.h.
+# jni/arcades/arcade_port.c, the Android side of main/ports/sdl2/sdl_port.h.
 #
 #   main/ports/android/build_arcade.sh [game ...]     (default: all of them)
 #
@@ -111,7 +111,7 @@ for game in $GAMES; do
         mkdir -p "$obj" "$OUT/lib/$abi"
         objs=""
         srcs="$(echo $(sources "$game") $A/$game/rom_load.c $M/rom/romfs.c $M/machine/zx_inflate.c | tr ' ' '\n' | awk 'NF && !seen[$0]++')"
-        for f in "$HERE/jni/arcade_port.c" "$HERE/jni/libc_extra.c" $srcs; do
+        for f in "$HERE/jni/arcades/arcade_port.c" "$HERE/jni/libc_extra.c" $srcs; do
             o="$obj/$(basename "$f" .c).o"
             # (the ROMs' object is kept between builds: it is the slow one)
             if [ "$(basename "$f")" != rom_data.c ] || [ ! -f "$o" ] || [ "$f" -nt "$o" ]; then

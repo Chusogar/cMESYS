@@ -53,7 +53,7 @@ dsp-cpp no tiene teclado de MSX ni mandos de Lynx: los dibujan
   `RUN"`, `|TAPE`, `LOAD"*",8,1`, `LOAD"$",8` + `LIST`…; tras un RETURN
   con más texto detrás espera 2 s emulados, para que el `LOAD` acabe).
 - **Teclado en pantalla** (`KeyboardView`): la imagen de
-  `machines/<máquina>/assets/keyboard.png` (o la foto del QL, recortada y sin
+  `machines/{computers,consoles}/<máquina>/assets/keyboard.png` (o la foto del QL, recortada y sin
   el fondo rojo, como hace dsp-cpp) con las teclas de `keyboard.txt`; la tecla
   pulsada se hunde como en dsp-cpp (en el C64, en su hueco). Multitáctil; los
   modificadores se quedan pulsados para la tecla siguiente o se bloquean con
@@ -85,7 +85,7 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 ```
 
 - El núcleo de cada máquina (sus fuentes, como en el `Makefile`, más
-  `jni/core_jni.c` y su `jni/m_<máquina>.c`) se compila con clang para
+  `jni/core_jni.c` y su `jni/computers/m_<máquina>.c`) se compila con clang para
   `arm64-v8a` y `x86_64` con las cabeceras mínimas de `jni/libc` (lo que los
   núcleos usan de la libc de Android, bionic) y se enlaza contra un `libc.so`
   de resguardo con esas funciones, que el sistema resuelve al cargar la app.
@@ -110,7 +110,7 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | | |
 |---|---|
 | `jni/core.h`, `jni/core_jni.c` | lo que da cada máquina y las llamadas de `Core` (frames, imagen ARGB, sonido, teclas, joystick, medios) |
-| `jni/m_ql.c` … `m_amiga.c`, `m_apple2.c`, `m_apple2gs.c`, `m_macplus.c`, `m_macii.c`, `m_specnext.c`, `m_samcoupe.c`, `m_exelv.c` | cada máquina sobre su núcleo de `main/drivers/computers` (la Lynx, de `main/drivers/consoles/lynx`) |
+| `jni/computers/m_ql.c` … `m_amiga.c`, `m_apple2.c`, `m_apple2gs.c`, `m_macplus.c`, `m_macii.c`, `m_specnext.c`, `m_samcoupe.c`, `m_exelv.c` | cada máquina sobre su núcleo de `main/drivers/computers` (la Lynx, de `main/drivers/consoles/lynx`) |
 | `jni/libc/` | cabeceras mínimas de bionic para compilar sin el NDK |
 | `app/src/.../MachineActivity.java` | pantalla, teclado, menú, medios, teclado físico y mandos |
 | `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx`, `Amiga`, `Apple2`, `AdbKeys` (`Apple2gs`, `MacPlus`, `MacII`), `SpecNext` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |
@@ -119,10 +119,11 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | `app/src/.../KeyboardView.java` | teclado en pantalla (imágenes y teclas de dsp-cpp) |
 | `app/src/.../Trackpad.java` | la imagen como trackpad del ratón (el Amiga, el IIGS y los Mac) |
 | `app/src/.../SoftMenu.java` | menú a lo Hataroid (barra de iconos y listas) |
-| `machines/<máquina>/` | recursos de cada APK: nombre, ajustes, lanzador, teclado, ayuda |
+| `machines/{computers,consoles}/<máquina>/` | recursos de cada APK, agrupados como `main/drivers` (`computers/`, `consoles/`; las recreativas son la app `arcade/`): nombre, ajustes, lanzador, teclado, ayuda |
+| `tools/android_dirs.py` | dónde está cada máquina (`machines/consoles/<id>` para las de `consoles.mk`, `machines/computers/<id>` las demás), para las herramientas |
 | `tools/import_dsp_keyboards.py` | los teclados de dsp-cpp (`*_vkb_data.inc`) → `keyboard.png` + `keyboard.txt` |
 | `tools/gen_msx_vkb.py`, `gen_lynx_vkb.py` | los teclados de MSX y Lynx |
-| `tools/gen_consoles_vkb.py` | los mandos en pantalla de las 19 consolas (`machines/<id>/assets/keyboard.png` + `keyboard.txt`; códigos de `m_cons.c`) |
+| `tools/gen_consoles_vkb.py` | los mandos en pantalla de las 19 consolas (`machines/consoles/<id>/assets/keyboard.png` + `keyboard.txt`; códigos de `m_cons.c`) |
 | `tools/gen_amiga_vkb.py` | el teclado del Amiga desde la foto |
 | `tools/android_roms.py` | las ROM de cada máquina para el APK |
 | `tools/make_icons.py`, `make_help.py` | iconos, lanzadores y ayuda |
@@ -141,7 +142,7 @@ main/ports/android/build_arcade.sh snowbros     # solo algunos
 
 - **El mismo juego que en el escritorio**: cada juego es su frontend de
   escritorio sin tocar (`<juego>_sdl.c`, compilado con
-  `-Dmain=cmesys_game_main`) sobre `jni/arcade_port.c`, que implementa
+  `-Dmain=cmesys_game_main`) sobre `jni/arcades/arcade_port.c`, que implementa
   `main/ports/sdl2/sdl_port.h` para Android. Las entradas, el sonido, la
   paleta y el ritmo son los suyos, así que se juega y suena igual que en el
   escritorio.
@@ -176,7 +177,7 @@ main/ports/android/build_arcade.sh snowbros     # solo algunos
 
 | | |
 |---|---|
-| `jni/arcade_port.c` | `sdl_port.h` para Android: imagen, sonido (remuestreado si hace falta), controles, reset; JNI de `Native` |
+| `jni/arcades/arcade_port.c` | `sdl_port.h` para Android: imagen, sonido (remuestreado si hace falta), controles, reset; JNI de `Native` |
 | `jni/libc_extra.c` | `stdin`/`stdout`/`stderr` como marcas nulas (bionic los tiene como variables solo desde la API 23) |
 | `arcade/src/.../Game.java` | los juegos: nombre, fabricante, año, botones, joystick |
 | `arcade/src/.../GameListActivity.java` | la lista |

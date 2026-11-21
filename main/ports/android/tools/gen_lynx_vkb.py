@@ -6,7 +6,7 @@ on the right and OPTION 1, PAUSE and OPTION 2 between them. The Lynx has no
 keyboard, so this is its keyboard: codes are the bit numbers of lynx_core.h
 (A 0, B 1, OPTION 2 2, OPTION 1 3, right 4, left 5, down 6, up 7, PAUSE 8)
 and 9..12 for the cross's diagonals (up-left, up-right, down-left,
-down-right). Writes machines/lynx/assets/keyboard.png + keyboard.txt.
+down-right). Writes machines/computers/lynx/assets/keyboard.png + keyboard.txt.
 
 usage: gen_lynx_vkb.py [--preview out.png]
 """
@@ -14,9 +14,10 @@ import os
 import sys
 
 from vkb_common import Canvas, lerp
+from android_dirs import machine_dir
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "machines", "lynx", "assets")
+OUT = os.path.join(machine_dir("lynx"), "assets")
 
 W, H = 1536, 520
 BODY_TOP = (78, 80, 86)

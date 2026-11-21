@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the help page of each machine's app (machines/<machine>/assets/
+"""Writes the help page of each machine's app (machines/{computers,consoles}/<machine>/assets/
 help.html, in Spanish) from one template: the menu, the on-screen keyboard,
 physical keyboards and pads are the same for all; each machine adds its
 media, keys and start-up.
@@ -7,6 +7,7 @@ media, keys and start-up.
   python3 main/ports/android/tools/make_help.py
 """
 import os
+from android_dirs import machine_dir
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -391,7 +392,7 @@ Interfaz inspirada en <a href="https://github.com/squalldc/hataroid">Hataroid</a
 
 def main():
     for m, d in MACHINES.items():
-        out = os.path.join(HERE, "..", "machines", m, "assets")
+        out = os.path.join(machine_dir(m), "assets")
         os.makedirs(out, exist_ok=True)
         with open(os.path.join(out, "help.html"), "w", encoding="utf-8") as f:
             f.write(page(m, d))

@@ -6,8 +6,8 @@ import android.view.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Any console of main/drivers/consoles (jni/m_cons.c), described by
- *  ConsoleInfo (written by build_apk.sh from machines/<id>/console.txt).
+/** Any console of main/drivers/consoles (jni/consoles/m_cons.c), described by
+ *  ConsoleInfo (written by build_apk.sh from machines/consoles/<id>/console.txt).
  *  Its "keys": 0.. the console's keys (cons.h's CK_*), 100.. player 1's pad
  *  (100 up, 101 down, 102 left, 103 right, 104-107 buttons 1-4, 108 START,
  *  109 SELECT, 110 COIN, 111-114 the diagonals). */

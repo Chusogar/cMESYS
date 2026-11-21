@@ -630,7 +630,7 @@ Las 19 consolas de la API común están en `main/drivers/consoles/<id>/`. Usan `
 | Escritorio y web | `common/cons_sdl.c` |
 | RP2040 / RP2350 | `common/cons_pico.c` |
 | CYD | `common/cons_cyd.c` |
-| Android | `jni/m_cons.c` |
+| Android | `jni/consoles/m_cons.c` |
 
 Cada núcleo se ha comparado con dsp-cpp con programas de prueba propios, con **0 píxeles distintos**. Cada CPU nueva se comparó con el original C++ instrucción a instrucción: más de un millón de instrucciones aleatorias con ciclos, registros y memoria idénticos. Entre las CPU nuevas están:
 
@@ -641,7 +641,7 @@ La PlayStation sigue a ProjectPSX (MIT). La imagen de disco es un `.bin`.
 
 ### Atari Lynx
 
-`main/drivers/consoles/lynx/`, migrada de dsp-cpp `atari_lynx.cpp` + `lynx_mikey` + `lynx_suzy` con el 65C02 de `cpu/m6502/m65xx`. No usa la API común. Tiene sus propios frontends (`lynx_sdl.c`, `lynx_pico.c`, `lynx_cyd.c`), construidos sobre los comunes de los ordenadores (`computers/common/comp_*.h`), y en Android usa `jni/m_lynx.c` con su app al estilo de las de ordenador. Corre en escritorio, web, Android, CYD y RP2350, pero no en la RP2040.
+`main/drivers/consoles/lynx/`, migrada de dsp-cpp `atari_lynx.cpp` + `lynx_mikey` + `lynx_suzy` con el 65C02 de `cpu/m6502/m65xx`. No usa la API común. Tiene sus propios frontends (`lynx_sdl.c`, `lynx_pico.c`, `lynx_cyd.c`), construidos sobre los comunes de los ordenadores (`computers/common/comp_*.h`), y en Android usa `jni/computers/m_lynx.c` con su app al estilo de las de ordenador. Corre en escritorio, web, Android, CYD y RP2350, pero no en la RP2040.
 
 - Ficheros: `.lnx` con cabecera, y `.lyx` / `.o` (BS93) con carga rápida.
 - Imagen: 160×102, ampliada ×2.

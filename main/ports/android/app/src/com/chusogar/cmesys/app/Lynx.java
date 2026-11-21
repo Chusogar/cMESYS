@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** The Atari Lynx. Its "keys" are the console's buttons (bit numbers of
- *  lynx_core.h) and the cross's diagonals (9..12, jni/m_lynx.c). */
+ *  lynx_core.h) and the cross's diagonals (9..12, jni/computers/m_lynx.c). */
 final class Lynx extends Machine {
     static final int A = 0, B = 1, OPT2 = 2, OPT1 = 3, RIGHT = 4, LEFT = 5, DOWN = 6, UP = 7, PAUSE = 8;
 
