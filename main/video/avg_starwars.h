@@ -2,7 +2,8 @@
 // Empire Strikes Back: C port of dsp-cpp's video/avg_starwars (from MAME's
 // avgdvg.cpp, AVG_STARWARS). The vector program is read through `read`
 // (vector RAM $0000-$2FFF, ROM $3000-$3FFF); each lit vector becomes a line,
-// handed to `sink` as the list runs, or kept (no sink) as the last list's lines.
+// handed to `sink` as the list runs, its ends with the beam's whole precision
+// (16.16 in the 250 x 280 screen) so that the small vector text keeps its shape.
 #ifndef AVG_STARWARS_H
 #define AVG_STARWARS_H
 #include <stdbool.h>
@@ -12,14 +13,14 @@
 #define AVG_VIS_H 280
 
 typedef struct {
-    int16_t x0, y0, x1, y1;     // whole beam positions
+    int32_t x0, y0, x1, y1;     // beam positions, 16.16 (0..250 x 0..280)
     uint8_t color;              // 3 bits: 4 red, 2 green, 1 blue
     uint8_t intensity;          // 1..255
 } avg_line;
 
 typedef struct {
     uint8_t (*read)(void *user, uint16_t addr);
-    void (*sink)(void *user, const avg_line *line);     // NULL: the lines kept
+    void (*sink)(void *user, const avg_line *line);
     void *user;
     uint8_t prom[256];
     int xmin, ymin, xmax, ymax;
@@ -34,14 +35,9 @@ typedef struct {
     uint8_t int_latch, bin_scale, color;
     uint16_t xdac_xor, ydac_xor;
     int nvect, last_x, last_y;
-    avg_line *pending, *display;    // (no sink) AVG_MAX_LINES each
-    int npending, ndisplay;
 } avg_starwars;
 
-#define AVG_MAX_LINES 10000
-
-// false: no memory for the lines (no sink)
-bool avg_init(avg_starwars *a);
+void avg_init(avg_starwars *a);
 void avg_set_prom(avg_starwars *a, const uint8_t *data, int size);
 void avg_reset(avg_starwars *a);
 void avg_go(avg_starwars *a);
