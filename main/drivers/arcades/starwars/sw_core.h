@@ -29,7 +29,8 @@ enum { SW_GAME_STARWARS = 0, SW_GAME_ESB = 1 };
 typedef struct {
     bool coin1, coin2, start;
     bool fire1, fire2, fire3;   // the yoke's buttons (both triggers / thumbs)
-    uint8_t x, y;               // the yoke: 0 left / up .. 255, 0x80 the centre
+    uint8_t x, y;               // the yoke: 0 left / up .. 255, 0x80 the centre (the
+                                // crosshair's), scaled to the cabinet's pots
 } sw_inputs;
 
 // The game's ROMs (rom_data.h: sw_roms_get) are read. pic_w / pic_h: the
