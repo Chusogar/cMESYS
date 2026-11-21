@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     static uint32_t rgb[SW_W * SW_H];
 
     if (!sw_init(game, 0, 0)) sdl_port_rom_error();
-    sdl_port_cfg cfg = {sw_title(), SW_W, SW_H, 2, SW_AUDIO_RATE, SW_FPS};
+    sdl_port_cfg cfg = {sw_title(), SW_W, SW_H, 1, SW_AUDIO_RATE, SW_FPS};
     if (!sdl_port_open(&cfg)) return 1;
     sdl_port_mouse_enable(true);
 
