@@ -1,0 +1,25 @@
+# Temporary: the Star Wars CYD firmwares (no ROMs) printed into the log (base64).
+name: cyd-dump
+on:
+  push:
+    branches: [cyd-dump]
+jobs:
+  cyd:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          g=starwars; mkdir -p dist
+          for mhz in 40 80; do
+            b=build/$g-noroms-$mhz
+            LCD_SPI_MHZ=$mhz idf.py -B $b -DGAME=$g -DROMS=external build > /dev/null
+            (cd $b && esptool.py --chip esp32 merge_bin -o ../../dist/${g}_cyd_st7789_spi${mhz}mhz_noroms_full.bin @flash_args > /dev/null)
+            cp $b/${g}_cyd.bin dist/${g}_cyd_st7789_spi${mhz}mhz_noroms_app_0x10000.bin
+            rm -f sdkconfig
+          done
+          tar -C dist -cJf /tmp/cyd.tar.xz .
+          sha256sum /tmp/cyd.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/cyd.tar.xz | sed 's/^/B64:/'; echo "END-B64"
