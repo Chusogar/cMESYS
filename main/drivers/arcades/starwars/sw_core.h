@@ -6,18 +6,20 @@
 // chip and the 6532 RIOT; ESB adds a ROM bank behind an Atari slapstic.
 // The flight yoke is two analog axes (0..255, 0x80 the centre).
 //
-// The picture: 400 x 300 in 32-bit (each frame over the last one dimmed, as
-// a vector monitor's phosphor), or (sw_init with a limit) the whole screen
-// scaled into an 8-bit picture of at most that size (colour << 5 | brightness,
-// sw_palette()), drawn as the AVG runs: for the boards.
+// The picture: 8 bits a pixel (colour << 5 | brightness, sw_palette()), the
+// vectors drawn as the AVG runs over the last list dimmed (a vector monitor's
+// phosphor). The AVG's 250 x 280 screen fills it as the cabinet's 4:3 monitor
+// does, the lines one pixel wide from the beam's exact positions (the vector
+// font keeps its letters' shapes at any size): 800 x 600 by default, 320 x 240
+// on the boards.
 #ifndef SW_CORE_H
 #define SW_CORE_H
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#define SW_W 400
-#define SW_H 300
+#define SW_W 800             // the default picture
+#define SW_H 600
 #define SW_FPS (12096000.0 / 4096.0 / 12.0 / 6.0)    // 41.0 Hz
 #define SW_AUDIO_RATE 44100
 #define SW_AUDIO_MAX 2048
@@ -30,9 +32,9 @@ typedef struct {
     uint8_t x, y;               // the yoke: 0 left / up .. 255, 0x80 the centre
 } sw_inputs;
 
-// The game's ROMs (rom_data.h: sw_roms_get) must be in. pic_w / pic_h: 0 for
-// the 400 x 300 32-bit picture, else the 8-bit one at most that big. false:
-// no ROMs or no memory.
+// The game's ROMs (rom_data.h: sw_roms_get) are read. pic_w / pic_h: the
+// picture's size (0: SW_W x SW_H; 4:3 keeps the monitor's shape). false: no
+// ROMs or no memory.
 bool sw_init(int game, int pic_w, int pic_h);
 void sw_reset(void);
 int sw_game(void);
@@ -47,7 +49,7 @@ void sw_set_audio_enabled(bool on);
 void sw_set_draw_enabled(bool on);
 int sw_width(void);
 int sw_height(void);
-const uint32_t *sw_framebuffer(void);     // 32-bit picture (the 8-bit one converted)
-const uint8_t *sw_picture(void);          // the 8-bit one, or NULL
+const uint32_t *sw_framebuffer(void);     // the picture in 0xAARRGGBB
+const uint8_t *sw_picture(void);          // the picture (8 bits a pixel)
 const uint32_t *sw_palette(void);         // its 256 colours (0xAARRGGBB)
 #endif
