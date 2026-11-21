@@ -118,6 +118,7 @@ public final class GameListActivity extends Activity {
             if (s.length() == 1) s.append(g.title.charAt(1));
         }
         if (g.id.equals("polepos2")) s = new StringBuilder("P2");
+        if (g.id.equals("esb")) s = new StringBuilder("ESB");
         b.setText(s.toString().toUpperCase());
         b.setTextColor(Color.WHITE);
         b.setTypeface(Typeface.DEFAULT_BOLD);
@@ -163,7 +164,8 @@ public final class GameListActivity extends Activity {
         text.addView(by);
         TextView how = new TextView(this);
         StringBuilder s = new StringBuilder();
-        s.append(g.joystick == Game.JOY_8WAY ? "Joystick · " : g.joystick == Game.JOY_2WAY ? "Joystick ◀▶ · " : "");
+        s.append(g.joystick == Game.JOY_8WAY ? "Joystick · " : g.joystick == Game.JOY_2WAY ? "Joystick ◀▶ · "
+                : g.joystick == Game.JOY_YOKE ? "Volante · " : "");
         for (int i = 0; i < g.buttons.length; i++) s.append(i > 0 ? ", " : "").append(g.buttons[i]);
         how.setText(s);
         how.setTextColor(0xff7d8396);

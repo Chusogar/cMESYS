@@ -33,6 +33,12 @@ static sdl_port_cfg cfg;
 static uint32_t *argb;
 static volatile uint32_t keys;
 static volatile int quit, reset_req, turbo;
+// an analog control on the screen (Star Wars' yoke): held, and where
+static volatile int analog_on, analog_x = 0x80, analog_y = 0x80;
+// the game's arguments (Native.setArgs: ESB is "starwars esb")
+#define MAX_ARGS 4
+static char args[MAX_ARGS][32];
+static int nargs;
 
 // Sound: the game's rate, or resampled (linearly) to the one the device took
 static int out_rate;
@@ -97,6 +103,22 @@ char *sdl_port_next_drop(void) { return NULL; }
 void sdl_port_queue_drop(const char *path) { (void)path; }
 void sdl_port_set_turbo(bool on) { turbo = on; }
 bool sdl_port_turbo(void) { return turbo != 0; }
+// (no mouse: the analog control instead)
+void sdl_port_mouse_enable(bool on) { (void)on; }
+uint32_t sdl_port_mouse(int *dx, int *dy)
+{
+    if (dx) *dx = 0;
+    if (dy) *dy = 0;
+    return 0;
+}
+bool sdl_port_mouse_captured(void) { return false; }
+bool sdl_port_analog(int *x, int *y)
+{
+    if (!analog_on) return false;
+    *x = analog_x;
+    *y = analog_y;
+    return true;
+}
 
 static void send_audio(const int16_t *s, int n)
 {
@@ -198,14 +220,46 @@ JNIEXPORT void JNICALL JNI_FN(run)(JNIEnv *e, jclass c, jstring dir)
     }
     quit = 0;
     static char name[] = "cmesys";
-    char *argv[] = {name, NULL};
-    if (setjmp(rom_jmp) == 0) cmesys_game_main(1, argv);
+    char *argv[MAX_ARGS + 2] = {name};
+    int argc = 1;
+    for (int i = 0; i < nargs; i++) argv[argc++] = args[i];
+    argv[argc] = NULL;
+    if (setjmp(rom_jmp) == 0) cmesys_game_main(argc, argv);
 }
 
 JNIEXPORT void JNICALL JNI_FN(setKeys)(JNIEnv *e, jclass c, jint bits)
 {
     (void)e, (void)c;
     keys = (uint32_t)bits;
+}
+
+// The analog control: held (on), and its position 0..255 each way
+JNIEXPORT void JNICALL JNI_FN(setAnalog)(JNIEnv *e, jclass c, jboolean on, jint x, jint y)
+{
+    (void)e, (void)c;
+    analog_x = x < 0 ? 0 : x > 255 ? 255 : x;
+    analog_y = y < 0 ? 0 : y > 255 ? 255 : y;
+    analog_on = on != JNI_FALSE;
+}
+
+// The arguments the game's main is run with (before run)
+JNIEXPORT void JNICALL JNI_FN(setArgs)(JNIEnv *e, jclass c, jobjectArray a)
+{
+    (void)c;
+    nargs = 0;
+    int n = a ? (*e)->GetArrayLength(e, a) : 0;
+    for (int i = 0; i < n && nargs < MAX_ARGS; i++) {
+        jstring s = (jstring)(*e)->GetObjectArrayElement(e, a, i);
+        if (!s) continue;
+        const char *p = (*e)->GetStringUTFChars(e, s, NULL);
+        if (p) {
+            strncpy(args[nargs], p, sizeof args[0] - 1);
+            args[nargs][sizeof args[0] - 1] = 0;
+            nargs++;
+            (*e)->ReleaseStringUTFChars(e, s, p);
+        }
+        (*e)->DeleteLocalRef(e, s);
+    }
 }
 
 JNIEXPORT void JNICALL JNI_FN(requestReset)(JNIEnv *e, jclass c)

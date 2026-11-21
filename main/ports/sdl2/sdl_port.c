@@ -225,6 +225,13 @@ uint32_t sdl_port_mouse(int *dx, int *dy)
 
 bool sdl_port_mouse_captured(void) { return captured; }
 
+// No on-screen analog control here (the Android port has one)
+bool sdl_port_analog(int *x, int *y)
+{
+    (void)x, (void)y;
+    return false;
+}
+
 bool sdl_port_poll(bool *reset)
 {
     SDL_Event e;
@@ -242,8 +249,8 @@ bool sdl_port_poll(bool *reset)
         if (e.type != SDL_KEYDOWN && e.type != SDL_KEYUP) continue;
         bool dn = e.type == SDL_KEYDOWN;
         SDL_Scancode sc = e.key.keysym.scancode;
+        if ((unsigned)sc < SDL_NUM_SCANCODES) held[sc] = dn;
         if (cfg.computer) {
-            if ((unsigned)sc < SDL_NUM_SCANCODES) held[sc] = dn;
             if (dn && !e.key.repeat && np < 32) presses[np++] = sc;
             continue;
         }

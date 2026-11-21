@@ -38,6 +38,7 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Snow Bros (Toaplan, 1990) | `snowbros` | 68000 + Z80 | YM3812 | `zxtiny/zxm/snowbros.c` |
 | Track & Field (Konami, 1983) | `trackfld` | Konami-1 (6809) + Z80 | SN76489, VLM5030, DAC | `zxtiny/zxm/trackfld.c` |
 | Return of the Invaders (Taito, 1985) | `retofinv` | 3 x Z80 + MC68705P5 | 2 x SN76489 | dsp-cpp `retofinv.cpp` + MAME |
+| Star Wars (Atari, 1983) y The Empire Strikes Back (Atari, 1985) | `starwars` | 2 x 6809 + mathbox + AVG (vectores) | 4 x POKEY, TMS5220 | dsp-cpp `starwars.cpp` (los dos juegos en el mismo binario; ESB con su slapstic) |
 | Pole Position (Namco, 1982) | `polepos` | Z80 + 2 x Z8002 + 4 MCU Namco | WSG de 8 voces, motor, voz, ruido | dsp-cpp `polepos.cpp` + MAME |
 | Pole Position II (Namco, 1983) | `polepos2` | igual | igual | el mismo núcleo que `polepos` |
 | RoboCop (Data East, 1988) | `robocop` | 68000 + HuC6280 + 6502 | YM2203, YM3812, OKI M6295 | dsp-cpp `dec0.cpp` + MAME |
@@ -471,6 +472,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
+| `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |
 | `pbobble` | `pbobble` (Taito B, japonesa) | no sirve el de Neo Geo |

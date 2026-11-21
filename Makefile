@@ -1,7 +1,7 @@
 # Desktop (SDL2) builds of the arcade drivers, from the same sources as the
 # ESP32 CYD firmware.
 #
-#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | ql
+#   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | starwars | ql
 #                             | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion
 #                             | cpc6128 | c64 | lynx | msx1 | msx2 | amiga
 #                             | apple2 | apple2p | apple2e | apple2ee | apple2gs | macplus | macii | specnext | samcoupe | exl100 | exeltel
@@ -145,6 +145,11 @@ else ifeq ($(GAME),retofinv)
   SRC  := $(D)/retofinv_sdl.c $(D)/rv_core.c $(D)/rv_video.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
           $(M)/cpu/m6805/m6805.c $(M)/machine/taito68705.c $(M)/sound/sn76489.c
   DEFS :=
+else ifeq ($(GAME),starwars)
+  # Star Wars and The Empire Strikes Back (starwars esb / F4)
+  SRC  := $(D)/starwars_sdl.c $(D)/sw_core.c $(D)/rom_data.c $(M)/cpu/m6809dsp/m6809dsp.c $(M)/machine/mos6532.c \
+          $(M)/machine/starwars_math.c $(M)/video/avg_starwars.c $(M)/sound/pokey.c $(M)/sound/tms5220.c
+  DEFS :=
 else ifeq ($(GAME),robocop)
   SRC  := $(D)/robocop_sdl.c $(D)/rc_core.c $(D)/rc_video.c $(D)/rc_sound.c $(D)/rom_data.c $(M68K) \
           $(M)/cpu/h6280/h6280.c $(M)/sound/ym2610.c $(M)/sound/okim6295.c \
@@ -232,7 +237,7 @@ else ifneq ($(filter $(GAME),$(CONSOLES)),)
   SRC  := $(M)/drivers/consoles/common/cons_sdl.c $(addprefix $(M)/,$(CONS_COMMON) $(CONS_SRC_$(GAME)))
   DEFS := $(addprefix -D,$(CONS_DEFS_$(GAME)))
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga or a console: $(CONSOLES))
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga or a console: $(CONSOLES))
 endif
 
 # The ROMs that rom_data.c does not have come from storage (main/rom/romfs.c
@@ -288,6 +293,7 @@ all:
 	$(MAKE) GAME=pbobble TARGET=$(TARGET) ROMS=$(ROMS)
 	$(MAKE) GAME=retofinv TARGET=$(TARGET) ROMS=$(ROMS)
 	$(MAKE) GAME=robocop TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=starwars TARGET=$(TARGET) ROMS=$(ROMS)
 	$(MAKE) GAME=polepos TARGET=$(TARGET) ROMS=$(ROMS)
 	$(MAKE) GAME=polepos2 TARGET=$(TARGET) ROMS=$(ROMS)
 	$(MAKE) GAME=ql TARGET=$(TARGET) ROMS=$(ROMS)

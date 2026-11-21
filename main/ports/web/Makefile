@@ -105,6 +105,10 @@ else ifeq ($(GAME),retofinv)
   SRC  := $(D)/retofinv_sdl.c $(D)/rv_core.c $(D)/rv_video.c $(D)/rom_data.c $(M)/cpu/z80/z80.c \
           $(M)/cpu/m6805/m6805.c $(M)/machine/taito68705.c $(M)/sound/sn76489.c
   DEFS :=
+else ifeq ($(GAME),starwars)
+  SRC  := $(D)/starwars_sdl.c $(D)/sw_core.c $(D)/rom_data.c $(M)/cpu/m6809dsp/m6809dsp.c $(M)/machine/mos6532.c \
+          $(M)/machine/starwars_math.c $(M)/video/avg_starwars.c $(M)/sound/pokey.c $(M)/sound/tms5220.c
+  DEFS :=
 else ifeq ($(GAME),robocop)
   SRC  := $(D)/robocop_sdl.c $(D)/rc_core.c $(D)/rc_video.c $(D)/rc_sound.c $(D)/rom_data.c $(M68K) \
           $(M)/cpu/h6280/h6280.c $(M)/sound/ym2610.c $(M)/sound/okim6295.c \
@@ -195,7 +199,7 @@ else ifneq ($(filter $(GAME),$(CONSOLES)),)
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe, exl100, exeltel or a console: $(CONSOLES))
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe, exl100, exeltel or a console: $(CONSOLES))
 endif
 
 # The ROMs that rom_data.c does not have: from the page's server
@@ -214,7 +218,7 @@ ifeq ($(ROMS),external)
 endif
 
 PORTSRC := $(M)/ports/web/sdl_port.c
-GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 ql \
+GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 starwars ql \
            spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga \
            apple2 apple2p apple2e apple2ee apple2gs macplus macii specnext samcoupe exl100 exeltel $(CONSOLES)
 

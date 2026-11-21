@@ -92,7 +92,8 @@ public final class GameActivity extends Activity implements ControlsView.Listene
         menu.setListener(this);
         applySettings();
 
-        Native.load(game.id);
+        Native.load(game.lib);
+        Native.setArgs(game.args);
         Native.setScreen(screen);
         Native.romDirs(romDirs());
         Native.romError = null;
@@ -206,6 +207,16 @@ public final class GameActivity extends Activity implements ControlsView.Listene
     // --- controls ---------------------------------------------------------------------
     private void updateKeys() {
         Native.setHeld(touchBits | keyBits);
+        controls.setHeldBits(keyBits);
+    }
+
+    // The yoke (Star Wars): the one on the screen, or a pad's left stick
+    private boolean touchYoke, padYoke;
+
+    @Override
+    public void onYoke(boolean held, int x, int y) {
+        touchYoke = held;
+        Native.setAnalog(held || padYoke, x, y);
     }
 
     @Override
@@ -296,6 +307,15 @@ public final class GameActivity extends Activity implements ControlsView.Listene
         if ((e.getSource() & InputDevice.SOURCE_JOYSTICK) != InputDevice.SOURCE_JOYSTICK
                 || e.getAction() != MotionEvent.ACTION_MOVE) {
             return super.onGenericMotionEvent(e);
+        }
+        if (game.joystick == Game.JOY_YOKE) {
+            // the left stick as the yoke (the screen's wins while it is held)
+            float ax = e.getAxisValue(MotionEvent.AXIS_X), ay = e.getAxisValue(MotionEvent.AXIS_Y);
+            padYoke = Math.abs(ax) > 0.08f || Math.abs(ay) > 0.08f;
+            if (!touchYoke) {
+                Native.setAnalog(padYoke, Math.round(127.5f + ax * 127.5f), Math.round(127.5f + ay * 127.5f));
+            }
+            if (padYoke) return true;
         }
         float x = e.getAxisValue(MotionEvent.AXIS_HAT_X), y = e.getAxisValue(MotionEvent.AXIS_HAT_Y);
         if (Math.abs(x) < 0.5f) x = e.getAxisValue(MotionEvent.AXIS_X);
