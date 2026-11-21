@@ -36,9 +36,7 @@ typedef struct {
     uint8_t nvram[0x100];
     // the picture
     int width, height;
-    bool small;
-    int scale;                  // small: 16.16
-    uint32_t *fb;               // 400 x 300, or (small) the converted picture
+    uint32_t *fb;               // the picture converted (sw_framebuffer)
     uint8_t *picture;
     uint32_t palette[256];
     uint8_t decay[256];
@@ -153,8 +151,12 @@ static void slapstic_access(uint16_t address)
 #undef IN
 }
 
-// ---- the picture
-static void decay_small(void)
+// ---- the picture: 8 bits a pixel (colour << 5 | brightness), each vector
+// list drawn as the AVG runs it over the last one dimmed (the phosphor).
+// The AVG's 250 x 280 screen fills the 4:3 picture as on the cabinet's
+// monitor, and the lines are drawn from the beam's exact positions, one
+// pixel wide, so that the vector font keeps the shapes of its letters.
+static void decay_picture(void)
 {
     uint8_t *p = S->picture;
     if (!p) return;
@@ -163,7 +165,7 @@ static void decay_small(void)
     for (; i + 4 <= n; i += 4) {
         uint32_t four;
         memcpy(&four, p + i, 4);
-        if (four == 0) continue;
+        if (four == 0) continue;            // mostly black: four at a time
         p[i] = S->decay[p[i]];
         p[i + 1] = S->decay[p[i + 1]];
         p[i + 2] = S->decay[p[i + 2]];
@@ -172,100 +174,31 @@ static void decay_small(void)
     for (; i < n; ++i) p[i] = S->decay[p[i]];
 }
 
-static inline void plot_small(int x, int y, int i, int top)
+static inline void plot(int x, int y, int level, int top)
 {
-    if (x < 0 || x >= S->width || y < 0 || y >= S->height) return;
-    const int level = ((i < 255 ? i : 255) * 31 + 127) / 255;
+    if ((unsigned)x >= (unsigned)S->width || (unsigned)y >= (unsigned)S->height) return;
     uint8_t *p = &S->picture[(size_t)y * (size_t)S->width + (size_t)x];
     if (level > (*p & 31)) *p = (uint8_t)(top | level);
-}
-
-static void draw_line_small(int x0, int y0, int x1, int y1, int color, int intensity)
-{
-    const int top = color << 5;
-    int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-    int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
-    int err = dx + dy, x = x0, y = y0;
-    const int glow = intensity / 3;
-    for (;;) {
-        plot_small(x, y, intensity, top);
-        if (glow > 0) {
-            plot_small(x - 1, y, glow, top);
-            plot_small(x + 1, y, glow, top);
-            plot_small(x, y - 1, glow, top);
-            plot_small(x, y + 1, glow, top);
-        }
-        if (x == x1 && y == y1) break;
-        const int e2 = 2 * err;
-        if (e2 >= dy) { err += dy; x += sx; }
-        if (e2 <= dx) { err += dx; y += sy; }
-    }
-}
-
-static inline void blend_pixel(uint32_t *dest, uint32_t color, int intensity)
-{
-    if (intensity <= 0) return;
-    if (intensity > 255) intensity = 255;
-    const int r = (int)((color >> 16) & 0xff) * intensity / 255;
-    const int g = (int)((color >> 8) & 0xff) * intensity / 255;
-    const int b = (int)(color & 0xff) * intensity / 255;
-    int dr = (int)((*dest >> 16) & 0xff), dg = (int)((*dest >> 8) & 0xff), db = (int)(*dest & 0xff);
-    if (r > dr) dr = r;
-    if (g > dg) dg = g;
-    if (b > db) db = b;
-    *dest = 0xff000000u | ((uint32_t)dr << 16) | ((uint32_t)dg << 8) | (uint32_t)db;
-}
-
-static inline void plot_big(int x, int y, uint32_t color, int i)
-{
-    if (x >= 0 && x < SW_W && y >= 0 && y < SW_H) blend_pixel(&S->fb[y * SW_W + x], color, i);
-}
-
-static void draw_line(int x0, int y0, int x1, int y1, uint32_t color, int intensity)
-{
-    int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-    int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
-    int err = dx + dy, x = x0, y = y0;
-    const int glow = intensity / 3;
-    for (;;) {
-        plot_big(x, y, color, intensity);
-        if (glow > 0) {
-            plot_big(x - 1, y, color, glow);
-            plot_big(x + 1, y, color, glow);
-            plot_big(x, y - 1, color, glow);
-            plot_big(x, y + 1, color, glow);
-        }
-        if (x == x1 && y == y1) break;
-        const int e2 = 2 * err;
-        if (e2 >= dy) { err += dy; x += sx; }
-        if (e2 <= dx) { err += dx; y += sy; }
-    }
 }
 
 static void line_sink(void *user, const avg_line *l)
 {
     (void)user;
-    const int xoff = (SW_W - AVG_VIS_W) / 2, yoff = (SW_H - AVG_VIS_H) / 2, sc = S->scale;
-    if (S->draw_enabled && S->picture)
-        draw_line_small(((l->x0 + xoff) * sc) >> 16, ((l->y0 + yoff) * sc) >> 16, ((l->x1 + xoff) * sc) >> 16,
-                        ((l->y1 + yoff) * sc) >> 16, l->color, l->intensity);
-}
-
-static void update_video(void)
-{
-    if (S->small) return;
-    const int xoff = (SW_W - AVG_VIS_W) / 2, yoff = (SW_H - AVG_VIS_H) / 2;
-    for (int i = 0; i < SW_W * SW_H; i++) {
-        const uint32_t p = S->fb[i];
-        const int r = (int)((p >> 16) & 0xff) * 6 / 10;
-        const int g = (int)((p >> 8) & 0xff) * 6 / 10;
-        const int b = (int)(p & 0xff) * 6 / 10;
-        S->fb[i] = 0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+    if (!S->draw_enabled || !S->picture) return;
+    // the ends in the picture's pixels, 16.16
+    const int64_t x0 = (int64_t)l->x0 * S->width / AVG_VIS_W, y0 = (int64_t)l->y0 * S->height / AVG_VIS_H;
+    const int64_t x1 = (int64_t)l->x1 * S->width / AVG_VIS_W, y1 = (int64_t)l->y1 * S->height / AVG_VIS_H;
+    const int64_t dx = x1 - x0, dy = y1 - y0;
+    const int64_t adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
+    const int n = (int)(((adx > ady ? adx : ady) + 0x8000) >> 16);
+    const int level = ((l->intensity < 255 ? l->intensity : 255) * 31 + 127) / 255;
+    const int top = (l->color & 7) << 5;
+    if (n <= 0) {
+        plot((int)((x0 + 0x8000) >> 16), (int)((y0 + 0x8000) >> 16), level, top);
+        return;
     }
-    for (int i = 0; i < S->avg.ndisplay; i++) {
-        const avg_line *l = &S->avg.display[i];
-        draw_line(l->x0 + xoff, l->y0 + yoff, l->x1 + xoff, l->y1 + yoff, avg_color111(l->color), l->intensity);
-    }
+    for (int i = 0; i <= n; i++)
+        plot((int)((x0 + dx * i / n + 0x8000) >> 16), (int)((y0 + dy * i / n + 0x8000) >> 16), level, top);
 }
 
 // ---- memory
@@ -346,7 +279,7 @@ static void main_write(void *user, uint16_t address, uint8_t value)
     }
     if (address >= 0x4500 && address <= 0x45ff) { S->nvram[address & 0xff] = value; return; }
     if (address >= 0x4600 && address <= 0x461f) {
-        if (S->small && S->draw_enabled) decay_small();
+        if (S->draw_enabled) decay_picture();
         avg_go(&S->avg);
         return;
     }
@@ -577,8 +510,6 @@ bool sw_init(int game, int pic_w, int pic_h)
     } else {
         free(S->fb);
         free(S->picture);
-        free(S->avg.pending);
-        free(S->avg.display);
         int16_t *keep = S->audio;
         memset(S, 0, sizeof *S);
         S->audio = keep;
@@ -589,29 +520,17 @@ bool sw_init(int game, int pic_w, int pic_h)
     S->draw_enabled = S->audio_enabled = true;
     S->dsw0 = 0x98;
     S->dsw1 = 0x02;
-    S->width = SW_W;
-    S->height = SW_H;
-    S->scale = 1 << 16;
-    if (pic_w > 0 && pic_h > 0) {
-        const int w = pic_w < SW_W ? pic_w : SW_W, h = pic_h < SW_H ? pic_h : SW_H;
-        if (w != SW_W || h != SW_H) {
-            const int sx = ((w << 16) + SW_W - 1) / SW_W, sy = ((h << 16) + SW_H - 1) / SW_H;
-            S->scale = sx < sy ? sx : sy;
-            S->width = (SW_W * S->scale) >> 16;
-            S->height = (SW_H * S->scale) >> 16;
-            if (S->width > w) S->width = w;
-            if (S->height > h) S->height = h;
-            S->small = true;
-            for (int i = 0; i < 256; ++i) {
-                const uint32_t c = avg_color111(i >> 5);
-                const int level = i & 31;
-                uint32_t v = 0;
-                for (int sh = 0; sh <= 16; sh += 8) v |= (uint32_t)(((int)((c >> sh) & 0xff) * level / 31) & 0xff) << sh;
-                S->palette[i] = 0xff000000u | v;
-                const int next = level * 6 / 10;
-                S->decay[i] = (uint8_t)(next ? ((i & 0xe0) | next) : 0);
-            }
-        }
+    S->width = pic_w > 0 && pic_h > 0 ? pic_w : SW_W;
+    S->height = pic_w > 0 && pic_h > 0 ? pic_h : SW_H;
+    // colour (3 bits) times brightness (5 bits); a list later 6/10 as bright
+    for (int i = 0; i < 256; ++i) {
+        const uint32_t c = avg_color111(i >> 5);
+        const int level = i & 31;
+        uint32_t v = 0;
+        for (int sh = 0; sh <= 16; sh += 8) v |= (uint32_t)(((int)((c >> sh) & 0xff) * level / 31) & 0xff) << sh;
+        S->palette[i] = 0xff000000u | v;
+        const int next = level * 6 / 10;
+        S->decay[i] = (uint8_t)(next ? ((i & 0xe0) | next) : 0);
     }
     S->main_cpu.read = main_read;
     S->main_cpu.write = main_write;
@@ -631,22 +550,11 @@ bool sw_init(int game, int pic_w, int pic_h)
     }
     tms5220_init(&S->tms, MASTER_CLOCK / 2 / 9, false);
     S->avg.read = avg_read;
-    if (S->small) S->avg.sink = line_sink;
-    if (!avg_init(&S->avg)) return false;
-    // the picture last
-    if (S->small) {
-        for (;;) {
-            S->picture = (uint8_t *)calloc((size_t)S->width * (size_t)S->height, 1);
-            if (S->picture) break;
-            if (S->scale <= (1 << 15)) return false;   // not below half size
-            S->scale -= 1 << 12;
-            S->width = (SW_W * S->scale) >> 16;
-            S->height = (SW_H * S->scale) >> 16;
-        }
-    } else {
-        S->fb = (uint32_t *)malloc((size_t)SW_W * SW_H * 4);
-        if (!S->fb) return false;
-    }
+    S->avg.sink = line_sink;
+    avg_init(&S->avg);
+    // the picture last (after the ROMs read from storage)
+    S->picture = (uint8_t *)calloc((size_t)S->width * (size_t)S->height, 1);
+    if (!S->picture) return false;
     sw_reset();
     return true;
 }
@@ -683,8 +591,6 @@ void sw_reset(void)
     S->in0 = 0xff;
     S->in1 = 0x3f;
     tms5220_strobe_ws_rs(&S->tms, 3);
-    if (S->fb && !S->small)
-        for (int i = 0; i < SW_W * SW_H; i++) S->fb[i] = 0xff000000u;
     if (S->picture) memset(S->picture, 0, (size_t)S->width * (size_t)S->height);
 }
 
@@ -707,7 +613,6 @@ int sw_run_frame(int16_t *audio)
             if (done_sound < target) done_sound += m6809d_run(&S->sound_cpu, target - done_sound);
         }
     }
-    update_video();
     S->audio = NULL;
     return S->naudio;
 }
@@ -736,12 +641,11 @@ void sw_set_audio_enabled(bool on) { S->audio_enabled = on; }
 void sw_set_draw_enabled(bool on) { S->draw_enabled = on; }
 int sw_width(void) { return S->width; }
 int sw_height(void) { return S->height; }
-const uint8_t *sw_picture(void) { return S->small ? S->picture : NULL; }
+const uint8_t *sw_picture(void) { return S->picture; }
 const uint32_t *sw_palette(void) { return S->palette; }
 
 const uint32_t *sw_framebuffer(void)
 {
-    if (!S->small) return S->fb;
     const size_t n = (size_t)S->width * (size_t)S->height;
     if (!S->fb) S->fb = (uint32_t *)malloc(n * 4);
     if (!S->fb) return NULL;

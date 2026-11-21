@@ -1,11 +1,10 @@
 // avg_starwars.c - the Star Wars AVG (see avg_starwars.h).
 #include "avg_starwars.h"
-#include <stdlib.h>
 #include <string.h>
 
 #define MAX_VECT 10000
 
-bool avg_init(avg_starwars *a)
+void avg_init(avg_starwars *a)
 {
     a->xmin = 0;
     a->ymin = 0;
@@ -13,12 +12,6 @@ bool avg_init(avg_starwars *a)
     a->ymax = AVG_VIS_H - 1;
     a->halt = a->sync_halt = 1;
     a->xdac_xor = a->ydac_xor = 0x200;
-    if (!a->sink && !a->pending) {
-        a->pending = (avg_line *)malloc(AVG_MAX_LINES * sizeof(avg_line));
-        a->display = (avg_line *)malloc(AVG_MAX_LINES * sizeof(avg_line));
-        if (!a->pending || !a->display) return false;
-    }
-    return true;
 }
 
 void avg_set_prom(avg_starwars *a, const uint8_t *data, int size)
@@ -51,7 +44,6 @@ void avg_reset(avg_starwars *a)
 {
     avg_vg_reset(a);
     a->nvect = 0;
-    a->npending = a->ndisplay = 0;
     a->pc = 0;
     a->sp = 0;
     a->dvx = a->dvy = 0;
@@ -80,29 +72,19 @@ static void add_point(avg_starwars *a, int x, int y, int color, int intensity)
     if (a->nvect == 0) a->last_x = x, a->last_y = y;
     if (intensity > 0) {
         avg_line l;
-        l.x0 = (int16_t)(a->last_x >> 16);
-        l.y0 = (int16_t)(a->last_y >> 16);
-        l.x1 = (int16_t)(x >> 16);
-        l.y1 = (int16_t)(y >> 16);
+        l.x0 = a->last_x;
+        l.y0 = a->last_y;
+        l.x1 = x;
+        l.y1 = y;
         l.color = (uint8_t)(color & 7);
         l.intensity = (uint8_t)(intensity < 255 ? intensity : 255);
         if (a->sink) a->sink(a->user, &l);
-        else if (a->npending < AVG_MAX_LINES) a->pending[a->npending++] = l;
     }
     a->last_x = x;
     a->last_y = y;
     a->nvect++;
 }
 
-static void flush(avg_starwars *a)
-{
-    avg_line *t = a->display;
-    a->display = a->pending;
-    a->ndisplay = a->npending;
-    a->pending = t;
-    a->npending = 0;
-    a->nvect = 0;
-}
 
 static void h0(avg_starwars *a) { a->dvy = (uint16_t)((a->dvy & 0x1f00) | a->data); a->pc++; }
 
@@ -239,8 +221,7 @@ void avg_go(avg_starwars *a)
     a->pc = 0;
     a->sp = 0;
     a->nvect = 0;
-    a->npending = 0;
     vg_set_halt(a, 0);
     run_state_machine(a);
-    flush(a);
+    a->nvect = 0;
 }
