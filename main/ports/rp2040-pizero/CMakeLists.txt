@@ -6,7 +6,7 @@
 #   cmake --build build/pico-robocop -j                   -> build/pico-robocop/robocop_pizero.uf2
 #
 # or ./build_pico.sh for all of them (-> dist/). GAME: indytemp, roadrunn,
-# gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql,
+# gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql,
 # spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2,
 # amiga, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe, exl100, exeltel (RP2350 only: their RAM, disks or
 # both are in the PSRAM).
@@ -50,7 +50,7 @@ endif()
 pico_sdk_init()
 
 if(NOT GAME)
-    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|apple2|apple2p|apple2e|apple2ee|apple2gs|macplus|macii|specnext|samcoupe|exl100|exeltel>")
+    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|starwars|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|apple2|apple2p|apple2e|apple2ee|apple2gs|macplus|macii|specnext|samcoupe|exl100|exeltel>")
 endif()
 # HDMI: PicoDVI on the RP2040; on the RP2350 rp2350/hdmi (pico_lib's DVI,
 # which also sends the sound to the TV, in data islands)
@@ -145,6 +145,12 @@ elseif(GAME STREQUAL "retofinv")
     set(DEFS)
     set(RAM_CODE z80.c.o rv_core.c.o rv_video.c.o m6805.c.o taito68705.c.o sn76489.c.o)
     set(BAND 8)                     # (its picture is drawn in strips of native columns)
+elseif(GAME STREQUAL "starwars")
+    # Star Wars and The Empire Strikes Back in one firmware (F4: the other game)
+    set(SRCS ${D}/starwars_pico.c ${D}/sw_core.c ${D}/rom_data.c ${M}/cpu/m6809dsp/m6809dsp.c ${M}/machine/mos6532.c
+             ${M}/machine/starwars_math.c ${M}/video/avg_starwars.c ${M}/sound/pokey.c ${M}/sound/tms5220.c)
+    set(DEFS)
+    set(RAM_CODE m6809dsp.c.o sw_core.c.o pokey.c.o avg_starwars.c.o starwars_math.c.o)
 elseif(GAME STREQUAL "robocop")
     set(SRCS ${D}/robocop_pico.c ${D}/rc_core.c ${D}/rc_video.c ${D}/rc_sound.c ${D}/rom_data.c ${M68K}
              ${M}/cpu/h6280/h6280.c ${M}/sound/ym2610.c ${M}/sound/okim6295.c

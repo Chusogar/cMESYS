@@ -5,16 +5,25 @@ package com.chusogar.cmesys.arcade;
  *  desktop frontend's B1..B3, labelled for the game) and how its joystick
  *  moves. */
 final class Game {
-    static final int JOY_8WAY = 0, JOY_2WAY = 1, JOY_NONE = 2;
+    static final int JOY_8WAY = 0, JOY_2WAY = 1, JOY_NONE = 2, JOY_YOKE = 3;
 
     final String id, title, maker;
+    final String lib;             // its library (libgame_<lib>.so)
+    final String[] args;          // what the library's main is run with
     final int year, joystick;
     final String[] buttons;       // labels, in the order shown
     final int[] buttonBits;       // Native.B1..B3 of each
     final int color;              // the list's colour for it
 
     private Game(String id, String title, String maker, int year, int joystick, String[] buttons, int[] bits, int color) {
+        this(id, id, new String[0], title, maker, year, joystick, buttons, bits, color);
+    }
+
+    private Game(String id, String lib, String[] args, String title, String maker, int year, int joystick,
+            String[] buttons, int[] bits, int color) {
         this.id = id;
+        this.lib = lib;
+        this.args = args;
         this.title = title;
         this.maker = maker;
         this.year = year;
@@ -27,6 +36,9 @@ final class Game {
     private static final int B1 = Native.B1, B2 = Native.B2, B3 = Native.B3;
 
     static final Game[] ALL = {
+        // one library for both (sw_core.c), the flight yoke of the cabinet
+        new Game("esb", "starwars", new String[] {"esb"}, "The Empire Strikes Back", "Atari", 1985, JOY_YOKE,
+                new String[] {"GATILLO", "PULGAR"}, new int[] {B1, B2}, 0xff3a5a9a),
         new Game("gauntlet", "Gauntlet", "Atari Games", 1985, JOY_8WAY,
                 new String[] {"FUEGO", "MAGIA"}, new int[] {B1, B2}, 0xff8a6a2a),
         new Game("indytemp", "Indiana Jones and the Temple of Doom", "Atari Games", 1985, JOY_8WAY,
@@ -48,6 +60,8 @@ final class Game {
         new Game("snowbros", "Snow Bros.", "Toaplan", 1990, JOY_8WAY,
                 new String[] {"NIEVE", "SALTO"}, new int[] {B1, B2}, 0xff2a8ac0),
         // the cabinet's RUN - JUMP - RUN (the desktop's C = run 1, Z = run 2, X = jump)
+        new Game("starwars", "starwars", new String[] {"starwars"}, "Star Wars", "Atari", 1983, JOY_YOKE,
+                new String[] {"GATILLO", "PULGAR"}, new int[] {B1, B2}, 0xffd4a020),
         new Game("trackfld", "Track & Field", "Konami", 1983, JOY_NONE,
                 new String[] {"CORRER", "SALTO", "CORRER"}, new int[] {B3, B2, B1}, 0xffc08a1a),
     };

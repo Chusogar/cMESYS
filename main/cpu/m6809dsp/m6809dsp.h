@@ -17,6 +17,7 @@ struct m6809d {
     uint8_t (*read)(void *user, uint16_t addr);           // required
     void (*write)(void *user, uint16_t addr, uint8_t v);  // required
     void (*cycles)(void *user, int n);                    // after every instruction (optional)
+    void (*dummy_read)(void *user, uint16_t addr);        // the ignored bus cycles (optional)
     void *user;
     uint8_t a, b, dp;
     uint16_t x, y, u, s;

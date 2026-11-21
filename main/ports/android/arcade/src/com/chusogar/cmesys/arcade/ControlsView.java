@@ -24,6 +24,12 @@ import java.util.List;
  *  right), the game's round buttons with their names, START, and a coin
  *  door whose slot takes a coin with an animation each time it is pressed.
  *
+ *  Star Wars and The Empire Strikes Back have the cabinet's flight yoke
+ *  instead: a handlebar with its two grips (triggers and thumb buttons
+ *  lit as the game's buttons are pressed) that rolls and tilts with the
+ *  finger, an analog control (0..255 each way) that springs back to the
+ *  centre when let go.
+ *
  *  Portrait: a control panel below the picture. Landscape: over the
  *  picture's sides (translucent). Several fingers at once; a finger can
  *  slide from button to button. */
@@ -32,6 +38,7 @@ final class ControlsView extends View {
         void onControls(int bits);       // Native.UP.. / B1.. / START1 held
         void onCoin();                   // a coin into the slot
         void onMenu();
+        void onYoke(boolean held, int x, int y);    // the yoke: 0..255 each way (0x80: centred)
     }
 
     private static final int[] BUTTON_COLORS = {0xffe8402e, 0xff2e7de8, 0xfff2c230, 0xff3cb85a};
@@ -56,6 +63,7 @@ final class ControlsView extends View {
     private int joyPointer = -1;
     private float knobX, knobY;          // offset of the knob from the centre
     private int joyBits;
+    private float yokeX, yokeY;          // the yoke: -1..1 each way (right, down)
     private final int[] buttonPointer = new int[16];   // button index under each pointer, -1 none
     private int startPointer = -1, coinPointer = -1, menuPointer = -1;
     private int sent = -1;
@@ -169,7 +177,8 @@ final class ControlsView extends View {
         if (game == null) return;
         int w = getWidth(), h = getHeight();
         if (panelTop >= 0) drawPanel(c, w, h);
-        if (game.joystick != Game.JOY_NONE) drawJoystick(c);
+        if (game.joystick == Game.JOY_YOKE) drawYoke(c);
+        else if (game.joystick != Game.JOY_NONE) drawJoystick(c);
         for (int i = 0; i < buttonsAt.size(); i++) drawButton(c, i);
         drawStart(c);
         drawCoinDoor(c);
@@ -241,6 +250,97 @@ final class ControlsView extends View {
         fill.setShader(null);
         fill.setColor(0xb0ffffff);
         c.drawOval(new RectF(kx - kr * 0.55f, ky - kr * 0.72f, kx - kr * 0.05f, ky - kr * 0.38f), fill);
+    }
+
+    /** The cabinet's yoke: its housing, the column and the handlebar with
+     *  the two grips, rolled by yokeX and tilted (forward: up and smaller)
+     *  by yokeY. */
+    private void drawYoke(Canvas c) {
+        float r = jr;
+        boolean trig = (sentBits() & game.buttonBits[0]) != 0;
+        boolean thumb = game.buttonBits.length > 1 && (sentBits() & game.buttonBits[1]) != 0;
+        // the housing: a dark plate with a slot the column moves in
+        RectF plate = new RectF(jx - r * 1.25f, jy - r * 0.55f, jx + r * 1.25f, jy + r * 0.95f);
+        fill.setColor(0x60000000);
+        c.drawRoundRect(new RectF(plate.left, plate.top + 4 * dp, plate.right, plate.bottom + 4 * dp), r * 0.3f, r * 0.3f, fill);
+        fill.setShader(new LinearGradient(0, plate.top, 0, plate.bottom, 0xff3a3d46, 0xff111216, Shader.TileMode.CLAMP));
+        c.drawRoundRect(plate, r * 0.3f, r * 0.3f, fill);
+        fill.setShader(null);
+        stroke.setColor(0xff5c606a);
+        stroke.setStrokeWidth(1.5f * dp);
+        c.drawRoundRect(plate, r * 0.3f, r * 0.3f, stroke);
+        fill.setColor(0xff08090b);
+        RectF slotR = new RectF(jx - r * 0.2f, jy - r * 0.42f, jx + r * 0.2f, jy + r * 0.82f);
+        c.drawRoundRect(slotR, r * 0.2f, r * 0.2f, fill);
+        // where it is (the column's foot in the slot)
+        float hx = jx, hy = jy + yokeY * r * 0.32f;
+        float sc = 1f - yokeY * 0.1f;                 // pulled back: nearer, bigger
+        // the column
+        stroke.setColor(0xff7d828c);
+        stroke.setStrokeCap(Paint.Cap.ROUND);
+        stroke.setStrokeWidth(r * 0.2f * sc);
+        c.drawLine(jx, jy + r * 0.62f, hx, hy, stroke);
+        stroke.setStrokeCap(Paint.Cap.BUTT);
+
+        c.save();
+        c.translate(hx, hy);
+        c.rotate(yokeX * 32f);
+        c.scale(sc, sc);
+        float w = r * 1.02f, t = r * 0.17f, gw = r * 0.27f, gh = r * 0.95f;
+        // the shadow
+        fill.setColor(0x70000000);
+        c.save();
+        c.translate(r * 0.05f, r * 0.08f);
+        handlebar(c, w, t, gw, gh, fill);
+        c.restore();
+        // the bar and the grips: black, with a sheen
+        fill.setShader(new LinearGradient(0, -gh, 0, t, 0xff5c6069, 0xff1c1d22, Shader.TileMode.CLAMP));
+        handlebar(c, w, t, gw, gh, fill);
+        fill.setShader(null);
+        stroke.setColor(0xff80848e);
+        stroke.setStrokeWidth(1.5f * dp / sc);
+        handlebar(c, w, t, gw, gh, stroke);
+        // the grips' ribs
+        stroke.setColor(0x50ffffff);
+        stroke.setStrokeWidth(Math.max(1, dp));
+        for (int side = -1; side <= 1; side += 2) {
+            float gx = side * w;
+            for (int i = 1; i <= 5; i++) {
+                float yy = -gh * 0.2f - i * gh * 0.11f;
+                c.drawLine(gx - gw * 0.36f, yy, gx + gw * 0.36f, yy, stroke);
+            }
+            // the trigger (on the grip's inner side) and the thumb button (on top)
+            fill.setColor(trig ? 0xffff5a3a : 0xffa8281c);
+            RectF tr = new RectF(gx - side * gw * 0.5f - (side > 0 ? gw * 0.22f : 0), -gh * 0.68f,
+                    gx - side * gw * 0.5f + (side < 0 ? gw * 0.22f : 0), -gh * 0.36f);
+            c.drawRoundRect(tr, gw * 0.11f, gw * 0.11f, fill);
+            fill.setShader(new RadialGradient(gx - gw * 0.1f, -gh - gw * 0.05f, gw * 0.45f,
+                    new int[] {thumb ? 0xffffd27a : 0xffff8a5a, thumb ? 0xffffa020 : 0xffd0401c},
+                    new float[] {0f, 1f}, Shader.TileMode.CLAMP));
+            c.drawCircle(gx, -gh + gw * 0.05f, gw * 0.3f, fill);
+            fill.setShader(null);
+        }
+        // the hub
+        fill.setShader(new RadialGradient(-t * 0.3f, -t * 0.3f, t * 1.4f,
+                new int[] {0xffb8bcc6, 0xff5c606a, 0xff2a2c33}, new float[] {0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
+        c.drawCircle(0, t * 0.5f, t * 0.95f, fill);
+        fill.setShader(null);
+        c.restore();
+    }
+
+    /** The handlebar (in its own coordinates: the hub at 0, 0), filled or outlined with p. */
+    private void handlebar(Canvas c, float w, float t, float gw, float gh, Paint p) {
+        // the bar, slightly bowed down in the middle
+        path.reset();
+        path.moveTo(-w, -t * 0.4f);
+        path.quadTo(0, t * 0.6f, w, -t * 0.4f);
+        path.lineTo(w, t * 0.6f);
+        path.quadTo(0, t * 1.7f, -w, t * 0.6f);
+        path.close();
+        c.drawPath(path, p);
+        // the grips, up from its ends
+        c.drawRoundRect(new RectF(-w - gw / 2, -gh, -w + gw / 2, t * 0.7f), gw / 2, gw / 2, p);
+        c.drawRoundRect(new RectF(w - gw / 2, -gh, w + gw / 2, t * 0.7f), gw / 2, gw / 2, p);
     }
 
     private void arrow(Canvas c, float x, float y, double a, float s) {
@@ -458,6 +558,13 @@ final class ControlsView extends View {
 
     private void moveKnob(float x, float y) {
         float dx = x - jx, dy = y - jy;
+        if (game.joystick == Game.JOY_YOKE) {
+            float span = jr * 0.8f;
+            yokeX = Math.max(-1f, Math.min(1f, dx / span));
+            yokeY = Math.max(-1f, Math.min(1f, dy / span));
+            sendYoke(true);
+            return;
+        }
         float d = (float) Math.sqrt(dx * dx + dy * dy);
         float max = jr * 0.58f;
         boolean two = game.joystick == Game.JOY_2WAY;
@@ -482,7 +589,16 @@ final class ControlsView extends View {
         joyBits = bits;
     }
 
+    private void sendYoke(boolean held) {
+        if (listener != null)
+            listener.onYoke(held, Math.round(127.5f + yokeX * 127.5f), Math.round(127.5f + yokeY * 127.5f));
+    }
+
     private void releaseJoystick() {
+        if (game.joystick == Game.JOY_YOKE && (joyPointer >= 0 || yokeX != 0 || yokeY != 0)) {
+            yokeX = yokeY = 0;
+            sendYoke(false);
+        }
         joyPointer = -1;
         knobX = knobY = 0;
         joyBits = 0;
@@ -518,6 +634,7 @@ final class ControlsView extends View {
         }
         if (joyPointer < 0 && inJoystickZone(x, y)) {
             joyPointer = id;
+            if (game.joystick == Game.JOY_YOKE && haptic) performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
             moveKnob(x, y);
         }
     }
@@ -541,6 +658,22 @@ final class ControlsView extends View {
         java.util.Arrays.fill(buttonPointer, -1);
         send();
         invalidate();
+    }
+
+    /** What the controls hold (for the yoke's lit buttons). */
+    private int sentBits() {
+        int bits = 0;
+        for (int p : buttonPointer) if (p >= 0 && p < game.buttonBits.length) bits |= game.buttonBits[p];
+        return bits | heldBits;
+    }
+
+    private int heldBits;                // the same from a keyboard / pad (GameActivity)
+
+    void setHeldBits(int bits) {
+        if (bits != heldBits) {
+            heldBits = bits;
+            if (game != null && game.joystick == Game.JOY_YOKE) invalidate();
+        }
     }
 
     private void send() {

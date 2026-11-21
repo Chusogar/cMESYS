@@ -5,10 +5,10 @@
 #                                    machine then reads them from storage at run time
 #                                    (roms/<set>/, roms/<set>.zip, the microSD; main/rom/romfs.h)
 # (A build can also leave the ROMs out without touching rom_data.c: ROMS=external.)
-#   tools/regen.sh indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | ql
+#   tools/regen.sh indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | starwars | ql
 #                  | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion | cpc6128 | c64 | lynx | msx1 | msx2 | amiga
 #                  | apple2 | apple2p | apple2e | apple2ee | apple2gs | macplus | macii | specnext | samcoupe | exl100 | exeltel
-# ROMs: roms/indytemp or roms/roadrunn + roms/atarisy1, roms/snowbros, roms/trackfld, roms/pbobble, roms/gauntlet, roms/outrun, roms/retofinv, roms/robocop, roms/polepos, roms/polepos2 (unzipped; Pole Position
+# ROMs: roms/indytemp or roms/roadrunn + roms/atarisy1, roms/snowbros, roms/trackfld, roms/pbobble, roms/gauntlet, roms/outrun, roms/retofinv, roms/robocop, roms/starwars + roms/esb, roms/polepos, roms/polepos2 (unzipped; Pole Position
 # also with the Namco 51xx-54xx MCU dumps),
 # roms/ql (the QL set unzipped + the .mdv cartridge to build in),
 # roms/<spectrum-model>/ exclusively (one directory and one rom_data_<model>.c per model),
@@ -68,6 +68,9 @@ outrun)
 pbobble)
     python3 tools/gen_roms_pbobble.py roms/pbobble $D/rom_data.c
     CYC=0 ;;
+starwars)
+    python3 tools/gen_roms_starwars.py roms/starwars roms/esb $D/rom_data.c
+    exit 0 ;;
 retofinv)
     python3 tools/gen_roms_retofinv.py roms/retofinv $D/rom_data.c
     exit 0 ;;
@@ -113,7 +116,7 @@ trackfld)
     cc -O2 -o $T/gen_roms tools/gen_roms_trackfld.c
     $T/gen_roms roms/trackfld $D/rom_data.c
     exit 0 ;;
-*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|apple2|apple2p|apple2e|apple2ee|apple2gs|macplus|macii|specnext|samcoupe|exl100|exeltel|coleco|pv2000|vectrex|scv|sega32x|gba|psx"; exit 1 ;;
+*)  echo "usage: $0 indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|starwars|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|apple2|apple2p|apple2e|apple2ee|apple2gs|macplus|macii|specnext|samcoupe|exl100|exeltel|coleco|pv2000|vectrex|scv|sega32x|gba|psx"; exit 1 ;;
 esac
 # Musashi opcode tables in flash, for this game's CPU type
 cc -O1 -w -I$D -I$M/cpu/m68k -DCYC_CPU=$CYC -o $T/gen_m68k tools/gen_m68k_tables.c $M/cpu/m68k/m68kcpu.c \

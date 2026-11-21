@@ -40,7 +40,8 @@ void sdl_port_close(void);
 bool sdl_port_poll(bool *reset);
 uint32_t sdl_port_keys(void);            // SP_* bits held
 bool sdl_port_paused(void);
-// Computer mode: SDL scancode held / next key pressed (-1: none) / title.
+// SDL scancode held (any mode), computer mode: next key pressed (-1: none);
+// the window's title.
 bool sdl_port_key(int scancode);
 int sdl_port_next_press(void);
 void sdl_port_set_title(const char *title);
@@ -65,6 +66,10 @@ bool sdl_port_turbo(void);
 void sdl_port_mouse_enable(bool on);
 uint32_t sdl_port_mouse(int *dx, int *dy);
 bool sdl_port_mouse_captured(void);
+
+// An analog control on the screen (Android: Star Wars' flight yoke) held:
+// true and its position, 0..255 each way (0x80 the centre; x 0 left, y 0 up).
+bool sdl_port_analog(int *x, int *y);
 
 // Tests: SDL_PORT_FRAMES=n quits after n frames (also ?frames=n in the URL).
 // SDL_PORT_SHOT is a no-op on the web (no local PPM).

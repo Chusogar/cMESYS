@@ -164,6 +164,7 @@ void pokey_init(pokey *p)
     memset(p, 0, sizeof *p);
     make_polys();
     p->fast_forward_on = true;
+    p->amplitude = 1.0f;
     pokey_reset(p);
 }
 
@@ -685,6 +686,7 @@ int32_t POKEY_HOT pokey_update(pokey *p)
     }
     int32_t out = 0;
     for (int i = 0; i < 4; ++i) out += (int32_t)((p->output >> (4 * i)) & 0x0f);
-    out *= DEFAULT_GAIN;
+    // (at amplitude 1 the float product is the integer itself)
+    out = p->amplitude == 1.0f ? out * DEFAULT_GAIN : (int32_t)((float)(out * DEFAULT_GAIN) * p->amplitude);
     return out < 0x7fff ? out : 0x7fff;
 }

@@ -21,6 +21,9 @@ POINTERS = {   # game: its ROM pointers (type, name)
     'retofinv': [('uint8_t', n) for n in ('rv_main_rom', 'rv_sub_rom', 'rv_sound_rom', 'rv_mcu_rom', 'rv_fg_rom')]
                 + [('uint32_t', 'rv_bg_gfx'), ('uint32_t', 'rv_spr_gfx'), ('uint8_t', 'rv_palette_prom'), ('uint8_t', 'rv_clut')],
     'snowbros': [('uint8_t', n) for n in ('sb_prog_rom', 'sb_snd_rom', 'sb_gfx_rom')],
+    'starwars': [('uint8_t', n) for n in ('sw_main_rom', 'sw_vec_rom', 'sw_snd_rom', 'sw_avg_prom', 'sw_math_prom',
+                                          'esb_main_rom', 'esb_slap_rom', 'esb_vec_rom', 'esb_snd_rom',
+                                          'esb_avg_prom', 'esb_math_prom')],
     'trackfld': [('uint8_t', n) for n in ('tf_main_rom', 'tf_audio_rom', 'tf_vlm_rom', 'tf_prom', 'tf_chr_pix', 'tf_spr_pix')],
     'pbobble': [('uint8_t', n) for n in ('pb_prog_rom', 'pb_snd_rom', 'pb_gfx_rom', 'pb_adpcma_rom')],
 }

@@ -22,6 +22,10 @@ final class Native {
     static native void requestReset();
     static native void requestQuit();
     static native void setTurbo(boolean on);
+    /** An analog control on the screen (Star Wars' yoke): held, and its position 0..255 each way. */
+    static native void setAnalog(boolean on, int x, int y);
+    /** The arguments the game's main is run with (before run). */
+    static native void setArgs(String[] args);
     /** The folders the ROMs not built into the game are looked for in (<set>/, <set>.zip). */
     static native void romDirs(String[] dirs);
 

@@ -1,0 +1,8 @@
+# Hot interpreter and vector code in IRAM (out of the flash cache; the POKEYs, batched, stay in flash)
+[mapping:starwars_hot]
+archive: libmain.a
+entries:
+    m6809dsp (noflash)
+    sw_core (noflash)
+    avg_starwars (noflash)
+    starwars_math (noflash)

@@ -4,8 +4,9 @@ static inline uint8_t read(m6809d *P, uint16_t a) { return P->read(P->user, a); 
 static inline void write(m6809d *P, uint16_t a, uint8_t v) { P->write(P->user, a, v); }
 static inline uint16_t d(m6809d *P) { return (uint16_t)((P->a << 8) | P->b); }
 static inline void set_d(m6809d *P, uint16_t v) { P->a = (uint8_t)(v >> 8); P->b = (uint8_t)v; }
-#define dummy_arg(P, n) ((void)0)
-#define dummy_vma(P, n) ((void)0)
+// The ignored bus cycles, for a watcher of the bus (an Atari slapstic)
+#define dummy_arg(P, n) do { if ((P)->dummy_read) (P)->dummy_read((P)->user, (uint16_t)((P)->pc_ + (n))); } while (0)
+#define dummy_vma(P, n) do { if ((P)->dummy_read) for (int dv_ = 0; dv_ < (n); dv_++) (P)->dummy_read((P)->user, 0xffff); } while (0)
 
 
 // Base cycle count of every opcode (estados_t in m6809.pas).

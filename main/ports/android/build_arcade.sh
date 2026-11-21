@@ -31,7 +31,7 @@ for tool in clang ld.lld aapt javac keytool zipalign apksigner python3; do
     command -v "$tool" >/dev/null || { echo "missing: $tool" >&2; exit 1; }
 done
 
-GAMES="${*:-gauntlet indytemp outrun pbobble polepos polepos2 retofinv roadrunn robocop snowbros trackfld}"
+GAMES="${*:-gauntlet indytemp outrun pbobble polepos polepos2 retofinv roadrunn robocop snowbros starwars trackfld}"
 RES_INC="$(clang -print-resource-dir)/include"
 JDK_INC="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")/include"
 M68K="$M/cpu/m68k/m68kcpu.c $M/cpu/m68k/m68kops.c $M/cpu/m68k/m68kopac.c $M/cpu/m68k/m68kopdm.c $M/cpu/m68k/m68kopnz.c"
@@ -78,6 +78,9 @@ sources() {
         robocop)
             echo "$D/robocop_sdl.c $D/rc_core.c $D/rc_video.c $D/rc_sound.c $D/rom_data.c $M68K $M/cpu/h6280/h6280.c
                   $M/sound/ym2610.c $M/sound/okim6295.c $M/sound/emu8950/emu8950.c $M/sound/emu8950/emuadpcm.c" ;;
+        starwars)   # (and ESB: the same library, run as "starwars esb")
+            echo "$D/starwars_sdl.c $D/sw_core.c $D/rom_data.c $M/cpu/m6809dsp/m6809dsp.c $M/machine/mos6532.c
+                  $M/machine/starwars_math.c $M/video/avg_starwars.c $M/sound/pokey.c $M/sound/tms5220.c" ;;
         polepos|polepos2)
             echo "$D/$1_sdl.c $A/polepos/pp_core.c $A/polepos/pp_video.c $D/rom_data.c $M/cpu/z80/z80.c
                   $M/cpu/z8002/z8002.c $M/cpu/z8002/z8002_tab.c $M/cpu/mb88xx/mb88xx.c $M/machine/namco5x.c

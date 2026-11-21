@@ -1,5 +1,5 @@
 # Sources of the selected game (GAME: indytemp, roadrunn, gauntlet, outrun, snowbros,
-# trackfld, pbobble, retofinv, robocop, polepos, polepos2) or computer (GAME: ql, apple2, apple2p, apple2e,
+# trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars) or computer (GAME: ql, apple2, apple2p, apple2e,
 # apple2ee, spectrum48, spectrum128,
 # plus3, pentagon, pentagon1024, scorpion — Spectrum family shares drivers/computers/zxspec
 # core; each model has its own rom_data_<GAME>.c from roms/<GAME>/).
@@ -71,6 +71,11 @@ elseif(GAME STREQUAL "pbobble")
 elseif(GAME STREQUAL "retofinv")
     set(SRCS ${D}/retofinv_cyd.c ${D}/rv_core.c ${D}/rv_video.c ${D}/rom_data.c cpu/z80/z80.c
              cpu/m6805/m6805.c machine/taito68705.c sound/sn76489.c)
+    set(DEFS)
+elseif(GAME STREQUAL "starwars")
+    # Star Wars and The Empire Strikes Back in one firmware (BOOT held: the other game)
+    set(SRCS ${D}/starwars_cyd.c ${D}/sw_core.c ${D}/rom_data.c cpu/m6809dsp/m6809dsp.c machine/mos6532.c
+             machine/starwars_math.c video/avg_starwars.c sound/pokey.c sound/tms5220.c)
     set(DEFS)
 elseif(GAME STREQUAL "robocop")
     set(SRCS ${D}/robocop_cyd.c ${D}/rc_core.c ${D}/rc_video.c ${D}/rc_sound.c ${D}/rom_data.c ${D}/m68k_tables.c ${M68K}
@@ -158,7 +163,7 @@ elseif(IS_ZXSPEC)
     set(LF_FILE ${D}/zxspec.lf)
     set(EXTRA_INCLUDES ${QL_DIR})
 else()
-    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, apple2, apple2p, apple2e, apple2ee or a console: ${CONSOLES})")
+    message(FATAL_ERROR "Unknown GAME '${GAME}' (indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, apple2, apple2p, apple2e, apple2ee or a console: ${CONSOLES})")
 endif()
 
 # The ROMs that rom_data.c does not have come from the microSD (roms/<set>/,

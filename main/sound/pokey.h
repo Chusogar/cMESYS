@@ -44,6 +44,7 @@ typedef struct pokey {
     uint32_t ticks, i4, i5, i9, i17, at4, at5, at9, at17;
     uint8_t potx[8];
     uint8_t audctl, allpot, kbcode, serin, irqst, irqen, skstat, skctl, pot_counter;
+    float amplitude;            // the output's scale (pokey_init: 1)
 } pokey;
 
 void pokey_init(pokey *p);
