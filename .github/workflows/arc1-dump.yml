@@ -1,0 +1,50 @@
+# Temporary: the first common arcades for web, CYD and VGA32 (no ROMs), printed
+# into the logs (base64 of a tar.xz).
+name: arc1-dump
+on:
+  push:
+    branches: [arc1-dump2]
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    container: emscripten/emsdk:3.1.74
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          for g in bombjack calorie mrdo centiped milliped arkanoid minivadr; do
+            make -C main/ports/web GAME=$g ROMS=external > /dev/null || exit 1
+          done
+          cp main/ports/web/index.html build/web-noroms/
+          ls -la build/web-noroms
+          tar -C build/web-noroms -cJf /tmp/out.tar.xz .
+          sha256sum /tmp/out.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/out.tar.xz | sed 's/^/B64:/'; echo "END-B64"
+  esp:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [cyd, vga32]
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          mkdir -p dist
+          if [ "${{ matrix.board }}" = vga32 ]; then
+            ROMS=external ./build_vga32.sh bombjack calorie mrdo centiped milliped arkanoid minivadr > /tmp/log.txt 2>&1 || { tail -60 /tmp/log.txt; exit 1; }
+          else
+            for g in centiped milliped minivadr; do
+              b=build/$g-noroms
+              idf.py -B $b -DGAME=$g -DROMS=external build > /tmp/log.txt 2>&1 || { tail -60 /tmp/log.txt; exit 1; }
+              (cd $b && esptool.py --chip esp32 merge_bin -o ../../dist/${g}_cyd_noroms_full.bin @flash_args)
+              cp $b/${g}_cyd.bin dist/${g}_cyd_noroms_app_0x10000.bin
+              rm -f sdkconfig
+            done
+          fi
+          ls -la dist
+          tar -C dist -cJf /tmp/out.tar.xz .
+          sha256sum /tmp/out.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/out.tar.xz | sed 's/^/B64:/'; echo "END-B64"
