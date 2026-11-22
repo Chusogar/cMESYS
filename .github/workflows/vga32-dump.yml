@@ -1,0 +1,36 @@
+# Temporary: the TTGO VGA32 builds (no ROMs) printed into the logs (base64).
+name: vga32-dump
+on:
+  push:
+    branches: [vga32-dump]
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    outputs:
+      games: ${{ steps.g.outputs.games }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: g
+        run: |
+          if [ -f dump-games.txt ]; then games=$(cat dump-games.txt); else
+          consoles=$(sed -n 's/^CONSOLES := //p' main/drivers/consoles/consoles.mk)
+          games="$(sed -n 's/^for g in \(.*\) \$CONSOLES; do$/\1/p' build_all.sh) $consoles"; fi
+          echo "games=$(printf '%s\n' $games | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+  vga32:
+    needs: list
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    strategy:
+      fail-fast: false
+      matrix:
+        game: ${{ fromJson(needs.list.outputs.games) }}
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          ROMS=external ./build_vga32.sh ${{ matrix.game }} > build.log 2>&1 || { grep -E "error|Error|overflow|undefined" build.log | head -40; tail -30 build.log; exit 1; }
+          rm -f dist/binaries_will_be_generated_here.txt
+          tar -C dist -cJf /tmp/out.tar.xz .
+          sha256sum /tmp/out.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/out.tar.xz | sed 's/^/B64:/'; echo "END-B64"
