@@ -1,0 +1,36 @@
+# Temporary: the fourth batch of common arcades for web and VGA32 (no ROMs),
+# printed into the logs (base64 of a tar.xz).
+name: arc4-dump
+on:
+  push:
+    branches: [arc4-dump]
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    container: emscripten/emsdk:3.1.74
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          for g in galaxian galaga pirates blockout bublbobl renegade; do
+            make -C main/ports/web GAME=$g ROMS=external > /tmp/log.txt 2>&1 || { tail -60 /tmp/log.txt; exit 1; }
+          done
+          cp main/ports/web/index.html build/web-noroms/
+          ls -la build/web-noroms
+          tar -C build/web-noroms -cJf /tmp/out.tar.xz .
+          sha256sum /tmp/out.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/out.tar.xz | sed 's/^/B64:/'; echo "END-B64"
+  vga32:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          mkdir -p dist
+          ROMS=external ./build_vga32.sh galaxian galaga blockout bublbobl renegade bionicc > /tmp/log.txt 2>&1 || { tail -80 /tmp/log.txt; exit 1; }
+          ls -la dist
+          tar -C dist -cJf /tmp/out.tar.xz .
+          sha256sum /tmp/out.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/out.tar.xz | sed 's/^/B64:/'; echo "END-B64"
