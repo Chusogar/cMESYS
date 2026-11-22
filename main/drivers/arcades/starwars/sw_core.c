@@ -18,6 +18,8 @@
 #define IRQS_PER_FRAME 6
 #define IRQ_CYCLES ((int)((double)CPU_CLOCK / ((double)CLOCK_3K / 12.0) + 0.5))
 #define SLICE 152
+#define YOKE_CENTRE 0xa8        // the yoke's pots (yoke_adc)
+#define YOKE_HALF 87
 
 typedef struct {
     int game;
@@ -581,8 +583,8 @@ void sw_reset(void)
     S->sound_latch = S->main_latch = 0;
     S->sound_pending = S->main_pending = false;
     mos6532_set_pa7(&S->riot, false);
-    S->analog_x = S->analog_y = 0x80;
-    S->adc_value = 0x80;
+    S->analog_x = S->analog_y = YOKE_CENTRE;
+    S->adc_value = YOKE_CENTRE;
     S->adc_channel = 0;
     S->prng = 1;
     S->audio_accumulator = S->pokey_sum = S->sub_accumulator = 0;
@@ -617,6 +619,17 @@ int sw_run_frame(int16_t *audio)
     return S->naudio;
 }
 
+// The yoke's pots: the games start with their range calibrated for the
+// cabinet's yoke, about $51..$FE with the centre at $A8 (they widen it, as
+// they are pushed past it, only while playing), so the yoke's 0..255 goes
+// into that range and its centre puts the crosshair in the centre from the
+// first frame (0x80 straight to the ADC left it low and to the left until the
+// yoke had been pushed to both ends).
+static uint8_t yoke_adc(uint8_t v)
+{
+    return (uint8_t)(YOKE_CENTRE + (((int)v - 0x80) * YOKE_HALF) / 0x80);
+}
+
 void sw_set_inputs(const sw_inputs *in)
 {
     S->in0 = 0xff;
@@ -627,8 +640,8 @@ void sw_set_inputs(const sw_inputs *in)
     if (in->fire1) S->in0 &= (uint8_t)~0x80;
     if (in->fire3) S->in1 &= (uint8_t)~0x10;
     if (in->start) S->in1 &= (uint8_t)~0x20;
-    S->analog_x = in->x;
-    S->analog_y = in->y;
+    S->analog_x = yoke_adc(in->x);
+    S->analog_y = yoke_adc((uint8_t)(255 - in->y));     // (the pot reads more as it goes up)
 }
 
 void sw_set_audio_rate(int rate)
