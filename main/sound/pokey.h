@@ -45,6 +45,12 @@ typedef struct pokey {
     uint8_t potx[8];
     uint8_t audctl, allpot, kbcode, serin, irqst, irqen, skstat, skctl, pot_counter;
     float amplitude;            // the output's scale (pokey_init: 1)
+    // Optional handlers (dsp-cpp's set_pot_handler / set_allpot_handler /
+    // serin): a pot's value at POTGO, ALLPOT and SERIN when read
+    uint8_t (*pot_read)(void *user, int pot);
+    uint8_t (*allpot_read)(void *user);
+    uint8_t (*serin_read)(void *user);
+    void *user;
 } pokey;
 
 void pokey_init(pokey *p);

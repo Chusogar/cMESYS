@@ -36,6 +36,21 @@ final class Game {
     private static final int B1 = Native.B1, B2 = Native.B2, B3 = Native.B3;
 
     static final Game[] ALL = {
+        // the arcades on the common frontend (main/drivers/arcades/arcades.mk)
+        new Game("arkanoid", "Arkanoid", "Taito", 1986, JOY_2WAY,
+                new String[] {"DISPARO"}, new int[] {B1}, 0xff3a4aa0),
+        new Game("bombjack", "Bomb Jack", "Tehkan", 1984, JOY_8WAY,
+                new String[] {"SALTO"}, new int[] {B1}, 0xffc04a3a),
+        new Game("calorie", "Calorie Kun vs Moguranian", "Sega", 1986, JOY_8WAY,
+                new String[] {"PUÑETAZO", "SALTO"}, new int[] {B1, B2}, 0xffd08a3a),
+        new Game("centiped", "Centipede", "Atari", 1980, JOY_8WAY,
+                new String[] {"DISPARO"}, new int[] {B1}, 0xff4aa04a),
+        new Game("milliped", "Millipede", "Atari", 1982, JOY_8WAY,
+                new String[] {"DISPARO"}, new int[] {B1}, 0xff8a4ac0),
+        new Game("minivadr", "Mini Vaders", "Taito", 1990, JOY_2WAY,
+                new String[] {"DISPARO"}, new int[] {B1}, 0xff5a5a5a),
+        new Game("mrdo", "Mr. Do!", "Universal", 1982, JOY_8WAY,
+                new String[] {"BOLA"}, new int[] {B1}, 0xffd03a5a),
         // one library for both (sw_core.c), the flight yoke of the cabinet
         new Game("esb", "starwars", new String[] {"esb"}, "The Empire Strikes Back", "Atari", 1985, JOY_YOKE,
                 new String[] {"GATILLO", "PULGAR"}, new int[] {B1, B2}, 0xff3a5a9a),
@@ -65,6 +80,12 @@ final class Game {
         new Game("trackfld", "Track & Field", "Konami", 1983, JOY_NONE,
                 new String[] {"CORRER", "SALTO", "CORRER"}, new int[] {B3, B2, B1}, 0xffc08a1a),
     };
+
+    static {   // the list by title
+        java.util.Arrays.sort(ALL, new java.util.Comparator<Game>() {
+            @Override public int compare(Game a, Game b) { return a.title.compareToIgnoreCase(b.title); }
+        });
+    }
 
     static Game find(String id) {
         for (Game g : ALL) if (g.id.equals(id)) return g;

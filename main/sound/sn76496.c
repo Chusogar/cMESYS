@@ -122,9 +122,16 @@ int32_t sn76496_update(sn76496 *s)
         if (s->output[3]) vol[3] -= s->count[3];
         left -= next_event;
     } while (left != 0);
-    float out = (float)vol[0] * s->volume[0] + (float)vol[1] * s->volume[1] + (float)vol[2] * s->volume[2] +
-                (float)vol[3] * s->volume[3];
-    const float limit = (float)MAX_OUTPUT * STEP;
+    // dsp-cpp mixes in double; the boards without a double FPU in float (a
+    // sample now and then one step away)
+#if defined(ESP_PLATFORM) || defined(PICO_ON_DEVICE)
+    typedef float mix_t;
+#else
+    typedef double mix_t;
+#endif
+    mix_t out = (mix_t)vol[0] * s->volume[0] + (mix_t)vol[1] * s->volume[1] + (mix_t)vol[2] * s->volume[2] +
+                (mix_t)vol[3] * s->volume[3];
+    const mix_t limit = (mix_t)MAX_OUTPUT * STEP;
     if (out > limit) out = limit;
     if (out < -limit) out = -limit;
     return (int32_t)((out / STEP) * s->amplitude);
