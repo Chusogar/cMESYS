@@ -50,8 +50,12 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Millipede (Atari, 1982) | `milliped` | 6502 | 2 x POKEY | el mismo núcleo que Centipede |
 | Arkanoid (Taito, 1986) | `arkanoid` | Z80 + 68705 | YM2149 | dsp-cpp `arkanoid.cpp` (con su 68705 y su 6805: `taito68705dsp`, `cpu/m6805dsp`) |
 | Mini Vaders (Taito, 1990) | `minivadr` | Z80 | — | según MAME `minivadr.cpp` (el de dsp-cpp está sin terminar) |
+| Commando (Capcom, 1985) | `commando` | Z80 (opcodes cifrados) + Z80 | 2 x YM2203 | dsp-cpp `commando.cpp` (su YM2203: `sound/ym2203dsp`) |
+| Ghosts'n Goblins (Capcom, 1985) | `gng` | 6809 + Z80 | 2 x YM2203 | dsp-cpp `gng.cpp` |
+| Black Tiger (Capcom, 1987) | `blktiger` | Z80 + Z80 + i8751 | 2 x YM2203 | dsp-cpp `blktiger.cpp` (su 8051: `cpu/mcs51dsp`) |
+| Bionic Commando (Capcom, 1987) | `bionicc` | 68000 + Z80 + i8751 | YM2151 | dsp-cpp `bionicc.cpp` (el 68000 con Musashi) |
 
-Las siete últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
+Las once últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
 ### Ordenadores (`main/drivers/computers/`)
 
@@ -507,7 +511,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |

@@ -187,7 +187,7 @@ public final class GameActivity extends Activity implements ControlsView.Listene
         int h = root.getHeight() - root.getPaddingBottom();
         if (w <= 0 || h <= 0) return;
         boolean portrait = h > w;
-        boolean vertical = java.util.Arrays.asList("retofinv", "bombjack", "mrdo", "centiped", "milliped", "arkanoid")
+        boolean vertical = java.util.Arrays.asList("retofinv", "bombjack", "mrdo", "centiped", "milliped", "arkanoid", "commando")
                 .contains(game.id);
         int pw = vertical ? 3 : 4, ph = vertical ? 4 : 3;
         int picH = ArcadeScreen.pictureHeight(w, pw, ph);

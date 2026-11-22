@@ -133,7 +133,7 @@ for game in $GAMES; do
                 clang --target=$triple -O2 -fPIC -ffreestanding -nostdinc -fno-stack-protector \
                     -ffunction-sections -fdata-sections -fvisibility=hidden $(defines "$game") $ROMDEF \
                     -Dmain=cmesys_game_main -isystem "$RES_INC" -isystem "$HERE/jni/libc" \
-                    -isystem "$JDK_INC" -isystem "$JDK_INC/linux" -I"$A/$game" -I"$A/atarisy1" -I"$A/polepos" \
+                    -isystem "$JDK_INC" -isystem "$JDK_INC/linux" -I"$A/$game" -I"$A/common" -I"$A/atarisy1" -I"$A/polepos" \
                     -I"$M/ports/sdl2" -I"$M/cpu" -I"$M/cpu/m68k" -I"$M/cpu/m6502" -I"$M/cpu/mc6809" -I"$M/cpu/mcs48" \
                     -I"$M/cpu/z80" -I"$M/sound" -I"$M/machine" -I"$M/video" -w -c "$f" -o "$o"
             fi
