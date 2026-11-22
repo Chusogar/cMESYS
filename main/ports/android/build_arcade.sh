@@ -31,7 +31,11 @@ for tool in clang ld.lld aapt javac keytool zipalign apksigner python3; do
     command -v "$tool" >/dev/null || { echo "missing: $tool" >&2; exit 1; }
 done
 
-GAMES="${*:-gauntlet indytemp outrun pbobble polepos polepos2 retofinv roadrunn robocop snowbros starwars trackfld}"
+# (and the arcades on the common frontend, main/drivers/arcades/arcades.mk)
+ARCADES="$(sed -n 's/^ARCADES := //p' "$M/drivers/arcades/arcades.mk")"
+GAMES="${*:-gauntlet indytemp outrun pbobble polepos polepos2 retofinv roadrunn robocop snowbros starwars trackfld $ARCADES}"
+is_arc() { case " $ARCADES " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+arc_line() { sed -n "s/^$1 := //p" "$M/drivers/arcades/arcades.mk"; }
 RES_INC="$(clang -print-resource-dir)/include"
 JDK_INC="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")/include"
 M68K="$M/cpu/m68k/m68kcpu.c $M/cpu/m68k/m68kops.c $M/cpu/m68k/m68kopac.c $M/cpu/m68k/m68kopdm.c $M/cpu/m68k/m68kopnz.c"
@@ -85,7 +89,13 @@ sources() {
             echo "$D/$1_sdl.c $A/polepos/pp_core.c $A/polepos/pp_video.c $D/rom_data.c $M/cpu/z80/z80.c
                   $M/cpu/z8002/z8002.c $M/cpu/z8002/z8002_tab.c $M/cpu/mb88xx/mb88xx.c $M/machine/namco5x.c
                   $M/sound/polepos_snd.c" ;;
-        *) echo "unknown game: $1" >&2; exit 1 ;;
+        *)
+            if is_arc "$1"; then
+                echo "$A/common/arc_sdl.c"
+                for v in $(arc_line ARC_COMMON) $(arc_line "ARC_SRC_$1"); do echo "$M/$v"; done
+            else
+                echo "unknown game: $1" >&2; exit 1
+            fi ;;
     esac
 }
 
@@ -93,14 +103,14 @@ defines() {
     case $1 in
         indytemp|roadrunn) echo "-DAS1_HOOK_PC" ;;
         trackfld) echo "-DMC6809_NO_SETJMP" ;;
-        *) echo "" ;;
+        *) if is_arc "$1"; then for d in $(arc_line "ARC_DEFS_$1"); do echo "-D$d"; done; fi ;;
     esac
 }
 
 # --- 1. one library per game --------------------------------------------------------
 for game in $GAMES; do
     # (a rom_data.c without ROMs, or ROMS=external: the app finds them in its roms folder)
-    if [ "${ROMS:-}" != external ] && [ "$(stat -c %s "$A/$game/rom_data.c")" -lt 4096 ]; then
+    if [ "${ROMS:-}" != external ] && [ -f "$A/$game/rom_data.c" ] && [ "$(stat -c %s "$A/$game/rom_data.c")" -lt 4096 ]; then
         echo "$game: rom_data.c has no ROMs: the app will look for them in its roms folder" >&2
     fi
     ROMDEF=""
@@ -113,7 +123,8 @@ for game in $GAMES; do
         obj="$OUT/obj${ROMDEF:+-noroms}/$game/$abi"
         mkdir -p "$obj" "$OUT/lib/$abi"
         objs=""
-        srcs="$(echo $(sources "$game") $A/$game/rom_load.c $M/rom/romfs.c $M/machine/zx_inflate.c | tr ' ' '\n' | awk 'NF && !seen[$0]++')"
+        rl="$A/$game/rom_load.c"; [ -f "$rl" ] || rl=""
+        srcs="$(echo $(sources "$game") $rl $M/rom/romfs.c $M/machine/zx_inflate.c | tr ' ' '\n' | awk 'NF && !seen[$0]++')"
         for f in "$HERE/jni/arcades/arcade_port.c" "$HERE/jni/libc_extra.c" $srcs; do
             o="$obj/$(basename "$f" .c).o"
             # (the ROMs' object is kept between builds: it is the slow one)

@@ -23,6 +23,7 @@ EXELV_GAMES := exl100 exeltel
 EXELV_MODEL_exl100 := 0
 EXELV_MODEL_exeltel := 1
 include $(M)/drivers/consoles/consoles.mk
+include $(M)/drivers/arcades/arcades.mk
 ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
@@ -43,6 +44,8 @@ else ifneq ($(filter $(GAME),apple2gs macplus macii specnext samcoupe),)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),$(CONSOLES)),)
   D     := $(M)/drivers/consoles/$(GAME)
+else ifneq ($(filter $(GAME),$(ARCADES)),)
+  D     := $(M)/drivers/arcades/common
 else
   D     := $(M)/drivers/arcades/$(GAME)
 endif
@@ -193,6 +196,10 @@ else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2 amiga atarist $(A2_GAMES
   LDFLAGS += -sFORCE_FILESYSTEM=1 \
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
+else ifneq ($(filter $(GAME),$(ARCADES)),)
+  # the arcades on the common frontend (drivers/arcades/arcades.mk)
+  SRC  := $(D)/arc_sdl.c $(addprefix $(M)/,$(ARC_COMMON) $(ARC_SRC_$(GAME)))
+  DEFS := $(addprefix -D,$(ARC_DEFS_$(GAME)))
 else ifneq ($(filter $(GAME),$(CONSOLES)),)
   # the consoles' common frontend (common/cons_sdl.c, its upload bar as the computers')
   SRC  := $(M)/drivers/consoles/common/cons_sdl.c $(addprefix $(M)/,$(CONS_COMMON) $(CONS_SRC_$(GAME)))
@@ -201,7 +208,7 @@ else ifneq ($(filter $(GAME),$(CONSOLES)),)
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, atarist, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe, exl100, exeltel or a console: $(CONSOLES))
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, atarist, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe, exl100, exeltel, an arcade of arcades.mk ($(ARCADES)) or a console: $(CONSOLES))
 endif
 
 # The ROMs that rom_data.c does not have: from the page's server
@@ -222,7 +229,7 @@ endif
 PORTSRC := $(M)/ports/web/sdl_port.c
 GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 starwars ql \
            spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga atarist \
-           apple2 apple2p apple2e apple2ee apple2gs macplus macii specnext samcoupe exl100 exeltel $(CONSOLES)
+           apple2 apple2p apple2e apple2ee apple2gs macplus macii specnext samcoupe exl100 exeltel $(ARCADES) $(CONSOLES)
 
 $(OUT)/$(GAME).html: $(SRC) $(PORTSRC) $(wildcard $(PP)/*.inc) $(M)/ports/web/shell.html $(M)/ports/web/Makefile
 	@mkdir -p $(OUT)

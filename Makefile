@@ -5,6 +5,7 @@
 #                             | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion
 #                             | cpc6128 | c64 | lynx | msx1 | msx2 | amiga | atarist
 #                             | apple2 | apple2p | apple2e | apple2ee | apple2gs | macplus | macii | specnext | samcoupe | exl100 | exeltel
+#                             | an arcade of main/drivers/arcades/arcades.mk (bombjack, mrdo, ...)
 #                             | a console of main/drivers/consoles/consoles.mk)  -> build/sdl/<game>
 #                             (ql / spectrum*: computers in main/drivers/computers/)
 #   make TARGET=windows ...   same, but MinGW -> build/win/<game>.exe  (see ./build_windows.sh)
@@ -30,6 +31,7 @@ EXELV_GAMES := exl100 exeltel
 EXELV_MODEL_exl100 := 0
 EXELV_MODEL_exeltel := 1
 include $(M)/drivers/consoles/consoles.mk
+include $(M)/drivers/arcades/arcades.mk
 ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
 else ifeq ($(GAME),cpc6128)
@@ -237,12 +239,17 @@ else ifeq ($(GAME),pentagon1024)
 else ifeq ($(GAME),scorpion)
   SRC  := $(ZX_SRC)
   DEFS := -DZX_MODEL=ZX_SCORPION
+else ifneq ($(filter $(GAME),$(ARCADES)),)
+  # the arcades on the common frontend (drivers/arcades/arcades.mk)
+  D    := $(M)/drivers/arcades/common
+  SRC  := $(D)/arc_sdl.c $(addprefix $(M)/,$(ARC_COMMON) $(ARC_SRC_$(GAME)))
+  DEFS := $(addprefix -D,$(ARC_DEFS_$(GAME)))
 else ifneq ($(filter $(GAME),$(CONSOLES)),)
   D    := $(M)/drivers/consoles/$(GAME)
   SRC  := $(M)/drivers/consoles/common/cons_sdl.c $(addprefix $(M)/,$(CONS_COMMON) $(CONS_SRC_$(GAME)))
   DEFS := $(addprefix -D,$(CONS_DEFS_$(GAME)))
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, atarist or a console: $(CONSOLES))
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, atarist, an arcade of arcades.mk ($(ARCADES)) or a console: $(CONSOLES))
 endif
 
 # The ROMs that rom_data.c does not have come from storage (main/rom/romfs.c
@@ -315,6 +322,7 @@ all:
 	$(MAKE) GAME=msx2 TARGET=$(TARGET) ROMS=$(ROMS)
 	$(MAKE) GAME=amiga TARGET=$(TARGET) ROMS=$(ROMS)
 	$(MAKE) GAME=atarist TARGET=$(TARGET) ROMS=$(ROMS)
+	for a in $(ARCADES); do $(MAKE) GAME=$$a TARGET=$(TARGET) ROMS=$(ROMS) || exit 1; done
 	for c in $(CONSOLES); do $(MAKE) GAME=$$c TARGET=$(TARGET) ROMS=$(ROMS) || exit 1; done
 
 clean:

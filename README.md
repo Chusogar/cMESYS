@@ -43,6 +43,15 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Pole Position II (Namco, 1983) | `polepos2` | igual | igual | el mismo núcleo que `polepos` |
 | RoboCop (Data East, 1988) | `robocop` | 68000 + HuC6280 + 6502 | YM2203, YM3812, OKI M6295 | dsp-cpp `dec0.cpp` + MAME |
 | Puzzle Bobble (Taito B System, 1994) | `pbobble` | 68000 + Z80 | YM2610B | nuevo, según MAME `taito_b.cpp` |
+| Bomb Jack (Tehkan, 1984) | `bombjack` | 2 x Z80 | 3 x AY-3-8910 | dsp-cpp `bombjack.cpp` → `bombjack/bombjack.c` |
+| Calorie Kun vs Moguranian (Sega, 1986) | `calorie` | 2 x Z80 (Sega 317-000x) | 3 x AY-3-8910 | el mismo núcleo que Bomb Jack |
+| Mr. Do! (Universal, 1982) | `mrdo` | Z80 | 2 x SN76496 | dsp-cpp `mrdo.cpp` |
+| Centipede (Atari, 1980) | `centiped` | 6502 | POKEY | dsp-cpp `centipede.cpp` |
+| Millipede (Atari, 1982) | `milliped` | 6502 | 2 x POKEY | el mismo núcleo que Centipede |
+| Arkanoid (Taito, 1986) | `arkanoid` | Z80 + 68705 | YM2149 | dsp-cpp `arkanoid.cpp` (con su 68705 y su 6805: `taito68705dsp`, `cpu/m6805dsp`) |
+| Mini Vaders (Taito, 1990) | `minivadr` | Z80 | — | según MAME `minivadr.cpp` (el de dsp-cpp está sin terminar) |
+
+Las siete últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
 ### Ordenadores (`main/drivers/computers/`)
 
@@ -103,7 +112,8 @@ Las 19 primeras usan la API común de consolas (`common/cons.h`). La Lynx es un 
 
 | | Escritorio / Windows | Web | Android | CYD | RP2040 | RP2350 |
 |---|---|---|---|---|---|---|
-| Recreativas | todas | todas | todas, en una app | todas | todas | todas |
+| Recreativas (las doce primeras) | todas | todas | todas, en una app | todas | todas | todas |
+| Recreativas de la base común (`arcades.mk`) | todas | todas | en la misma app | Centipede, Millipede, Mini Vaders (todas en la VGA32) | — | todas |
 | QL y Spectrum | sí | sí | sí | sí | sí | sí |
 | CPC, C64, MSX, MSX2 | sí | sí | sí | sí | — | sí |
 | Amiga 500 | sí | sí | sí | — (necesita 1 MB de RAM) | — | sí, con PSRAM |
@@ -497,6 +507,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |
@@ -553,6 +564,12 @@ Dos 68000 con un solo Musashi, por turnos en tramos de 4 líneas, Z80 con YM2151
 ### Return of the Invaders
 
 Tres Z80, un MC68705P5 (`machine/taito68705` con `cpu/m6805`), dos SN76489A, imagen ROT90 de 288x224. Imagen idéntica a MAME.
+
+### Bomb Jack, Mr. Do!, Centipede, Arkanoid y Mini Vaders
+
+Migrados de dsp-cpp sobre los mismos núcleos de CPU y sonido que usa dsp-cpp (`cpu/z80dsp`, `cpu/m6502/m65xx`, `cpu/m6805dsp`, `sound/ay8910`, `sound/sn76496`, `sound/pokey`). Imagen y sonido idénticos a dsp-cpp fotograma a fotograma, con la misma secuencia de entradas (1200-2300 fotogramas por juego, comparando el CRC de cada imagen y las muestras de audio). La imagen se compone directamente en la del mueble (girada si el monitor es vertical), sin las superficies de 256x256 de dsp-cpp, para que quepan en las placas. En el CYD (sin PSRAM) solo caben Centipede, Millipede y Mini Vaders; en la VGA32, la RP2350 y el resto, todas.
+
+El SN76496 mezcla ahora en `double`, como dsp-cpp, salvo en las placas sin FPU de doble precisión.
 
 ### Pole Position y Pole Position II
 

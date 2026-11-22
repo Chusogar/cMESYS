@@ -1,0 +1,6 @@
+# The arcades of arcades.mk on the CYD / VGA32: the CPU cores stay in flash
+# (a game with its own <id>.lf in its directory uses that one).
+[mapping:arc_hot]
+archive: libmain.a
+entries:
+    arc_util (noflash)

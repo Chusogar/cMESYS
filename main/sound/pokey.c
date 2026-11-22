@@ -225,13 +225,16 @@ uint8_t pokey_read(pokey *p, uint16_t offset)
         break;
     }
     case ALLPOT:
-        data = ((p->skctl & SK_RESET) == 0) ? 0 : (uint8_t)(p->allpot ^ 0xff);
+        data = ((p->skctl & SK_RESET) == 0) ? 0 : p->allpot_read ? p->allpot_read(p->user) : (uint8_t)(p->allpot ^ 0xff);
         break;
     case KBCODE: data = p->kbcode; break;
     case RANDOM:
         data = (p->audctl & POLY9) ? (uint8_t)(poly9(p) & 0xff) : (uint8_t)poly17_byte(p);
         break;
-    case SERIN: data = p->serin; break;
+    case SERIN:
+        if (p->serin_read) p->serin = p->serin_read(p->user);
+        data = p->serin;
+        break;
     case IRQST: data = (uint8_t)(p->irqst ^ 0xff); break;
     case SKSTAT: data = (uint8_t)(p->skstat ^ 0xff); break;
     default: break;
@@ -243,7 +246,14 @@ static void potgo(pokey *p)
 {
     p->allpot = 0;
     p->pot_counter = 0;
-    for (int pot = 0; pot < 8; ++pot) p->potx[pot] = 228;  // no pots wired
+    for (int pot = 0; pot < 8; ++pot) {
+        p->potx[pot] = 228;                                 // no pot wired
+        if (!p->pot_read) continue;
+        uint8_t r = p->pot_read(p->user, pot);
+        if (r >= 228) r = 228;
+        if (r == 0) p->allpot |= (uint8_t)(1 << pot);       // no capacitor: at once
+        p->potx[pot] = r;
+    }
 }
 
 static uint32_t compute_output(const pokey *p)

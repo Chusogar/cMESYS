@@ -19,7 +19,8 @@ set -e
 cd "$(dirname "$0")"
 
 CONSOLES=$(sed -n 's/^CONSOLES := //p' main/drivers/consoles/consoles.mk)
-GAMES=${*:-"indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 starwars ql spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga atarist apple2 apple2p apple2e apple2ee apple2gs macplus macii specnext samcoupe exl100 exeltel $CONSOLES"}
+ARCADES=$(sed -n 's/^ARCADES := //p' main/drivers/arcades/arcades.mk)
+GAMES=${*:-"indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 starwars ql spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga atarist apple2 apple2p apple2e apple2ee apple2gs macplus macii specnext samcoupe exl100 exeltel $ARCADES $CONSOLES"}
 
 # Prefer an already-MinGW gcc (MSYS2), else the Linux/macOS cross compiler.
 if [ -z "$CC" ]; then
