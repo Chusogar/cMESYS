@@ -14,7 +14,9 @@ if [ "$ROMS" = external ]; then X=-noroms; XS=_noroms; else X=; XS=; fi
 mkdir -p dist
 CONSOLES=$(sed -n 's/^CONSOLES := //p' main/drivers/consoles/consoles.mk)
 ALL=$(sed -n 's/^for g in \(.*\) \$CONSOLES; do$/\1/p' build_all.sh)
-for g in ${*:-$ALL $CONSOLES}; do
+# (the VGA32's PSRAM takes every arcade of arcades.mk, not only those that fit the CYD)
+ARCADES=$(sed -n 's/^ARCADES := //p' main/drivers/arcades/arcades.mk)
+for g in ${*:-$ALL $(echo " $ARCADES " | tr ' ' '\n' | grep -vxF -e centiped -e milliped -e minivadr | tr '\n' ' ') $CONSOLES}; do
     b=build/vga32-$g$X
     idf.py -B $b -DBOARD=vga32 -DGAME=$g -DROMS=${ROMS:-builtin} build
     (cd $b && esptool.py --chip esp32 merge_bin -o ../../dist/${g}_vga32${XS}_full.bin @flash_args)
