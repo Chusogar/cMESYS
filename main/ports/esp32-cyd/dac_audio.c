@@ -15,6 +15,10 @@
 #include "esp_log.h"
 #include "esp_attr.h"
 
+#ifndef DAC_AUDIO_CHAN_MASK
+#define DAC_AUDIO_CHAN_MASK DAC_CHANNEL_MASK_CH1   // GPIO26 (the TTGO VGA32: CH0, GPIO25)
+#endif
+
 #define RING        2048            // samples, power of two
 #define DMA_BUF     1024            // bytes per DMA buffer (= 512 samples, 16-bit slots)
 #define DMA_DESC    4
@@ -53,7 +57,7 @@ bool dac_audio_start(uint32_t rate)
     rate_hz = rate;
     space = xSemaphoreCreateBinary();
     dac_continuous_config_t cfg = {
-        .chan_mask = DAC_CHANNEL_MASK_CH1,      // GPIO26 -> speaker amplifier
+        .chan_mask = DAC_AUDIO_CHAN_MASK,       // CYD: GPIO26 -> speaker amplifier
         .desc_num = DMA_DESC,
         .buf_size = DMA_BUF,
         .freq_hz = rate,

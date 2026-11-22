@@ -1,0 +1,9 @@
+# LilyGO TTGO VGA32 v1.4 (ESP32-WROVER-B): on top of sdkconfig.defaults
+# (idf.py -DBOARD=vga32). The 4 MB of PSRAM take the large allocations (the
+# machines' RAM, ROMs read from the microSD); the internal RAM keeps the
+# VGA framebuffer (DMA), the stacks and what the code asks for there.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
+CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=32768
+CONFIG_SPIRAM_IGNORE_NOTFOUND=y

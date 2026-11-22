@@ -14,10 +14,12 @@
 #include "driver/gpio.h"
 
 // CYD onboard microSD (VSPI), separate from the TFT SPI bus.
+#ifndef PIN_SD_CS          // (the CYD's; the TTGO VGA32 sets its own)
 #define PIN_SD_CS   5
 #define PIN_SD_SCK  18
 #define PIN_SD_MOSI 23
 #define PIN_SD_MISO 19
+#endif
 #define SD_MOUNT    "/sd"
 
 static const char *TAG = "ql_sd";
