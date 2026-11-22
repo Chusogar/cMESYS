@@ -7,7 +7,10 @@
 # game of a core with several). ARC_RAM_<id>: the objects the RP2040 / RP2350
 # run from RAM (each line written out: CMake reads them as they are). Their ROMs come from storage (romfs: roms/<set>/ or MAME's
 # <set>.zip), not built in.
-ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie
+# ARC_BIG: those that need more than the 4-8 MB of the VGA32 / RP2350 (desktop,
+# web and Android only)
+ARC_BIG := pirates
+ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
 ARC_SRC_calorie := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -28,7 +31,15 @@ ARC_SRC_blueprnt := drivers/arcades/blueprnt/blueprnt.c cpu/z80dsp/z80dsp.c soun
 ARC_SRC_btime := drivers/arcades/btime/btime.c cpu/m6502/m65xx.c sound/ay8910.c
 ARC_SRC_shaolins := drivers/arcades/shaolins/shaolins.c cpu/m6809dsp/m6809dsp.c sound/sn76496.c
 ARC_SRC_mikie := drivers/arcades/mikie/mikie.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/sn76496.c
-ARC_SRC_bionicc := drivers/arcades/bionicc/bionicc.c drivers/arcades/bionicc/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c sound/ym2151.c
+ARC_SRC_galaxian := drivers/arcades/galaxian/galaxian.c cpu/z80dsp/z80dsp.c
+ARC_SRC_galaga := drivers/arcades/galaga/galaga.c cpu/z80dsp/z80dsp.c
+ARC_SRC_pirates := drivers/arcades/pirates/pirates.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c machine/eeprom93c46.c sound/okim6295dsp.c
+ARC_DEFS_pirates := M68K_FLASH_TABLES
+ARC_SRC_blockout := drivers/arcades/blockout/blockout.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c sound/ym2151.c sound/okim6295dsp.c
+ARC_DEFS_blockout := M68K_FLASH_TABLES
+ARC_SRC_bublbobl := drivers/arcades/bublbobl/bublbobl.c cpu/z80dsp/z80dsp.c cpu/hd63701dsp/hd63701dsp.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/ym3812dsp.c
+ARC_SRC_renegade := drivers/arcades/renegade/renegade.c cpu/m6502/m65xx.c cpu/m6809dsp/m6809dsp.c cpu/m6805dsp/m6805dsp.c machine/taito68705dsp.c sound/ym3812dsp.c
+ARC_SRC_bionicc := drivers/arcades/bionicc/bionicc.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c sound/ym2151.c
 ARC_DEFS_bionicc := M68K_FLASH_TABLES
 ARC_RAM_bombjack := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_calorie := z80dsp.c.o bombjack.c.o ay8910.c.o
@@ -48,3 +59,9 @@ ARC_RAM_blueprnt := z80dsp.c.o blueprnt.c.o ay8910.c.o
 ARC_RAM_btime := m65xx.c.o btime.c.o ay8910.c.o
 ARC_RAM_shaolins := m6809dsp.c.o shaolins.c.o sn76496.c.o
 ARC_RAM_mikie := m6809dsp.c.o z80dsp.c.o mikie.c.o sn76496.c.o
+ARC_RAM_galaxian := z80dsp.c.o galaxian.c.o
+ARC_RAM_galaga := z80dsp.c.o galaga.c.o
+ARC_RAM_pirates := m68kcpu.c.o pirates.c.o okim6295dsp.c.o
+ARC_RAM_blockout := m68kcpu.c.o z80dsp.c.o blockout.c.o ym2151.c.o okim6295dsp.c.o
+ARC_RAM_bublbobl := z80dsp.c.o hd63701dsp.c.o bublbobl.c.o ym2203dsp.c.o fmopn.c.o ay8910.c.o ym3812dsp.c.o
+ARC_RAM_renegade := m65xx.c.o m6809dsp.c.o m6805dsp.c.o taito68705dsp.c.o renegade.c.o ym3812dsp.c.o
