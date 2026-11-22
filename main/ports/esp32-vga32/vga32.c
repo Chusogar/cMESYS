@@ -20,6 +20,7 @@
 #include "cyd.h"
 #include "vga.h"
 #include "ps2.h"
+#include "nunchuk.h"
 #include "../esp32-cyd/font5x7.h"
 #include "../../rom/romfs.h"
 
