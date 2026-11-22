@@ -1,7 +1,7 @@
-# The CYD (ESP-IDF 5.3) and web (Emscripten) builds of every driver, with no
+# The CYD and TTGO VGA32 (ESP-IDF 5.3) and web (Emscripten) builds of every driver, with no
 # ROMs built in (they are read from the microSD / from the page's server).
 # Runs on a push to the ci-builds branch or by hand; the binaries are the
-# run's artifacts (cyd-<game>, web).
+# run's artifacts (cyd-<game>, vga32-<game>, web).
 name: builds
 
 on:
@@ -48,6 +48,26 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: cyd-${{ matrix.game }}
+          path: dist/*.bin
+
+  vga32:
+    needs: list
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    strategy:
+      fail-fast: false
+      matrix:
+        game: ${{ fromJson(needs.list.outputs.cyd) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: build ${{ matrix.game }} for the TTGO VGA32
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          ROMS=external ./build_vga32.sh ${{ matrix.game }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vga32-${{ matrix.game }}
           path: dist/*.bin
 
   web:

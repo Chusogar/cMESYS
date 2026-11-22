@@ -264,6 +264,28 @@ esptool.py --chip esp32 -b 921600 write_flash 0x0 dist/<id>_cyd_st7789_spi40mhz_
 
 **Conexiones**: Nunchuk de Wii en CN1 (SDA GPIO22, SCL GPIO27, 3,3 V; se puede conectar en caliente), microSD FAT32 (CS GPIO5), puerto serie a 115200 baudios. Las funciones del 68000 más usadas de cada juego van en IRAM, elegidas en su `.lf`, sin tocar Musashi.
 
+### LilyGO TTGO VGA32
+
+La [TTGO VGA32](https://github.com/LilyGO/FabGL) v1.4 (ESP32-WROVER con 4 MB de PSRAM) usa los mismos frontends que el CYD (`<máquina>_cyd.c`) sobre su propio puerto, `main/ports/esp32-vga32/`:
+
+| | |
+|---|---|
+| Vídeo | VGA 320x240 (señal 640x480 a 60 Hz), 64 colores: I2S1 en modo LCD con DMA (R 21/22, G 18/19, B 4/5, HSync 23, VSync 15) |
+| Teclado PS/2 (CLK 33, DATA 32) | cursores, Ctrl y Alt = el Nunchuk (palanca, Z, C); F1 = el botón BOOT; el resto se escribe en el puerto serie que lee cada máquina |
+| Ratón PS/2 (CLK 26, DATA 27) | el puntero; el clic izquierdo = tocar la pantalla |
+| Sonido | DAC en GPIO25 (el jack de 3,5 mm) |
+| microSD | MISO 2, MOSI 12, CLK 14, CS 13 |
+| PSRAM | las reservas grandes (RAM de las máquinas, ROMs leídas de la microSD) |
+
+```sh
+./build_vga32.sh                   # todas: dist/<máquina>_vga32_full.bin (en 0x0) y _app_0x10000.bin
+./build_vga32.sh starwars c64      # algunas
+ROMS=external ./build_vga32.sh     # sin ROMs dentro (de la microSD)
+idf.py -B build/vga32-c64 -DBOARD=vga32 -DGAME=c64 build
+```
+
+Las pantallas verticales del CYD se ven giradas (su parte de arriba a la izquierda). Sin probar aún en la placa.
+
 ### RP2040-PiZero
 
 [Waveshare RP2040-PiZero](https://www.waveshare.com/wiki/RP2040-PiZero): RP2040 a 252 MHz, 264 KB de RAM, 16 MB de flash, HDMI.

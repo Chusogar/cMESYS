@@ -31,7 +31,18 @@ endif()
 set(AS1 drivers/arcades/atarisy1)
 set(QL_DIR drivers/computers/ql)
 set(PP drivers/arcades/polepos)
-set(PORT ports/esp32-cyd/cyd.c ports/esp32-cyd/dac_audio.c ports/esp32-cyd/nunchuk.c)
+idf_build_get_property(BOARD BOARD)
+if(BOARD STREQUAL "vga32")
+    # LilyGO TTGO VGA32: the same frontends (<machine>_cyd.c) on its own cyd.h
+    set(PORT ports/esp32-vga32/vga32.c ports/esp32-vga32/vga.c ports/esp32-vga32/ps2.c ports/esp32-cyd/dac_audio.c)
+    set(PORT_INC ports/esp32-vga32)
+    set(PORT_DEFS CMESYS_VGA32 DAC_AUDIO_CHAN_MASK=DAC_CHANNEL_MASK_CH0
+                  PIN_SD_CS=13 PIN_SD_SCK=14 PIN_SD_MOSI=12 PIN_SD_MISO=2)
+else()
+    set(PORT ports/esp32-cyd/cyd.c ports/esp32-cyd/dac_audio.c ports/esp32-cyd/nunchuk.c)
+    set(PORT_INC ports/esp32-cyd)
+    set(PORT_DEFS)
+endif()
 set(M68K cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c)
 set(QL_SD_REQ)
 set(LF_FILE ${D}/${GAME}.lf)
@@ -187,11 +198,11 @@ list(REMOVE_DUPLICATES EXTRA_INCLUDES)
 
 idf_component_register(
     SRCS ${SRCS} ${PORT}
-    INCLUDE_DIRS ${D} ${AS1} ${EXTRA_INCLUDES} ${PP} ports/esp32-cyd cpu cpu/m68k cpu/m6502 cpu/mc6809 cpu/mcs48 cpu/z80 sound machine video
+    INCLUDE_DIRS ${D} ${AS1} ${EXTRA_INCLUDES} ${PP} ${PORT_INC} cpu cpu/m68k cpu/m6502 cpu/mc6809 cpu/mcs48 cpu/z80 sound machine video
     REQUIRES esp_driver_i2c esp_system xtensa esp_lcd esp_driver_spi esp_driver_gpio esp_driver_dac
              esp_driver_uart nvs_flash esp_timer ${QL_SD_REQ}
     LDFRAGMENTS ${LF_FILE})
-target_compile_definitions(${COMPONENT_LIB} PRIVATE ${DEFS} NDEBUG)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE ${DEFS} ${PORT_DEFS} NDEBUG)
 target_compile_options(${COMPONENT_LIB} PRIVATE -O2 -Wno-unused-variable -Wno-maybe-uninitialized -Wno-uninitialized
     -Wno-unused-function -Wno-implicit-fallthrough -Wno-unused-but-set-variable -Wno-sign-compare -Wno-type-limits
     -Wno-missing-field-initializers -Wno-unused-value -Wno-parentheses -Wno-misleading-indentation -Wno-unused-label)
@@ -213,3 +224,7 @@ if(DEFINED ENV{LCD_SPI_MHZ})
 endif()
 # crash diagnostics (ports/esp32-cyd/cyd.c)
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=esp_panic_handler")
+if(BOARD STREQUAL "vga32")
+    # the PS/2 keyboard as the serial port's keys and as the BOOT button (ps2.c)
+    target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=uart_read_bytes" "-Wl,--wrap=gpio_get_level")
+endif()
