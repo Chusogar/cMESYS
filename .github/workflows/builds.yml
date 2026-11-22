@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       cyd: ${{ steps.games.outputs.cyd }}
+      vga32: ${{ steps.games.outputs.vga32 }}
     steps:
       - uses: actions/checkout@v4
       - id: games
@@ -21,6 +22,8 @@ jobs:
           consoles=$(sed -n 's/^CONSOLES := //p' main/drivers/consoles/consoles.mk)
           games=$(sed -n 's/^for g in \(.*\) \$CONSOLES; do$/\1/p' build_all.sh)
           echo "cyd=$(printf '%s\n' $games $consoles | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+          arcades=$(sed -n 's/^ARCADES := //p' main/drivers/arcades/arcades.mk)
+          echo "vga32=$(printf '%s\n' $games $arcades $consoles | sort -u | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
 
   cyd:
     needs: list
@@ -57,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        game: ${{ fromJson(needs.list.outputs.cyd) }}
+        game: ${{ fromJson(needs.list.outputs.vga32) }}
     steps:
       - uses: actions/checkout@v4
       - name: build ${{ matrix.game }} for the TTGO VGA32
@@ -78,8 +81,9 @@ jobs:
       - name: build every driver
         shell: bash
         run: |
-          games=$(sed -n '/^GAMES   := /,/[^\\]$/p' main/ports/web/Makefile | sed 's/^GAMES   := //; s/\\//; s/\$(CONSOLES)//')
+          games=$(sed -n '/^GAMES   := /,/[^\\]$/p' main/ports/web/Makefile | sed 's/^GAMES   := //; s/\\//; s/\$(CONSOLES)//; s/\$(ARCADES)//')
           games="$games $(sed -n 's/^CONSOLES := //p' main/drivers/consoles/consoles.mk)"
+          games="$games $(sed -n 's/^ARCADES := //p' main/drivers/arcades/arcades.mk)"
           failed=""
           for g in $games; do
             make -C main/ports/web GAME=$g ROMS=external || failed="$failed $g"
