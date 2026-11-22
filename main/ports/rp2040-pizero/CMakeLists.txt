@@ -8,7 +8,7 @@
 # or ./build_pico.sh for all of them (-> dist/). GAME: indytemp, roadrunn,
 # gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql,
 # spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2,
-# amiga, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe, exl100, exeltel (RP2350 only: their RAM, disks or
+# amiga, atarist, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe, exl100, exeltel (RP2350 only: their RAM, disks or
 # both are in the PSRAM).
 cmake_minimum_required(VERSION 3.13)
 
@@ -50,7 +50,7 @@ endif()
 pico_sdk_init()
 
 if(NOT GAME)
-    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|starwars|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|apple2|apple2p|apple2e|apple2ee|apple2gs|macplus|macii|specnext|samcoupe|exl100|exeltel>")
+    message(FATAL_ERROR "-DGAME=<indytemp|roadrunn|gauntlet|outrun|snowbros|trackfld|pbobble|retofinv|robocop|polepos|polepos2|starwars|ql|spectrum48|spectrum128|plus3|pentagon|pentagon1024|scorpion|cpc6128|c64|lynx|msx1|msx2|amiga|atarist|apple2|apple2p|apple2e|apple2ee|apple2gs|macplus|macii|specnext|samcoupe|exl100|exeltel>")
 endif()
 # HDMI: PicoDVI on the RP2040; on the RP2350 rp2350/hdmi (pico_lib's DVI,
 # which also sends the sound to the TV, in data islands)
@@ -76,7 +76,7 @@ elseif(GAME IN_LIST ZX_GAMES)
     set(IS_ZXSPEC 1)
 elseif(GAME STREQUAL "cpc6128")
     set(D ${M}/drivers/computers/cpc)
-elseif(GAME STREQUAL "c64" OR GAME STREQUAL "amiga")
+elseif(GAME STREQUAL "c64" OR GAME STREQUAL "amiga" OR GAME STREQUAL "atarist")
     set(D ${M}/drivers/computers/${GAME})
 elseif(GAME STREQUAL "lynx")
     set(D ${M}/drivers/consoles/lynx)
@@ -198,6 +198,15 @@ elseif(GAME STREQUAL "amiga")
     set(DEFS M68K_FLASH_TABLES)
     set(RAM_CODE m68kcpu.c.o amiga_core.c.o amiga_chipset.c.o)
     set(HOT_MAX 120)                # (the hottest 68000 handlers of amiga.lf)
+elseif(GAME STREQUAL "atarist")
+    if(NOT PIZERO STREQUAL "2350")
+        message(FATAL_ERROR "atarist: the RP2350-PiZero only (-DPIZERO=2350): its 1 MB of RAM goes in the PSRAM")
+    endif()
+    set(SRCS ${D}/st_pico.c ${D}/st_core.c ${D}/st_mfp.c ${D}/st_floppy.c ${D}/rom_data.c ${QL_DIR}/ql_sd_pico.c
+             ${M}/sound/ay8910.c ${M68K})
+    set(DEFS M68K_FLASH_TABLES)
+    set(RAM_CODE m68kcpu.c.o st_core.c.o st_mfp.c.o ay8910.c.o)
+    set(HOT_MAX 120)                # (the hottest 68000 handlers of atarist.lf)
 elseif(GAME IN_LIST A2_GAMES OR GAME STREQUAL "apple2gs" OR GAME STREQUAL "macplus" OR GAME STREQUAL "macii"
        OR GAME STREQUAL "specnext" OR GAME STREQUAL "samcoupe" OR GAME IN_LIST EXELV_GAMES)
     if(NOT PIZERO STREQUAL "2350")

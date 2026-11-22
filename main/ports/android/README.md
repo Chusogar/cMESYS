@@ -19,6 +19,7 @@ pantalla de dsp-cpp:
 | `dist/msx_android.apk` | MSX1 y MSX2 (con la ROM de disco) | dibujado aquí al estilo de dsp-cpp (`tools/gen_msx_vkb.py`) |
 | `dist/lynx_android.apk` | Atari Lynx | los mandos de la consola al estilo de dsp-cpp (`tools/gen_lynx_vkb.py`) |
 | `dist/amiga_android.apk` | Commodore Amiga 500 (Kickstart 1.3, 1.2, 2.04 o 3.1) | la foto de un A500 español (`tools/gen_amiga_vkb.py`) |
+| `dist/atarist_android.apk` | Atari 1040ST (TOS 1.04, 1.02, 1.00 o EmuTOS) | el 1040ST de Hataroid, de dsp-cpp (`tools/gen_st_vkb.py`) |
 | `dist/apple2_android.apk` | Apple ][, ][+, //e y //e Enhanced (el modelo en los ajustes) | el del ][ / ][+ o el del //e, según el modelo (`tools/gen_apple_vkb.py`) |
 | `dist/apple2gs_android.apk` | Apple IIGS (ROM 3) | el teclado ADB del IIGS (`tools/gen_apple_vkb.py`) |
 | `dist/macplus_android.apk` | Macintosh Plus | el M0110A (`tools/gen_apple_vkb.py`) |
@@ -93,7 +94,8 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 - Las ROM salen de `roms/<juego de ROMs>` (`tools/android_roms.py`, con los
   generadores de `tools/`) y van solo en el APK, nunca en git. El Spectrum
   lleva los seis modelos que encuentre; el MSX, MSX1 y MSX2; el Amiga, los
-  Kickstart del set `a500` de MAME (`roms/amiga/a500.zip`).
+  Kickstart del set `a500` de MAME (`roms/amiga/a500.zip`); el Atari ST, los TOS del set
+  `st` de MAME y un EmuTOS de 192 KB (`roms/atarist/`).
 - Las que el APK no lleva (o todas, con `ROMS=external build_apk.sh`) las
   busca el núcleo al arrancar (`main/rom/romfs.c`, el `rom_load.c` de la
   máquina; `Core.romDirs`) en `Android/data/<app>/files/roms/<set>/`
@@ -110,14 +112,14 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | | |
 |---|---|
 | `jni/core.h`, `jni/core_jni.c` | lo que da cada máquina y las llamadas de `Core` (frames, imagen ARGB, sonido, teclas, joystick, medios) |
-| `jni/computers/m_ql.c` … `m_amiga.c`, `m_apple2.c`, `m_apple2gs.c`, `m_macplus.c`, `m_macii.c`, `m_specnext.c`, `m_samcoupe.c`, `m_exelv.c` | cada máquina sobre su núcleo de `main/drivers/computers` (la Lynx, de `main/drivers/consoles/lynx`) |
+| `jni/computers/m_ql.c` … `m_amiga.c`, `m_atarist.c`, `m_apple2.c`, `m_apple2gs.c`, `m_macplus.c`, `m_macii.c`, `m_specnext.c`, `m_samcoupe.c`, `m_exelv.c` | cada máquina sobre su núcleo de `main/drivers/computers` (la Lynx, de `main/drivers/consoles/lynx`) |
 | `jni/libc/` | cabeceras mínimas de bionic para compilar sin el NDK |
 | `app/src/.../MachineActivity.java` | pantalla, teclado, menú, medios, teclado físico y mandos |
-| `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx`, `Amiga`, `Apple2`, `AdbKeys` (`Apple2gs`, `MacPlus`, `MacII`), `SpecNext` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |
+| `app/src/.../Machine.java` y `QL`, `Spectrum`, `Cpc`, `C64`, `Msx`, `Lynx`, `Amiga`, `AtariSt`, `Apple2`, `AdbKeys` (`Apple2gs`, `MacPlus`, `MacII`), `SpecNext` | lo propio de cada máquina: ROM, modelos, menú de medios, teclas, mando, textos que se teclean |
 | `app/src/.../Emulator.java` | hilo de emulación al ritmo del sonido (prioridad de audio, ~6 frames de búfer, empieza a sonar con 3 en cola), cola de teclas, turbo, pausa |
 | `app/src/.../ScreenView.java` | imagen escalada por la GPU en el hilo de la interfaz (monitor, cuadrada, completa, entera) y luces; el hilo de emulación solo copia los píxeles, para que nunca se retrase el sonido |
 | `app/src/.../KeyboardView.java` | teclado en pantalla (imágenes y teclas de dsp-cpp) |
-| `app/src/.../Trackpad.java` | la imagen como trackpad del ratón (el Amiga, el IIGS y los Mac) |
+| `app/src/.../Trackpad.java` | la imagen como trackpad del ratón (el Amiga, el Atari ST, el IIGS y los Mac) |
 | `app/src/.../SoftMenu.java` | menú a lo Hataroid (barra de iconos y listas) |
 | `machines/{computers,consoles}/<máquina>/` | recursos de cada APK, agrupados como `main/drivers` (`computers/`, `consoles/`; las recreativas son la app `arcade/`): nombre, ajustes, lanzador, teclado, ayuda |
 | `tools/android_dirs.py` | dónde está cada máquina (`machines/consoles/<id>` para las de `consoles.mk`, `machines/computers/<id>` las demás), para las herramientas |
@@ -125,6 +127,7 @@ main/ports/android/build_apk.sh zxspec c64      # algunas
 | `tools/gen_msx_vkb.py`, `gen_lynx_vkb.py` | los teclados de MSX y Lynx |
 | `tools/gen_consoles_vkb.py` | los mandos en pantalla de las 19 consolas (`machines/consoles/<id>/assets/keyboard.png` + `keyboard.txt`; códigos de `m_cons.c`) |
 | `tools/gen_amiga_vkb.py` | el teclado del Amiga desde la foto |
+| `tools/gen_st_vkb.py` | el teclado del Atari ST desde los datos de dsp-cpp (Hataroid) |
 | `tools/android_roms.py` | las ROM de cada máquina para el APK |
 | `tools/make_icons.py`, `make_help.py` | iconos, lanzadores y ayuda |
 

@@ -156,6 +156,35 @@ Workbench: mantenlo y mueve el primero). Un ratón USB o Bluetooth también vale
               "arranca solo.</p>",
         kbcredit="Teclado en pantalla: foto de un Amiga 500 español.",
         credits="núcleo Amiga migrado de dsp-cpp (del emulador DSP), 68000 de Musashi (Karl Stenerud)"),
+    "atarist": dict(
+        title="cMESYS Atari ST",
+        intro="Atari 1040ST (PAL, monitor en color) con el núcleo Atari ST de cMESYS (migrado de dsp-cpp): "
+              "68000 a 8 MHz, 1 MB de RAM, las tres resoluciones del shifter, el MFP 68901, el YM2149, el "
+              "WD1772 con su DMA y dos disqueteras, el IKBD (teclado, ratón, joysticks y reloj) y el blitter "
+              "que usa el TOS 1.04.",
+        media=("Discos", "Meter un disco <code>.st</code>, <code>.msa</code> o <code>.stx</code> (Pasti, con "
+               "las protecciones de copia) en A o en B, cambiarlo o expulsarlo. Para los juegos de varios "
+               "discos, cambia el de A cuando el juego lo pida."),
+        reset="Reset (como el botón de la parte de atrás).",
+        settings="TOS (1.04, 1.02, 1.00 o EmuTOS)",
+        keys=("Teclas ST", "ESC, HELP, UNDO, F1, F10, Alternate + Clr Home…"),
+        keyboard="el teclado de un 1040ST (de Hataroid)",
+        same="la tecla pulsada se hunde como en los teclados de dsp-cpp",
+        mods="<kbd>Shift</kbd>, <kbd>Control</kbd> y <kbd>Alternate</kbd>",
+        physical="Las teclas del PC son las del ST por su posición; Alt = Alternate, Inicio = Clr Home, "
+                 "RePág = Help, AvPág / Fin = Undo, Bloq Num / Bloq Despl = ( ) del bloque numérico.",
+        pad="el joystick (puerto 1), con el disparo en A y X, o los cursores",
+        extra="""<h2>Ratón</h2>
+<p>La imagen es un <b>trackpad</b> para el ratón del ST: un dedo que se mueve mueve el puntero; un
+toque es un clic con el botón izquierdo (dos toques, doble clic); tocar y volver a tocar y mover arrastra
+con el botón izquierdo pulsado; un segundo dedo es el botón derecho mientras está apoyado. Un ratón USB o
+Bluetooth también vale.</p>
+""",
+        start="<p>El TOS arranca en el escritorio GEM. Con un disco en A al encender (o tras <b>Reset</b>) "
+              "arranca lo que tenga su carpeta <code>AUTO</code> o su sector de arranque, como los juegos; si "
+              "no, abre la unidad A con un doble toque en su icono.</p>",
+        kbcredit="Teclado en pantalla: el 1040ST de Hataroid (GPLv2).",
+        credits="núcleo Atari ST migrado de dsp-cpp (del emulador DSP), 68000 de Musashi (Karl Stenerud)"),
     "apple2": dict(
         title="cMESYS Apple II",
         intro="Apple ][, ][+, //e y //e Enhanced con el núcleo Apple II de cMESYS (migrado de dsp-cpp): 6502 "

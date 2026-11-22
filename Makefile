@@ -3,7 +3,7 @@
 #
 #   make GAME=indytemp        (indytemp | roadrunn | gauntlet | outrun | snowbros | trackfld | pbobble | retofinv | robocop | polepos | polepos2 | starwars | ql
 #                             | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion
-#                             | cpc6128 | c64 | lynx | msx1 | msx2 | amiga
+#                             | cpc6128 | c64 | lynx | msx1 | msx2 | amiga | atarist
 #                             | apple2 | apple2p | apple2e | apple2ee | apple2gs | macplus | macii | specnext | samcoupe | exl100 | exeltel
 #                             | a console of main/drivers/consoles/consoles.mk)  -> build/sdl/<game>
 #                             (ql / spectrum*: computers in main/drivers/computers/)
@@ -38,6 +38,8 @@ else ifeq ($(GAME),c64)
   D     := $(M)/drivers/computers/c64
 else ifeq ($(GAME),amiga)
   D     := $(M)/drivers/computers/amiga
+else ifeq ($(GAME),atarist)
+  D     := $(M)/drivers/computers/atarist
 else ifeq ($(GAME),lynx)
   D     := $(M)/drivers/consoles/lynx
 else ifneq ($(filter $(GAME),msx1 msx2),)
@@ -177,6 +179,9 @@ else ifeq ($(GAME),c64)
 else ifeq ($(GAME),amiga)
   SRC  := $(D)/amiga_sdl.c $(D)/amiga_core.c $(D)/amiga_chipset.c $(D)/rom_data.c $(M68K)
   DEFS :=
+else ifeq ($(GAME),atarist)
+  SRC  := $(D)/st_sdl.c $(D)/st_core.c $(D)/st_mfp.c $(D)/st_floppy.c $(D)/rom_data.c $(M)/sound/ay8910.c $(M68K)
+  DEFS :=
 else ifeq ($(GAME),lynx)
   SRC  := $(D)/lynx_sdl.c $(D)/lynx_core.c $(D)/rom_data.c $(M)/machine/zx_pbuf.c
   DEFS :=
@@ -237,7 +242,7 @@ else ifneq ($(filter $(GAME),$(CONSOLES)),)
   SRC  := $(M)/drivers/consoles/common/cons_sdl.c $(addprefix $(M)/,$(CONS_COMMON) $(CONS_SRC_$(GAME)))
   DEFS := $(addprefix -D,$(CONS_DEFS_$(GAME)))
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga or a console: $(CONSOLES))
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, atarist or a console: $(CONSOLES))
 endif
 
 # The ROMs that rom_data.c does not have come from storage (main/rom/romfs.c
@@ -259,7 +264,7 @@ ifeq ($(PORT),picohost)
   PORTSRC := tools/pico_host.c
   CFLAGS += -I$(M)/ports/rp2040-pizero -I$(M)/drivers/computers/ql -DPICO_BAND=4
   # microSD is board-only; stub the API so ql / zxspec *_pico.c link on the host.
-  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2 amiga $(A2_GAMES) apple2gs macplus macii specnext samcoupe $(EXELV_GAMES) $(CONSOLES)),)
+  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2 amiga atarist $(A2_GAMES) apple2gs macplus macii specnext samcoupe $(EXELV_GAMES) $(CONSOLES)),)
     PORTSRC += tools/ql_sd_host_stub.c
   endif
   SDL_CFLAGS :=
@@ -309,6 +314,7 @@ all:
 	$(MAKE) GAME=msx1 TARGET=$(TARGET) ROMS=$(ROMS)
 	$(MAKE) GAME=msx2 TARGET=$(TARGET) ROMS=$(ROMS)
 	$(MAKE) GAME=amiga TARGET=$(TARGET) ROMS=$(ROMS)
+	$(MAKE) GAME=atarist TARGET=$(TARGET) ROMS=$(ROMS)
 	for c in $(CONSOLES); do $(MAKE) GAME=$$c TARGET=$(TARGET) ROMS=$(ROMS) || exit 1; done
 
 clean:

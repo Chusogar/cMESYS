@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="tos_entries">
+        <item>TOS 1.04 (1989)</item>
+        <item>TOS 1.02 (1987)</item>
+        <item>TOS 1.00 (1985)</item>
+        <item>EmuTOS 192K</item>
+    </string-array>
+    <string-array name="tos_values">
+        <item>tos104</item>
+        <item>tos102</item>
+        <item>tos100</item>
+        <item>etos</item>
+    </string-array>
+    <string-array name="pad_entries">
+        <item>Joystick (puerto 1)</item>
+        <item>Cursores, ESPACIO y RETURN</item>
+    </string-array>
+    <string-array name="pad_values">
+        <item>joy</item>
+        <item>cursors</item>
+    </string-array>
+</resources>

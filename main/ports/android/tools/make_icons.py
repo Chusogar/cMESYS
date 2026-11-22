@@ -343,6 +343,20 @@ def launcher_amiga(size):
     return im.resize((size, size), Image.NEAREST)
 
 
+def launcher_atarist(size):
+    """A 1040ST: the grey wedge with its slanted function keys, the keys, "ST" in Atari red."""
+    im, d = launcher_base()
+    d.polygon([(3, 50), (6, 22), (58, 22), (61, 50)], fill=(206, 206, 200, 255), outline=(240, 240, 236, 255))
+    for i in range(10):
+        x = 9 + i * 4
+        d.polygon([(x + 1, 25), (x + 3, 25), (x + 2, 28), (x, 28)], fill=(120, 120, 118, 255))
+    keys_rows(d, 9, 43, 31, 4, (238, 238, 234, 255))
+    d.rectangle([12, 46, 38, 47], fill=(238, 238, 234, 255))
+    keys_rows(d, 47, 57, 31, 4, (150, 150, 146, 255))
+    text(d, 20, 6, "ST", (226, 40, 40, 255), 2)
+    return im.resize((size, size), Image.NEAREST)
+
+
 def launcher_arcade(size):
     """An arcade cabinet: marquee, screen, the control panel with a red-ball joystick and buttons."""
     im, d = launcher_base()
@@ -456,7 +470,7 @@ def launcher_exelv(size):
 
 
 LAUNCHERS = {"ql": icon_launcher, "zxspec": launcher_zxspec, "cpc": launcher_cpc, "c64": launcher_c64,
-             "msx": launcher_msx, "lynx": launcher_lynx, "amiga": launcher_amiga,
+             "msx": launcher_msx, "lynx": launcher_lynx, "amiga": launcher_amiga, "atarist": launcher_atarist,
              "apple2": launcher_apple2, "apple2gs": launcher_apple2gs, "macplus": launcher_macplus,
              "macii": launcher_macii, "specnext": launcher_specnext, "samcoupe": launcher_samcoupe, "exelv": launcher_exelv,
              "arcade": launcher_arcade}

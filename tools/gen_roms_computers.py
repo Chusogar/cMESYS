@@ -6,7 +6,7 @@ Usage:
   tools/gen_roms_computers.py --stub <machine> <out.c>
   tools/gen_roms_computers.py --loaders [<repo root>]   (writes every rom_load.c)
 
-<machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga | apple2 | apple2p | apple2e | apple2ee |
+<machine>: cpc6128 | c64 | lynx | msx1 | msx2 | amiga | atarist | apple2 | apple2p | apple2e | apple2ee |
 apple2gs | macplus | macii | specnext | samcoupe | exl100 | exeltel, or a console of
 main/drivers/consoles with a BIOS (coleco, ...). <romdir> is roms/<machine>/, unzipped or the
 MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
@@ -19,6 +19,8 @@ MAME set's .zip itself. Names (first found wins; a CRC mismatch is a warning):
   msx1     MSX.ROM | msx1.rom | mpc100bios.rom (32 KB); DISK.ROM (16 KB, optional)
   amiga    315093-02.u2 (Kickstart 1.3) | kick13.rom | 315093-01.u2 (1.2) | kick.rom | kickstart.rom
            (256 KB; the MAME a500 set's .zip as it is)
+  atarist  tos104.bin | tos102.bin | tos100.bin | tos.img | etos192uk.img | etos192us.img ...
+           (192 KB: TOS 1.04 / 1.02 / 1.00 or EmuTOS 192K; the MAME st set's .zip as it is)
   msx2     MSX2.ROM | nms8250_basic-bios2.rom (32 KB), MSX2EXT.ROM | nms8250_msx2sub.rom
            (16 KB), DISK.ROM | nms8250_disk.rom (16 KB, optional)
   apple2   (MAME apple2) 341-0001-00.e0 + 341-0002-00.e8 + 341-0003-00.f0 (Integer BASIC) +
@@ -73,6 +75,12 @@ SETS = {
     'amiga': [
         ('amiga_rom_kick', 0x40000, [('315093-02.u2', 0xc4f0f55f), ('kick13.rom', None), ('kick34005.a500', None),
                                      ('315093-01.u2', 0xa6ce1636), ('kick.rom', None), ('kickstart.rom', None)], True),
+    ],
+    'atarist': [
+        ('st_rom_tos', 0x30000, [('tos104.bin', 0x90f4fbff), ('tos102.bin', 0xd3c32283), ('tos100.bin', 0xd331af30),
+                                 ('tos104.img', None), ('tos102.img', None), ('tos100.img', None), ('tos.img', None),
+                                 ('etos192uk.img', None), ('etos192us.img', None), ('etos192de.img', None),
+                                 ('etos192fr.img', None), ('etos192es.img', None)], True),
     ],
     # Apple II family (drivers/computers/apple2): one rom_data_<model>.c each
     'apple2': [
@@ -252,6 +260,7 @@ LOADERS = {   # machine: (function, set names searched, ROMs required)
     'msx1': ('msx_rom_load', ['msx1'], True),
     'msx2': ('msx_rom_load', ['msx2'], True),
     'amiga': ('amiga_rom_load', ['amiga', 'a500'], True),
+    'atarist': ('st_rom_load', ['atarist', 'st'], True),
     'coleco': ('coleco_rom_load', ['coleco'], False),
     'scv': ('scv_rom_load', ['scv'], False),
     'vectrex': ('vectrex_rom_load', ['vectrex'], False),
@@ -277,6 +286,7 @@ LOADER_FILES = {   # rom_load.c -> the machines in it (#if MSX_MODEL for the two
     'main/drivers/computers/c64/rom_load.c': ['c64'],
     'main/drivers/computers/msx/rom_load.c': ['msx1', 'msx2'],
     'main/drivers/computers/amiga/rom_load.c': ['amiga'],
+    'main/drivers/computers/atarist/rom_load.c': ['atarist'],
     'main/drivers/consoles/lynx/rom_load.c': ['lynx'],
     'main/drivers/computers/apple2/rom_load.c': ['apple2', 'apple2p', 'apple2e', 'apple2ee'],
     'main/drivers/computers/apple2gs/rom_load.c': ['apple2gs'],
