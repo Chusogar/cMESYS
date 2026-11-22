@@ -439,9 +439,16 @@ void app_main(void)
     ESP_LOGI(TAG, "free internal heap: %u (largest %u)", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
 
+    // Core 0: the picture and the controls above the sound board. The sound
+    // board (6502, YM2203, YM3812, OKI) only stops when the DAC's ring is
+    // full or it has caught up with core 1; when it is behind it never does,
+    // and below it the video task never ran: the screen stayed on
+    // "STARTING..." with the sound playing. The video task blocks between
+    // frames and the input task every 10 ms, and the DAC's ring and DMA
+    // (~190 ms) cover a picture's drawing.
     BaseType_t ok_a = xTaskCreatePinnedToCore(audio_task, "audio", 4096, NULL, 8, NULL, 0);
-    BaseType_t ok_i = xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 4, NULL, 0);
-    BaseType_t ok_v = xTaskCreatePinnedToCore(video_task, "video", 6144, NULL, 6, NULL, 0);
+    BaseType_t ok_i = xTaskCreatePinnedToCore(input_task, "input", 4096, NULL, 9, NULL, 0);
+    BaseType_t ok_v = xTaskCreatePinnedToCore(video_task, "video", 6144, NULL, 9, NULL, 0);
     BaseType_t ok_e = xTaskCreatePinnedToCore(emu_task, "emu", 8192, NULL, 10, NULL, 1);
     if (ok_a != pdPASS || ok_i != pdPASS || ok_v != pdPASS || ok_e != pdPASS) {
         ESP_LOGE(TAG, "task create failed a=%d i=%d v=%d e=%d heap %u",
