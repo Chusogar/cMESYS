@@ -151,6 +151,7 @@ static bool start_game(int game)
 {
     if (!sw_init(game, 320, 240)) return false;
     sw_set_audio_rate(AUDIO_RATE);
+    sw_set_draw_every(2);       // 20.5 pictures a second: as many as the SPI screen takes
     const uint32_t *c = sw_palette();
     for (int i = 0; i < 256; i++) pal565[i] = rgb565((uint8_t)(c[i] >> 16), (uint8_t)(c[i] >> 8), (uint8_t)c[i]);
     ESP_LOGI(TAG, "%s, picture %dx%d", sw_title(), sw_width(), sw_height());
@@ -178,7 +179,8 @@ static void emu_task(void *arg)
 
         int64_t t0 = esp_timer_get_time();
         int n = sw_run_frame(pcm);
-        if (!video_busy) {
+        static uint32_t frame_no;
+        if ((++frame_no & 1) == 0 && !video_busy) {    // (a new picture every other frame)
             video_busy = true;
             xSemaphoreGive(frame_ready);
         }
