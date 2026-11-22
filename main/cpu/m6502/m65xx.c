@@ -396,7 +396,8 @@ int m65xx_run(m65xx *cpu, int cycles)
             else if (cpu->irq_request != M65_CLEAR) extra_cycles_ = call_irq(cpu);
         }
         after_ei_ = false;
-        const uint8_t instruction = fetch(cpu);
+        // opcode fetch (SYNC high): a driver hook may substitute the byte
+        const uint8_t instruction = cpu->opcode_read ? cpu->opcode_read(cpu->user, cpu->pc++) : fetch(cpu);
         uint8_t offset = 0;
         switch (modes[instruction]) {
             case 0x0:  // implicit

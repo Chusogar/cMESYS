@@ -54,8 +54,15 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Ghosts'n Goblins (Capcom, 1985) | `gng` | 6809 + Z80 | 2 x YM2203 | dsp-cpp `gng.cpp` |
 | Black Tiger (Capcom, 1987) | `blktiger` | Z80 + Z80 + i8751 | 2 x YM2203 | dsp-cpp `blktiger.cpp` (su 8051: `cpu/mcs51dsp`) |
 | Bionic Commando (Capcom, 1987) | `bionicc` | 68000 + Z80 + i8751 | YM2151 | dsp-cpp `bionicc.cpp` (el 68000 con Musashi) |
+| Tetris (Atari Games, 1988) | `atetris` | 6502 + SLAPSTIC | 2 x POKEY | dsp-cpp `tetris_atari_hw.cpp` |
+| Bagman (Valadon Automation, 1982) | `bagman` | Z80 + PAL16R6 | AY-3-8910 | dsp-cpp `bagman.cpp` |
+| Ambush (Nippon Amuse, 1983) | `ambush` | Z80 | 2 x AY-3-8910 | dsp-cpp `ambush.cpp` |
+| Blue Print (Bally Midway, 1982) | `blueprnt` | Z80 + Z80 | 2 x AY-3-8910 | dsp-cpp `blueprint.cpp` |
+| BurgerTime (Data East, 1982) | `btime` | 6502 (opcodes cifrados) + 6502 | 2 x AY-3-8910 | dsp-cpp `btime.cpp` |
+| Shao-lin's Road (Konami, 1985) | `shaolins` | 6809 | 2 x SN76496 | dsp-cpp `shaolinsroad.cpp` |
+| Mikie (Konami, 1984) | `mikie` | 6809 + Z80 | 2 x SN76496 | dsp-cpp `mikie.cpp` |
 
-Las once últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
+Las dieciocho últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
 ### Ordenadores (`main/drivers/computers/`)
 
@@ -511,7 +518,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |
