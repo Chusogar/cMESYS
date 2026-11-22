@@ -60,6 +60,7 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | MSX | `msx1` | Z80 | AY-3-8910 (+ SCC) | `msx/msx_core.c` (TMS9918) |
 | MSX2 | `msx2` | Z80 | AY-3-8910 (+ SCC) | `msx/msx_core.c` (V9938) |
 | Commodore Amiga 500 (PAL, OCS) | `amiga` | 68000 | Paula | `amiga/amiga_core.c` + `amiga_chipset.c` |
+| Atari 1040ST (PAL, color) | `atarist` | 68000 | YM2149 | `atarist/st_core.c` + `st_mfp.c` + `st_floppy.c` |
 | Apple ][ (Integer BASIC) | `apple2` | 6502 | altavoz | `apple2/apple2_core.c` |
 | Apple ][+ (Applesoft) | `apple2p` | 6502 | altavoz | `apple2/apple2_core.c` |
 | Apple //e | `apple2e` | 6502 | altavoz | `apple2/apple2_core.c` |
@@ -106,6 +107,7 @@ Las 19 primeras usan la API común de consolas (`common/cons.h`). La Lynx es un 
 | QL y Spectrum | sí | sí | sí | sí | sí | sí |
 | CPC, C64, MSX, MSX2 | sí | sí | sí | sí | — | sí |
 | Amiga 500 | sí | sí | sí | — (necesita 1 MB de RAM) | — | sí, con PSRAM |
+| Atari 1040ST | sí | sí | sí | — (necesita 1 MB de RAM) | — | sí, con PSRAM |
 | Lynx | sí | sí | sí | sí | — | sí |
 | Apple ][, ][+, //e, //e Enhanced | sí | sí | sí, en una app | sí | — | sí |
 | Apple IIGS, Macintosh Plus, Macintosh II | sí | sí | sí | — (4-5 MB de RAM) | — | sí, con PSRAM² |
@@ -147,7 +149,7 @@ main/
     arcades/<id>/            núcleo, frontends <id>_cyd.c / _sdl.c / _pico.c, rom_data.c (las ROMs
                              dentro), rom_load.c (las que no: del almacenamiento), m68k_game_conf.h
                              y m68k_tables.c (68000), <id>.lf (código en IRAM)
-    computers/<id>/          ql, zxspec, cpc, c64, msx, amiga, apple2, apple2gs, macplus, macii; common/
+    computers/<id>/          ql, zxspec, cpc, c64, msx, amiga, atarist, apple2, apple2gs, macplus, macii; common/
                              con los frontends compartidos (comp_sdl.h, comp_pico.h, comp_cyd.h,
                              comp_sd.h, comp_blk.h, adb_hid.h)
     consoles/<id>/           las 19 consolas de la API común y la Lynx
@@ -234,7 +236,7 @@ ROMS=external main/ports/android/build_apk.sh c64   # sin ROMs dentro del APK
 
 Las ROMs que el APK no lleva las busca la app en su carpeta `Android/data/<app>/files/roms/<set>/` (sueltas o el `.zip` de MAME; se llega por USB). Si faltan, la app dice cuáles y ofrece **Importar ROMs…**, que también está en el menú de los ordenadores: copia los ficheros elegidos a esa carpeta.
 
-- **Ordenadores** (`ql`, `zxspec`, `cpc`, `c64`, `msx`, `amiga`, `apple2`, `apple2gs`, `macplus`, `macii`) y **Lynx**: una app por máquina con la interfaz de Hataroid (menú de iconos, ajustes, *Abrir con*) y el teclado en pantalla de dsp-cpp. Los Apple tienen el suyo dibujado por `tools/gen_apple_vkb.py`: el del ][ / ][+ y el del //e (la app `apple2` cambia de uno a otro con el modelo), el ADB del IIGS, el M0110A del Mac Plus y el Apple Extended Keyboard del Mac II. En el Amiga, el IIGS y los Mac la imagen hace de trackpad.
+- **Ordenadores** (`ql`, `zxspec`, `cpc`, `c64`, `msx`, `amiga`, `atarist`, `apple2`, `apple2gs`, `macplus`, `macii`) y **Lynx**: una app por máquina con la interfaz de Hataroid (menú de iconos, ajustes, *Abrir con*) y el teclado en pantalla de dsp-cpp. Los Apple tienen el suyo dibujado por `tools/gen_apple_vkb.py`: el del ][ / ][+ y el del //e (la app `apple2` cambia de uno a otro con el modelo), el ADB del IIGS, el M0110A del Mac Plus y el Apple Extended Keyboard del Mac II. El Atari ST usa el teclado del 1040ST de Hataroid (`tools/gen_st_vkb.py`). En el Amiga, el ST, el IIGS y los Mac la imagen hace de trackpad.
 - **Consolas**: un APK por consola, con sus ficheros generados por `tools/gen_consoles_android.py` y un mando en pantalla dibujado por `tools/gen_consoles_vkb.py`: la cruceta o el joystick, sus botones, START / SELECT, el teclado numérico de la ColecoVision y del SCV, la cruz Y de la WonderSwan y el teclado del PV-2000.
 - **cMESYS Arcade**: las 11 recreativas en una app con lista de juegos como MAME para Android, joystick en pantalla, botones, START y monedero.
 
@@ -351,7 +353,7 @@ Para flashear, mantén BOOT al enchufar el USB-C nativo; aparece la unidad `RP23
 | Mandos | PIO-USB: D+ 28, D- 29 | teclado, mando y ratón USB, también por un hub; incluye el arreglo de la errata RP2350-E9 |
 | Sonido | por el HDMI | 44,1 kHz en las *data islands* (pico_lib, MIT) |
 | microSD | SPI1: SCK 30, MOSI 31, MISO 40, CS 43 | FAT16/FAT32; los ordenadores y las consolas cargan con el menú F9 (el Amiga, F11) |
-| PSRAM | QMI CS1 = GPIO47 | la placa trae el hueco; si hay una, el heap sigue en ella cuando se llena la SRAM. **La necesitan el Amiga** (1 MB de RAM y 880 KB por disco) **y las consolas grandes** |
+| PSRAM | QMI CS1 = GPIO47 | la placa trae el hueco; si hay una, el heap sigue en ella cuando se llena la SRAM. **La necesitan el Amiga y el Atari ST** (1 MB de RAM y hasta 900 KB por disco) **y las consolas grandes** |
 | Log | UART0 TX GPIO0 | 115200 baudios |
 
 ## Controles
@@ -388,6 +390,7 @@ En los **ordenadores** el teclado del PC es el de la máquina, así que las tecl
 | SAM Coupé | Mayúsculas = SHIFT, Ctrl izquierdo = CNTRL, Alt / Ctrl derecho = SYMBOL; Esc, Tab, Bloq Mayús CAPS, Retroceso DELETE, Inicio EDIT, Fin INV, F1-F10 = F1-F9 y F0, cursores, ; : " , . - + =. Joystick 1 (teclas 6-0) en el teclado numérico. F11 menú (disco en la unidad 1 / 2, cinta, BOOT, reproducir / parar la cinta, sacar, reset), F12 TURBO. F9 en BASIC arranca el disco; un disco dado en la línea de órdenes arranca solo |
 | Exelvision EXL 100 / EXELTEL | Las teclas de MAME para la máquina: letras y números, Mayúsculas = SHIFT, Ctrl = CTL, Alt izquierdo = FCT, Bloq Mayús = LOCK, Retroceso, Esc, Tab, Inicio = ↖, cursores; - = «# )», = «_ -», ' «+ =», ; «% @», , «? ,», . «. ;», / «/ :», [ «~ ^», ] «< [», \\ «> ]», Alt Gr «* \\». SHIFT, CTL y FCT se mandan antes que la tecla, como en el real. Mando = flechas y ESPACIO. F9 menú (cartucho o casete, reproducir / parar el casete, sacarlos, reset), F12 TURBO |
 | Macintosh Plus / II | Alt = Option, Windows (y Ctrl en el Plus) = ⌘; el ratón es el suyo. F9 menú (disquete o disco SCSI, por el tamaño; F11 en el Mac II, cuyo F1-F10 son los suyos), F12 TURBO |
+| Atari 1040ST | por posición. Alt = Alternate, Inicio = Clr Home, RePág = Help, AvPág / Fin = Undo, Bloq Num / Bloq Despl = ( ) del teclado numérico. Joystick (puerto 1) en el teclado numérico, disparo 0 / 5 / Ctrl dcho. F11 menú (discos en A / B, expulsar, reset), F12 TURBO. Un clic captura el ratón; el botón central lo suelta. `--tos fichero.img` arranca con otro TOS de 192 KB (EmuTOS incluido) |
 | Amiga 500 | por posición (distribución española). Windows izq. / RePág = Amiga izq., Windows dcha. / AvPág = Amiga dcha., Fin = HELP. Joystick en el teclado numérico, disparo 0 / 5 / Ctrl dcho. F11 menú (DF0 / DF1, expulsar, reset), F12 TURBO. Un clic captura el ratón; el botón central lo suelta. `--kick fichero.rom` arranca con otro Kickstart |
 
 **Consolas** (las 19 de la API común): cursores, Z X C V (o Ctrl / Alt) botones 1-4, ENTER = START, Retroceso o Mayús dcha. = SELECT; segundo mando en el teclado numérico. F9 menú (abrir / sacar cartucho), F3 reset, F12 TURBO. ColecoVision, SCV y WonderSwan leen además sus teclas del teclado del PC; el PV-2000 usa el teclado entero (botones con Ctrl / Alt).
@@ -446,7 +449,7 @@ Los sets son los nombres de MAME. Una máquina puede buscar en más de uno:
 - Indy y Road Runner, también en `atarisy1`.
 - Pole Position, en `namco51` … `namco54`; Pole Position II, además en `polepos`.
 - Los Spectrum: `spectrum`, `spec128`, `pent1024`, `scorpio`.
-- El Amiga, en `a500`; el 32X, en `32x`.
+- El Amiga, en `a500`; el Atari ST, en `st`; el 32X, en `32x`.
 
 Las carpetas `D` dependen de la plataforma:
 
@@ -515,6 +518,7 @@ tools/regen.sh --stub <id>
 | `msx1` | `MSX.ROM`, `DISK.ROM` opcional ([RetroPieBIOS](https://github.com/archtaurus/RetroPieBIOS/tree/master/BIOS)) |
 | `msx2` | `MSX2.ROM`, `MSX2EXT.ROM`, `DISK.ROM` opcional |
 | `amiga` | set `a500` de MAME: `315093-02.u2` (Kickstart 1.3) |
+| `atarist` | set `st` de MAME: `tos104.bin` (o `tos102.bin`, `tos100.bin`); o un EmuTOS de 192 KB (`etos192uk.img`…) |
 | `apple2`, `apple2p`, `apple2e`, `apple2ee` | el set de MAME de cada uno (ROM del sistema y de caracteres); la PROM de la Disk II (`341-0027-a.p5`) para los discos |
 | `apple2gs` | set `apple2gs` de MAME: `341-0728`, `341-0748` y la ROM de vídeo |
 | `macplus` | set `macplus` de MAME: las dos ROM de 64 KB (par e impar) |
@@ -624,6 +628,12 @@ Sobre dsp-cpp se añadieron:
 - HPOS real, que pide el Kickstart 3.1.
 
 Probado con Shadow of the Beast y North & South. En la RP2350 la chip RAM y los discos van en la PSRAM.
+
+### Atari 1040ST
+
+Migrado de dsp-cpp: 68000 a 8 MHz (Musashi, con la precarga de instrucciones que piden algunas protecciones), 1 MB de RAM, TOS 1.00 / 1.02 / 1.04 o EmuTOS en $FC0000, las tres resoluciones del shifter (baja y media se ven dobladas a 640 x 400), el MFP 68901 (`st_mfp.c`: GPIP, los cuatro temporizadores y las interrupciones), el YM2149 (su puerto A elige unidad y cara), el WD1772 con el DMA y dos unidades (`st_floppy.c`: `.st`, `.msa` y `.stx` de Pasti con la posición de cada sector, los bits difusos y los tiempos que miran las protecciones), el IKBD por su ACIA (teclado, ratón relativo y absoluto, joysticks, reloj) y el blitter que encuentra y usa el TOS 1.04.
+
+dsp-cpp avanza los chips tras cada instrucción; aquí el 68000 corre en tramos que terminan en el siguiente suceso (un temporizador del MFP, la INTRQ del disco, el próximo byte del IKBD), así que las interrupciones llegan en la misma instrucción. Arranca el TOS 1.04 hasta el escritorio GEM igual que dsp-cpp (misma posición del ratón con la misma secuencia), lee discos `.st` y `.msa` y teclea. En la RP2350 la imagen es de 320 x 200 (la media y la alta, con cada par de puntos mezclado) y la RAM y los discos van en la PSRAM.
 
 ### Apple II, IIGS y Macintosh
 

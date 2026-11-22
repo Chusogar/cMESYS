@@ -26,6 +26,8 @@ gen_roms_ql.py, written as plain binaries that the app gives its core.
   exelv    roms/<exl100|exeltel>/main.rom, sub.rom, sys.rom (roms/exl100, roms/exeltel: MAME's sets)
   amiga   roms/kick13.rom (required), kick12.rom, kick204.rom, kick31.rom (roms/amiga:
           the MAME a500 set, its .zip as it is)
+  atarist roms/tos104.rom, tos102.rom, tos100.rom, etos.rom (at least one; roms/atarist: the MAME st
+          set's .zip or its files, EmuTOS's etos192*.img)
 """
 import glob
 import io
@@ -134,6 +136,31 @@ def amiga(roms, out):
     return found
 
 
+ST_TOS = [  # (file in the APK, names in the set (first found wins))
+    ("tos104.rom", [("tos104.bin", 0x90f4fbff), ("tos104.img", None)]),
+    ("tos102.rom", [("tos102.bin", 0xd3c32283), ("tos102.img", None)]),
+    ("tos100.rom", [("tos100.bin", 0xd331af30), ("tos100.img", None)]),
+    ("etos.rom", [("etos192uk.img", None), ("etos192us.img", None), ("etos192de.img", None),
+                  ("etos192fr.img", None), ("etos192es.img", None)]),
+]
+
+
+def atarist(roms, out):
+    import gen_roms_computers as g
+    files = g.open_dir(os.path.join(roms, "atarist"))
+    found = []
+    for name, cands in ST_TOS:
+        with redirect_stdout(io.StringIO()):
+            src, data = g.find(files, cands, 0x30000)
+        if data is None:
+            continue
+        write(os.path.join(out, "roms", name), data)
+        found.append(name)
+    if not found:
+        print("  atarist: no TOS in %s/atarist: the app will look for it in its roms folder" % roms)
+    return found
+
+
 def main():
     if len(sys.argv) != 4:
         sys.exit(__doc__)
@@ -155,6 +182,8 @@ def main():
                 found += [model + "/" + n for n in computers(model, d, os.path.join(out, "roms", model), names)]
     elif machine == "amiga":
         found = amiga(roms, out)
+    elif machine == "atarist":
+        found = atarist(roms, out)
     elif machine == "apple2":
         found = []
         for model in ("apple2", "apple2p", "apple2e", "apple2ee"):

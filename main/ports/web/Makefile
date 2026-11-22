@@ -31,7 +31,7 @@ else ifeq ($(GAME),cpc6128)
   D     := $(M)/drivers/computers/cpc
 else ifeq ($(GAME),lynx)
   D     := $(M)/drivers/consoles/lynx
-else ifneq ($(filter $(GAME),c64 amiga),)
+else ifneq ($(filter $(GAME),c64 amiga atarist),)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),msx1 msx2),)
   D     := $(M)/drivers/computers/msx
@@ -146,7 +146,7 @@ else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   LDFLAGS += -sFORCE_FILESYSTEM=1 \
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
-else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2 amiga $(A2_GAMES) apple2gs macplus macii specnext samcoupe $(EXELV_GAMES)),)
+else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2 amiga atarist $(A2_GAMES) apple2gs macplus macii specnext samcoupe $(EXELV_GAMES)),)
   ifneq ($(filter $(GAME),$(A2_GAMES)),)
     SRC := $(D)/apple2_sdl.c $(D)/apple2_core.c $(D)/rom_data_$(GAME).c $(M)/cpu/m6502/m65xx.c $(M)/machine/diskii.c \
            $(M)/machine/zx_pbuf.c
@@ -178,6 +178,8 @@ else ifneq ($(filter $(GAME),cpc6128 c64 lynx msx1 msx2 amiga $(A2_GAMES) apple2
            $(M)/machine/zx_nec765.c $(M)/machine/zx_tape.c $(M)/machine/zx_pbuf.c $(M)/machine/zx_inflate.c
   else ifeq ($(GAME),amiga)
     SRC := $(D)/amiga_sdl.c $(D)/amiga_core.c $(D)/amiga_chipset.c $(D)/rom_data.c $(M68K)
+  else ifeq ($(GAME),atarist)
+    SRC := $(D)/st_sdl.c $(D)/st_core.c $(D)/st_mfp.c $(D)/st_floppy.c $(D)/rom_data.c $(M)/sound/ay8910.c $(M68K)
   else ifeq ($(GAME),c64)
     SRC := $(D)/c64_sdl.c $(D)/c64_core.c $(D)/rom_data.c $(M)/cpu/m6502/m65xx.c $(M)/video/mos6569.c \
            $(M)/sound/sid6581.c $(M)/machine/mos6526.c $(M)/machine/c1541.c $(M)/machine/via6522.c $(M)/machine/zx_pbuf.c
@@ -199,7 +201,7 @@ else ifneq ($(filter $(GAME),$(CONSOLES)),)
              "-sEXPORTED_FUNCTIONS=['_main','_zx_web_notify_upload','_zx_web_set_upload_path']" \
              "-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','UTF8ToString','stringToUTF8']"
 else
-  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe, exl100, exeltel or a console: $(CONSOLES))
+  $(error GAME must be indytemp, roadrunn, gauntlet, outrun, snowbros, trackfld, pbobble, retofinv, robocop, polepos, polepos2, starwars, ql, spectrum48, spectrum128, plus3, pentagon, pentagon1024, scorpion, cpc6128, c64, lynx, msx1, msx2, amiga, atarist, apple2, apple2p, apple2e, apple2ee, apple2gs, macplus, macii, specnext, samcoupe, exl100, exeltel or a console: $(CONSOLES))
 endif
 
 # The ROMs that rom_data.c does not have: from the page's server
@@ -219,7 +221,7 @@ endif
 
 PORTSRC := $(M)/ports/web/sdl_port.c
 GAMES   := indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 starwars ql \
-           spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga \
+           spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga atarist \
            apple2 apple2p apple2e apple2ee apple2gs macplus macii specnext samcoupe exl100 exeltel $(CONSOLES)
 
 $(OUT)/$(GAME).html: $(SRC) $(PORTSRC) $(wildcard $(PP)/*.inc) $(M)/ports/web/shell.html $(M)/ports/web/Makefile

@@ -3,7 +3,7 @@
 #
 #   main/ports/android/build_apk.sh [machine ...]       (from anywhere)
 #
-# machines: ql zxspec cpc c64 msx lynx amiga apple2 apple2gs macplus macii specnext samcoupe exelv and the consoles of
+# machines: ql zxspec cpc c64 msx lynx amiga atarist apple2 apple2gs macplus macii specnext samcoupe exelv and the consoles of
 # main/drivers/consoles/consoles.mk (default: all of them), each one as
 # dist/<machine>_android.apk (package com.chusogar.cmesys.<machine>).
 #
@@ -42,7 +42,7 @@ done
 [ -f "$JAR" ] || { echo "missing android.jar (apt install android-sdk-platform-23)" >&2; exit 1; }
 
 CONSOLES="$(sed -n 's/^CONSOLES := //p' "$M/drivers/consoles/consoles.mk")"
-MACHINES="${*:-ql zxspec cpc c64 msx lynx amiga apple2 apple2gs macplus macii specnext samcoupe exelv $CONSOLES}"
+MACHINES="${*:-ql zxspec cpc c64 msx lynx amiga atarist apple2 apple2gs macplus macii specnext samcoupe exelv $CONSOLES}"
 RES_INC="$(clang -print-resource-dir)/include"
 JDK_INC="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")/include"
 mkdir -p "$OUTBASE" "$ROOT/dist"
@@ -83,6 +83,9 @@ sources() {
                   $M/sound/tms5220.c $M/drivers/consoles/common/cons_util.c" ;;
         samcoupe) echo "$C/samcoupe/samcoupe_core.c $M/cpu/z80dsp/z80dsp.c $M/sound/saa1099.c $M/machine/wd1772.c
                   $M/machine/sam_disk.c $M/machine/sam_tape.c" ;;
+        atarist) echo "$C/atarist/st_core.c $C/atarist/st_mfp.c $C/atarist/st_floppy.c $C/atarist/m68k_tables.c
+                  $M/sound/ay8910.c $M/cpu/m68k/m68kcpu.c $M/cpu/m68k/m68kops.c $M/cpu/m68k/m68kopac.c
+                  $M/cpu/m68k/m68kopdm.c $M/cpu/m68k/m68kopnz.c" ;;
         amiga) echo "$C/amiga/amiga_core.c $C/amiga/amiga_chipset.c $C/amiga/m68k_tables.c $M/cpu/m68k/m68kcpu.c
                   $M/cpu/m68k/m68kops.c $M/cpu/m68k/m68kopac.c $M/cpu/m68k/m68kopdm.c $M/cpu/m68k/m68kopnz.c" ;;
         *)
@@ -92,7 +95,7 @@ sources() {
                     echo "$M/$v"
                 done
             else
-                echo "unknown machine: $1 (ql zxspec cpc c64 msx lynx amiga apple2 apple2gs macplus macii specnext samcoupe exelv $CONSOLES)" >&2; exit 1
+                echo "unknown machine: $1 (ql zxspec cpc c64 msx lynx amiga atarist apple2 apple2gs macplus macii specnext samcoupe exelv $CONSOLES)" >&2; exit 1
             fi ;;
     esac
 }
@@ -126,7 +129,7 @@ build() {
         lynx) rd="$M/drivers/consoles/lynx/rom_data.c $M/drivers/consoles/lynx/rom_load.c" ;;
         apple2) rd="$C/apple2/rom_data_apple2.c $C/apple2/rom_load.c" ;;
         exelv) rd="$C/exelv/rom_data_exl100.c $C/exelv/rom_load.c" ;;
-        ql|cpc|c64|amiga|apple2gs|macplus|macii|specnext|samcoupe) rd="$C/$mach/rom_data.c $C/$mach/rom_load.c" ;;
+        ql|cpc|c64|amiga|atarist|apple2gs|macplus|macii|specnext|samcoupe) rd="$C/$mach/rom_data.c $C/$mach/rom_load.c" ;;
     esac
     SRCS="$(echo $SRCS $rd $M/rom/romfs.c $M/machine/zx_inflate.c | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ')"
     for abi in arm64-v8a x86_64; do

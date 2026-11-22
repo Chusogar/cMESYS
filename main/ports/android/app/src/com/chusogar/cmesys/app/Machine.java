@@ -27,6 +27,7 @@ abstract class Machine {
             case "msx": return new Msx();
             case "lynx": return new Lynx();
             case "amiga": return new Amiga();
+            case "atarist": return new AtariSt();
             case "apple2": return new Apple2();
             case "apple2gs": return new Apple2gs();
             case "macplus": return new MacPlus();
