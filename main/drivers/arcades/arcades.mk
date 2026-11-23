@@ -12,8 +12,8 @@
 ARC_BIG := pirates
 # the CYD builds of these keep their ROMs and graphics in the flash (the arccache
 # partition, filled from the microSD on the first boot: partitions_arccache.csv)
-ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght
-ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght
+ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght chinagat ddragon ddragon2
+ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
 ARC_SRC_calorie := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -65,8 +65,24 @@ ARC_SRC_flicky := drivers/arcades/system1/system1.c cpu/z80dsp/z80dsp.c machine/
 ARC_DEFS_flicky := ARC_VARIANT=6
 ARC_SRC_gardia := drivers/arcades/system1/system1.c cpu/z80dsp/z80dsp.c machine/sega_decrypt.c machine/z80piodsp.c machine/i8255dsp.c sound/sn76496.c
 ARC_DEFS_gardia := ARC_VARIANT=7
+ARC_SRC_wwfsstar := drivers/arcades/wwfsstar/wwfsstar.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c sound/ym2151.c sound/okim6295dsp.c
+ARC_DEFS_wwfsstar := M68K_FLASH_TABLES
 ARC_SRC_bionicc := drivers/arcades/bionicc/bionicc.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c sound/ym2151.c
 ARC_DEFS_bionicc := M68K_FLASH_TABLES
+ARC_SRC_shadoww := drivers/arcades/shadoww/shadoww.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/okim6295dsp.c
+ARC_DEFS_shadoww := M68K_FLASH_TABLES
+ARC_SRC_chinagat := drivers/arcades/chinagat/chinagat.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/ym2151.c sound/okim6295dsp.c
+ARC_SRC_ddragon := drivers/arcades/ddragon/ddragon.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c cpu/hd63701dsp/hd63701dsp.c sound/ym2151.c sound/msm5205dsp.c sound/okim6295dsp.c
+ARC_SRC_ddragon2 := drivers/arcades/ddragon/ddragon.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c cpu/hd63701dsp/hd63701dsp.c sound/ym2151.c sound/msm5205dsp.c sound/okim6295dsp.c
+ARC_DEFS_ddragon2 := ARC_VARIANT=1
+ARC_SRC_armedf := drivers/arcades/armedf/armedf.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c sound/ym3812dsp.c
+ARC_DEFS_armedf := M68K_FLASH_TABLES
+ARC_SRC_terraf := drivers/arcades/armedf/armedf.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c sound/ym3812dsp.c
+ARC_DEFS_terraf := M68K_FLASH_TABLES ARC_VARIANT=1
+ARC_SRC_cclimbr2 := drivers/arcades/armedf/armedf.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c sound/ym3812dsp.c
+ARC_DEFS_cclimbr2 := M68K_FLASH_TABLES ARC_VARIANT=2
+ARC_SRC_legion := drivers/arcades/armedf/armedf.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c sound/ym3812dsp.c
+ARC_DEFS_legion := M68K_FLASH_TABLES ARC_VARIANT=3
 ARC_RAM_bombjack := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_calorie := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_mrdo := z80dsp.c.o mrdo.c.o sn76496.c.o
@@ -77,6 +93,7 @@ ARC_RAM_minivadr := z80dsp.c.o minivadr.c.o
 ARC_RAM_commando := z80dsp.c.o commando.c.o ym2203dsp.c.o fmopn.c.o ay8910.c.o
 ARC_RAM_gng := m6809dsp.c.o z80dsp.c.o gng.c.o ym2203dsp.c.o fmopn.c.o ay8910.c.o
 ARC_RAM_blktiger := z80dsp.c.o mcs51dsp.c.o blktiger.c.o ym2203dsp.c.o fmopn.c.o ay8910.c.o
+ARC_RAM_wwfsstar := m68kcpu.c.o z80dsp.c.o wwfsstar.c.o ym2151.c.o okim6295dsp.c.o
 ARC_RAM_bionicc := m68kcpu.c.o z80dsp.c.o mcs51dsp.c.o bionicc.c.o ym2151.c.o
 ARC_RAM_atetris := m65xx.c.o atetris.c.o pokey.c.o slapstic.c.o
 ARC_RAM_bagman := z80dsp.c.o bagman.c.o ay8910.c.o
@@ -106,3 +123,11 @@ ARC_RAM_seganinj := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.
 ARC_RAM_upndown := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
 ARC_RAM_flicky := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
 ARC_RAM_gardia := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
+ARC_RAM_shadoww := m68kcpu.c.o z80dsp.c.o shadoww.c.o ym2203dsp.c.o fmopn.c.o ay8910.c.o okim6295dsp.c.o
+ARC_RAM_chinagat := m6809dsp.c.o z80dsp.c.o chinagat.c.o ym2151.c.o okim6295dsp.c.o
+ARC_RAM_ddragon := m6809dsp.c.o z80dsp.c.o hd63701dsp.c.o ddragon.c.o ym2151.c.o msm5205dsp.c.o okim6295dsp.c.o
+ARC_RAM_ddragon2 := m6809dsp.c.o z80dsp.c.o hd63701dsp.c.o ddragon.c.o ym2151.c.o msm5205dsp.c.o okim6295dsp.c.o
+ARC_RAM_armedf := m68kcpu.c.o z80dsp.c.o armedf.c.o ym3812dsp.c.o
+ARC_RAM_terraf := m68kcpu.c.o z80dsp.c.o armedf.c.o ym3812dsp.c.o
+ARC_RAM_cclimbr2 := m68kcpu.c.o z80dsp.c.o armedf.c.o ym3812dsp.c.o
+ARC_RAM_legion := m68kcpu.c.o z80dsp.c.o armedf.c.o ym3812dsp.c.o
