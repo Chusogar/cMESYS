@@ -36,7 +36,7 @@ final class Native {
 
     // sdl_port.h controls (SP_*)
     static final int COIN1 = 1, COIN2 = 2, START1 = 4, START2 = 8, UP = 16, DOWN = 32, LEFT = 64, RIGHT = 128,
-            B1 = 256, B2 = 512, B3 = 1024;
+            B1 = 256, B2 = 512, B3 = 1024, B4 = 2048;
 
     interface Screen {
         void showFrame(int[] pixels, int w, int h, float fps);

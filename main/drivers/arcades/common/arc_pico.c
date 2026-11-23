@@ -77,6 +77,7 @@ static void game(void)
         if (p & SP_B1) in.p[0] |= AP_B1;
         if (p & SP_B2) in.p[0] |= AP_B2;
         if (p & SP_B3) in.p[0] |= AP_B3;
+        if (p & SP_B4) in.p[0] |= AP_B4;
         if (p & SP_START1) in.p[0] |= AP_START;
         if (p & SP_START2) in.p[1] |= AP_START;
         arc_input(&in);

@@ -36,6 +36,7 @@ static int char_keys(char c, int *k)
     case 'k': case 'K': case ' ': k[0] = AP_B1; return 1;
     case 'j': case 'J': k[0] = AP_B2; return 1;
     case 'u': case 'U': k[0] = AP_B3; return 1;
+    case 'i': case 'I': k[0] = AP_B4; return 1;
     case '\r': k[0] = AP_START; return 1;
     case '5': k[0] = 0x10000; return 1;     // coin
     default: return 0;

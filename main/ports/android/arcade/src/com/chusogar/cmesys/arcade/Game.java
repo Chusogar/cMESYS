@@ -33,7 +33,7 @@ final class Game {
         this.color = color;
     }
 
-    private static final int B1 = Native.B1, B2 = Native.B2, B3 = Native.B3;
+    private static final int B1 = Native.B1, B2 = Native.B2, B3 = Native.B3, B4 = Native.B4;
 
     static final Game[] ALL = {
         // the arcades on the common frontend (main/drivers/arcades/arcades.mk)
@@ -188,6 +188,22 @@ final class Game {
                 new String[] {"DISPARO", "ESQUIVAR", "GRANADA"}, new int[] {B1, B2, B3}, 0xff7a3a2a),
         new Game("skysmash", "Sky Smasher", "Nihon System", 1990, JOY_8WAY,
                 new String[] {"DISPARO", "BOMBA"}, new int[] {B1, B2}, 0xff2a4a7a),
+        new Game("defender", "Defender", "Williams", 1980, JOY_8WAY,
+                new String[] {"DISPARO", "EMPUJE", "BOMBA", "HIPERESPACIO"}, new int[] {B1, B2, B3, B4}, 0xff3a3a8a),
+        new Game("mayday", "Mayday", "Hoei", 1980, JOY_8WAY,
+                new String[] {"DISPARO", "EMPUJE", "BOMBA", "HIPERESPACIO"}, new int[] {B1, B2, B3, B4}, 0xff4a3a7a),
+        new Game("colony7", "Colony 7", "Taito", 1981, JOY_8WAY,
+                new String[] {"DISPARO", "BOMBA", "SALTO"}, new int[] {B1, B2, B3}, 0xff2a5a6a),
+        new Game("stargate", "Stargate", "Williams", 1981, JOY_8WAY,
+                new String[] {"DISPARO", "EMPUJE", "BOMBA", "GIRO"}, new int[] {B1, B2, B3, B4}, 0xff5a2a7a),
+        new Game("robotron", "Robotron: 2084", "Williams", 1982, JOY_8WAY,
+                new String[] {"DISP. ARRIBA", "DISP. ABAJO", "DISP. IZQ.", "DISP. DER."}, new int[] {B1, B2, B3, B4}, 0xff7a2a4a),
+        new Game("joust", "Joust", "Williams", 1982, JOY_2WAY,
+                new String[] {"ALETEAR"}, new int[] {B1}, 0xff6a5a2a),
+        new Game("elevator", "Elevator Action", "Taito", 1983, JOY_8WAY,
+                new String[] {"DISPARO", "SALTO"}, new int[] {B1, B2}, 0xff8a2a5a),
+        new Game("junglek", "Jungle King", "Taito", 1982, JOY_8WAY,
+                new String[] {"SALTO"}, new int[] {B1}, 0xff2a6a2a),
         new Game("esb", "starwars", new String[] {"esb"}, "The Empire Strikes Back", "Atari", 1985, JOY_YOKE,
                 new String[] {"GATILLO", "PULGAR"}, new int[] {B1, B2}, 0xff3a5a9a),
         new Game("gauntlet", "Gauntlet", "Atari Games", 1985, JOY_8WAY,

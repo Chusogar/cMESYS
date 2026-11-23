@@ -118,6 +118,14 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Cabal (TAD, 1988) | `cabal` | 68000 + Z80 (cifrado) | YM2151 + 2 x ADPCM (sonido Seibu) | dsp-cpp `cabal.cpp` (versión con joystick) |
 | Blood Bros. (TAD, 1990) | `bloodbro` | 68000 + Z80 | YM3812 + OKI M6295 (sonido Seibu) | dsp-cpp `bloodbros.cpp` |
 | Sky Smasher (Nihon System, 1990) | `skysmash` | 68000 + Z80 | YM3812 + OKI M6295 (sonido Seibu) | dsp-cpp `bloodbros.cpp` |
+| Defender (Williams, 1980) | `defender` | 6809 + 6808 | DAC | dsp-cpp `williams.cpp` (el sonido no: allí apenas suena; aquí el 6808 completo) |
+| Mayday (Hoei, 1980) | `mayday` | 6809 + 6808 | DAC | dsp-cpp `williams.cpp` (el sonido no: allí apenas suena; aquí el 6808 completo) |
+| Colony 7 (Taito, 1981) | `colony7` | 6809 + 6808 | DAC | dsp-cpp `williams.cpp` (el sonido no: allí apenas suena; aquí el 6808 completo) |
+| Stargate (Williams, 1981) | `stargate` | 6809 + 6808 | DAC | dsp-cpp `williams.cpp` (el sonido no: allí apenas suena; aquí el 6808 completo) |
+| Robotron: 2084 (Williams, 1982) | `robotron` | 6809 + 6808 | DAC | dsp-cpp `williams.cpp` (el sonido no: allí apenas suena; aquí el 6808 completo) |
+| Joust (Williams, 1982) | `joust` | 6809 + 6808 | DAC | dsp-cpp `williams.cpp` (el sonido no: allí apenas suena; aquí el 6808 completo) |
+| Elevator Action (Taito, 1983) | `elevator` | Z80 + Z80 + 68705 | 4 x AY-3-8910 + DAC | dsp-cpp `taitosj.cpp` |
+| Jungle King (Taito, 1982) | `junglek` | Z80 + Z80 | 4 x AY-3-8910 + DAC | dsp-cpp `taitosj.cpp` |
 
 Las treinta y una últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
@@ -438,10 +446,12 @@ Para flashear, mantén BOOT al enchufar el USB-C nativo; aparece la unidad `RP23
 
 ### Escritorio, web y RP2040/RP2350 con teclado USB
 
-Comunes a las recreativas: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl botón 1, `X`/Alt botón 2, `C`/Espacio botón 3, F3 reset, P pausa, ESC salir. En las placas, un mando USB usa la cruceta, A/B/X como botones 1/2/3, SELECT moneda, START start y SELECT+START reset.
+Comunes a las recreativas: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl botón 1, `X`/Alt botón 2, `C`/Espacio botón 3, `V`/Mayús izquierda botón 4, F3 reset, P pausa, ESC salir. En las placas, un mando USB usa la cruceta, A/B/X/Y como botones 1/2/3/4, SELECT moneda, START start y SELECT+START reset.
 
 | Recreativa | Botones |
 |---|---|
+| Defender / Mayday / Stargate | Z disparo, X empuje, C bomba, V hiperespacio (Stargate: V giro, palanca izquierda hiperespacio); la palanca a la izquierda da la vuelta a la nave. La CMOS no se guarda: cada arranque es el primero y el «Advance» se pulsa solo |
+| Robotron: 2084 | cursores mover; disparar con Z/X/C/V (arriba / abajo / izquierda / derecha) o con la palanca del jugador 2 |
 | Indy | Z látigo, X salto; EEPROM en `indytemp.eep` |
 | Road Runner | joystick a desviación máxima, Z / X salto; EEPROM en `roadrunn.eep` |
 | Gauntlet | jugador 1; Z disparo, X magia (`1` también es magia); EEPROM en `gauntlet.eep` |
@@ -575,7 +585,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash`, `defender`, `mayday`, `colony7`, `stargate`, `robotron`, `joust`, `elevator`, `junglek` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |
