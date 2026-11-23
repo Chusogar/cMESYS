@@ -1,5 +1,5 @@
-// appoooh.c - Appoooh (Sanritsu / Sega, 1984) for the common arcade
-// frontends (arc.h): C port of dsp-cpp's drivers/arcade/appoooh (from
+// appoooh.c - Appoooh (Sanritsu / Sega, 1984) and Robo Wres 2001 (Sega,
+// 1986) for the common arcade frontends (arc.h): C port of dsp-cpp's drivers/arcade/appoooh (from
 // dsp-emulator's appoooh_hw.pas). A Z80 at 3 MHz, three SN76496, an MSM5205
 // , two layers of 8x8
 // tiles and two banks of 16x16 sprites with a priority switch. The ADPCM is
@@ -11,6 +11,12 @@
 #include "../../../cpu/z80dsp/z80dsp.h"
 #include "../../../sound/sn76496.h"
 #include "../../../sound/msm5205dsp.h"
+#include "../../../machine/sega_decrypt.h"
+
+#ifndef ARC_VARIANT
+#define ARC_VARIANT 0
+#endif
+#define ROBO (ARC_VARIANT == 1)     // Robo Wres: the 315-5179 cipher, twice the tiles
 
 #define CLOCK (18432000 / 6)
 #define MSM_CLOCK 384000
@@ -20,6 +26,29 @@
 #define W 256
 #define H 224
 
+#if ROBO
+static const char *const kSets[] = { "robowres", NULL };
+static const arc_rom kMain[] = {
+    {"epr-7540.13d", 0x8000, 0x00000, 0xa2a54237}, {"epr-7541.14d", 0x8000, 0x08000, 0xcbf7d1a8},
+    {"epr-7542.15d", 0x8000, 0x10000, 0x3475fbd4}};
+static const arc_rom kChar1[] = {
+    {"epr-7544.7h", 0x8000, 0x00000, 0x07b846ce}, {"epr-7545.6h", 0x8000, 0x08000, 0xe99897be},
+    {"epr-7546.5h", 0x8000, 0x10000, 0x1559235a}};
+static const arc_rom kChar2[] = {
+    {"epr-7547.7d", 0x8000, 0x00000, 0xb87ad4a4}, {"epr-7548.6d", 0x8000, 0x08000, 0x8b9c75b3},
+    {"epr-7549.5d", 0x8000, 0x10000, 0xf640afbb}};
+static const arc_rom kProm[] = {
+    {"pr7571.10a", 0x20, 0x000, 0xe82c6d5c}, {"pr7572.7f", 0x100, 0x020, 0x2b083d0c},
+    {"pr7573.7g", 0x100, 0x120, 0x2b083d0c}};
+static const arc_rom kAdpcm[] = {{"epr-7543.12b", 0x8000, 0x0000, 0x4d108c49}};
+const arc_info arc_game = { "robowres", "Robo Wres 2001", "Sega", 1986, W, H, FPS, RATE, kSets,
+                            { "B1", "B2", NULL, NULL }, ARC_JOY_8WAY };
+#define TILES 0x1000
+#define SPRITES 0x400
+#define SPRITE_BASE 0x200
+#define GFX_SIZE 0x18000
+#define DSW 0xe0
+#else
 static const char *const kSets[] = { "appoooh", NULL };
 static const arc_rom kMain[] = {
     {"epr-5906.bin", 0x2000, 0x00000, 0xfffae7fe}, {"epr-5907.bin", 0x2000, 0x02000, 0x57696cd6},
@@ -43,6 +72,12 @@ static const arc_rom kAdpcm[] = {
 
 const arc_info arc_game = { "appoooh", "Appoooh", "Sanritsu / Sega", 1984, W, H, FPS, RATE, kSets,
                             { "B1", "B2", NULL, NULL }, ARC_JOY_8WAY };
+#define TILES 0x800
+#define SPRITES 0x200
+#define SPRITE_BASE 0
+#define GFX_SIZE 0xc000
+#define DSW 0x60
+#endif
 
 static const int kX8[8] = {7, 6, 5, 4, 3, 2, 1, 0};
 static const int kX16[16] = {7, 6, 5, 4, 3, 2, 1, 0, 71, 70, 69, 68, 67, 66, 65, 64};
@@ -78,6 +113,9 @@ static uint8_t rd(void *u, uint16_t a)
     if (a >= 0xe000) return MEM(a);
     return A.rom[0xa000 + (A.bank & 1) * 0x4000 + (a - 0xa000)];
 }
+#if ROBO
+static uint8_t op_rd(void *u, uint16_t a) { return a <= 0x7fff ? A.rom[0x12000 + a] : rd(u, a); }
+#endif
 static void wr(void *u, uint16_t a, uint8_t v) { (void)u; if (a >= 0xe000) MEM(a) = v; }
 
 static uint8_t port_in(void *u, uint16_t p)
@@ -184,7 +222,7 @@ static void draw_sprites(int bank)
     const int base = 0xf000 + 0x800 * bank;
     for (int f = 7; f >= 0; f--) {
         const uint8_t attr = MEM(base + 1 + f * 4), attr2 = MEM(base + 2 + f * 4);
-        const int code = (attr >> 2) + ((attr2 & 0xe0) << 1);
+        const int code = SPRITE_BASE + (attr >> 2) + ((attr2 & 0xe0) << 1);
         blit_sprite(MEM(base + 3 + f * 4), 240 - MEM(base + f * 4), A.sprites[bank] + (size_t)code * 256,
                     ((attr2 & 0x0f) << 3) + 0x100 * bank, (attr & 1) != 0);
     }
@@ -226,26 +264,48 @@ bool arc_init(void)
     if (!arc_fb_init(&A.fb, W, H)) return false;
     arc_frame_row_hook = frame_row;
     // 0000-9fff, then the two banks of a000-dfff
+#if ROBO
+    {   // (Robo Wres: then the decrypted opcodes of 0000-7fff)
+        arc_blob b;
+        if (arc_blob_begin(&b, "program", 0x1a000, ARC_ROM_KEY(kMain, 0))) {
+            // (the blob is written in order: the opcodes kept until the end)
+            uint8_t *raw = (uint8_t *)malloc(0x18000), *ops = (uint8_t *)malloc(0x8000), data[0x400];
+            if (!raw || !ops || !ARC_LOAD(kMain, raw, 0x18000)) return false;
+            for (uint32_t a = 0; a < 0x8000; a += 0x400) {
+                sega_decrypt_type2_part(raw + a, 0x400, a, SEGA2_315_5179, 0, data, ops + a);
+                arc_blob_write(&b, a, data, 0x400);
+            }
+            arc_blob_write(&b, 0x8000, raw + 0x8000, 0x2000);
+            arc_blob_write(&b, 0xa000, raw + 0xa000, 0x4000);
+            arc_blob_write(&b, 0xe000, raw + 0x12000, 0x4000);
+            arc_blob_write(&b, 0x12000, ops, 0x8000);
+            free(ops);
+            free(raw);
+        }
+        if (!(A.rom = arc_blob_end(&b))) return false;
+    }
+#else
     if (!(A.rom = ARC_ROM_BLOB("program", kMain, 0x12000))) return false;
+#endif
     for (int k = 0; k < 2; k++) {
-        const uint8_t *raw = k ? ARC_ROM_BLOB("gfx2.raw", kChar2, 0xc000) : ARC_ROM_BLOB("gfx1.raw", kChar1, 0xc000);
+        const uint8_t *raw = k ? ARC_ROM_BLOB("gfx2.raw", kChar2, GFX_SIZE) : ARC_ROM_BLOB("gfx1.raw", kChar1, GFX_SIZE);
         if (!raw) return false;
-        const int t = 0x800;
+        const int t = TILES;
         arc_layout cl = { 8, 8, t, 3, 64, false, false, false, {t * 128, t * 64, 0}, kX8, kY8 };
-        // sprites: codes up to 0x1ff
-        arc_layout sl = { 16, 16, 0x200, 3, 256, false, false, false, {t * 128, t * 64, 0}, kX16, kY16 };
+        // sprites: the codes reached
+        arc_layout sl = { 16, 16, SPRITES, 3, 256, false, false, false, {t * 128, t * 64, 0}, kX16, kY16 };
         const uint32_t key = k ? ARC_ROM_KEY(kChar2, 1) : ARC_ROM_KEY(kChar1, 1);
         arc_blob b;
-        if (arc_blob_begin(&b, k ? "chars2" : "chars1", t * 64, key)) arc_blob_gfx(&b, &cl, raw, 0xc000, 0);
+        if (arc_blob_begin(&b, k ? "chars2" : "chars1", t * 64, key)) arc_blob_gfx(&b, &cl, raw, GFX_SIZE, 0);
         if (!(A.chars[k] = arc_blob_end(&b))) return false;
-        if (arc_blob_begin(&b, k ? "sprites2" : "sprites1", 0x200 * 256, key + 1)) arc_blob_gfx(&b, &sl, raw, 0xc000, 0);
+        if (arc_blob_begin(&b, k ? "sprites2" : "sprites1", SPRITES * 256, key + 1)) arc_blob_gfx(&b, &sl, raw, GFX_SIZE, 0);
         arc_blob_free(raw);
         if (!(A.sprites[k] = arc_blob_end(&b))) return false;
     }
     if (!ARC_LOAD(kProm, prom, sizeof prom) || !(A.adpcm = ARC_ROM_BLOB("adpcm", kAdpcm, 0x10000))) return false;
     for (int f = 0; f < 0x200; f++) {
         int pen = prom[0x20 + f] & 0x0f;
-        if (f > 0xff) pen |= 0x10;
+        if (f > 0xff && !ROBO) pen |= 0x10;
         const uint8_t v = prom[pen];
         const int r = 0x21 * (v & 1) + 0x47 * ((v >> 1) & 1) + 0x97 * ((v >> 2) & 1);
         const int g = 0x21 * ((v >> 3) & 1) + 0x47 * ((v >> 4) & 1) + 0x97 * ((v >> 5) & 1);
@@ -253,6 +313,9 @@ bool arc_init(void)
         A.palette[f] = arc_rgb565((uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b);
     }
     A.cpu.read = rd;
+#if ROBO
+    A.cpu.opcode_read = op_rd;
+#endif
     A.cpu.write = wr;
     A.cpu.in = port_in;
     A.cpu.out = port_out;
@@ -260,7 +323,7 @@ bool arc_init(void)
     for (int i = 0; i < 3; i++) sn76496_init(&A.sn[i], CLOCK, RATE, 1.0f);
     msm5205d_init(&A.msm, MSM_CLOCK, 64, 4);
     A.msm.vclk_handler = adpcm_vclk;
-    A.dsw = 0x60;
+    A.dsw = DSW;
     arc_reset();
     return true;
 }

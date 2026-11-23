@@ -1,5 +1,5 @@
-// blueprnt.c - Blue Print (Bally Midway, 1982) for the common arcade
-// frontends (arc.h): C port of dsp-cpp's drivers/arcade/blueprint (MAME's
+// blueprnt.c - Blue Print (Bally Midway, 1982), Saturn (Jaleco, 1983) and
+// Grasspin (Jaleco, 1983) for the common arcade frontends (arc.h): C port of dsp-cpp's drivers/arcade/blueprint (MAME's
 // blueprnt.cpp). A Z80 at 3.5 MHz, a sound Z80 with two AY-3-8910 (one
 // passes the DIP switches to the main CPU), 8x8 characters with a scroll
 // per column and a priority bit, and 8x16 3bpp sprites, on a vertical
@@ -19,6 +19,39 @@
 #define W 224
 #define H 256
 
+#ifndef ARC_VARIANT
+#define ARC_VARIANT 0
+#endif
+
+#if ARC_VARIANT == 1
+static const char *const kSets[] = { "saturnzi", NULL };
+static const arc_rom kMain[] = {
+    {"r1", 0x1000, 0x0000, 0x18a6d68e}, {"r2", 0x1000, 0x1000, 0xa7dd2665}, {"r3", 0x1000, 0x2000, 0xb9cfa791},
+    {"r4", 0x1000, 0x3000, 0xc5a997e7}, {"r5", 0x1000, 0x4000, 0x43444d00}, {"r6", 0x1000, 0x5000, 0x4d4821f6}};
+static const arc_rom kSound[] = {{"r7", 0x1000, 0, 0xdd43e02f}, {"r8", 0x1000, 0x2000, 0x7f9d0877}};
+static const arc_rom kChars[] = {{"r10", 0x1000, 0, 0x35987d61}, {"r9", 0x1000, 0x1000, 0xca6a7fda}};
+static const arc_rom kSprites[] = {
+    {"r11", 0x1000, 0, 0x6e4e6e5d}, {"r12", 0x1000, 0x1000, 0x46fc049e}, {"r13", 0x1000, 0x2000, 0x8b3e8c32}};
+const arc_info arc_game = { "saturnzi", "Saturn", "Jaleco", 1983, W, H, FPS, RATE, kSets,
+                            { "FIRE", "BOMB", NULL, NULL }, ARC_JOY_4WAY };
+#define DSW_A 0x3d
+#define DSW_B 0xfd
+#elif ARC_VARIANT == 2
+static const char *const kSets[] = { "grasspin", NULL };
+static const arc_rom kMain[] = {
+    {"prom_1.4b", 0x1000, 0x0000, 0x6fd50509}, {"jaleco-2.4c", 0x1000, 0x1000, 0xcd319007},
+    {"jaleco-3.4d", 0x1000, 0x2000, 0xac73ccc2}, {"jaleco-4.4f", 0x1000, 0x3000, 0x41f6279d},
+    {"jaleco-5.4h", 0x1000, 0x4000, 0xd20aead9}};
+static const arc_rom kSound[] = {{"jaleco-6.4j", 0x1000, 0, 0xf58bf3b0}, {"jaleco-7.4l", 0x1000, 0x2000, 0x2d587653}};
+static const arc_rom kChars[] = {{"jaleco-9.4p", 0x1000, 0, 0xbccca24c}, {"jaleco-8.3p", 0x1000, 0x1000, 0x9d6185ca}};
+static const arc_rom kSprites[] = {
+    {"jaleco-10.5p", 0x1000, 0, 0x3a0765c6}, {"jaleco-11.6p", 0x1000, 0x1000, 0xcccfbeb4},
+    {"jaleco-12.7p", 0x1000, 0x2000, 0x615b3299}};
+const arc_info arc_game = { "grasspin", "Grasspin", "Jaleco", 1983, W, H, FPS, RATE, kSets,
+                            { "B1", "B2", NULL, NULL }, ARC_JOY_4WAY };
+#define DSW_A 0x7f
+#define DSW_B 0x9f
+#else
 static const char *const kSets[] = { "blueprnt", NULL };
 static const arc_rom kMain[] = {
     {"bp-1.1m", 0x1000, 0x0000, 0xb20069a6}, {"bp-2.1n", 0x1000, 0x1000, 0x4a30302e},
@@ -31,6 +64,9 @@ static const arc_rom kSprites[] = {
 
 const arc_info arc_game = { "blueprnt", "Blue Print", "Bally Midway", 1982, W, H, FPS, RATE, kSets,
                             { "BOMB", NULL, NULL, NULL }, ARC_JOY_4WAY };
+#define DSW_A 0xc3
+#define DSW_B 0xd5
+#endif
 
 static const int kX8[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 static const int kY16[16] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120};
@@ -66,7 +102,8 @@ static uint8_t main_read(void *u, uint16_t a)
     if (a >= 0xf000) return P.color_ram[a & 0x3ff];
     if (a == 0xc000) return P.in0;
     if (a == 0xc001) return P.in1;
-    if (a == 0xc003) return P.dip_latch;    // from the sound CPU, through AY 0's port A
+    if (a == 0xc003)                    // from the sound CPU, through AY 0's port A
+        return ARC_VARIANT == 2 ? (uint8_t)((P.dip_latch & 0x7f) | 0x80) : P.dip_latch;
     return 0;
 }
 
@@ -248,8 +285,8 @@ bool arc_init(void)
     zd_init(&P.sound);
     ay8910_init(&P.ay0, 1250000, RATE);
     ay8910_init(&P.ay1, 625000, RATE);
-    P.dsw_a = 0xc3;
-    P.dsw_b = 0xd5;
+    P.dsw_a = DSW_A;
+    P.dsw_b = DSW_B;
     arc_reset();
     return true;
 }
@@ -299,6 +336,7 @@ static uint8_t pad(unsigned b, bool coin)
     uint8_t v = 0;
     if (coin) v |= 0x01;
     if (b & AP_START) v |= 0x02;
+    if (ARC_VARIANT && (b & AP_B2)) v |= 0x04;   // (Saturn and Grasspin)
     if (b & AP_B1) v |= 0x08;
     if (b & AP_LEFT) v |= 0x10;
     if (b & AP_RIGHT) v |= 0x20;

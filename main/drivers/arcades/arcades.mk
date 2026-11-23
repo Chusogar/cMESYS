@@ -12,8 +12,8 @@
 ARC_BIG := pirates
 # the CYD builds of these keep their ROMs and graphics in the flash (the arccache
 # partition, filled from the microSD on the first boot: partitions_arccache.csv)
-ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght chinagat ddragon ddragon2 kungfum
-ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf
+ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght chinagat ddragon ddragon2 kungfum darwin combh robowres
+ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
 ARC_SRC_calorie := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -99,6 +99,26 @@ ARC_SRC_rtype2 := drivers/arcades/m72/m72.c cpu/necv30/nec_v30.c cpu/z80dsp/z80d
 ARC_DEFS_rtype2 := ARC_VARIANT=2
 ARC_SRC_opwolf := drivers/arcades/opwolf/opwolf.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c sound/ym2151.c sound/msm5205dsp.c
 ARC_DEFS_opwolf := M68K_FLASH_TABLES
+ARC_SRC_lnc := drivers/arcades/btime/btime.c cpu/m6502/m65xx.c sound/ay8910.c
+ARC_DEFS_lnc := ARC_VARIANT=1
+ARC_SRC_mmonkey := drivers/arcades/btime/btime.c cpu/m6502/m65xx.c sound/ay8910.c
+ARC_DEFS_mmonkey := ARC_VARIANT=2
+ARC_SRC_darwin := drivers/arcades/brkthru/brkthru.c cpu/m6809dsp/m6809dsp.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/ym3812dsp.c
+ARC_DEFS_darwin := ARC_VARIANT=1
+ARC_SRC_saturnzi := drivers/arcades/blueprnt/blueprnt.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_saturnzi := ARC_VARIANT=1
+ARC_SRC_grasspin := drivers/arcades/blueprnt/blueprnt.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_grasspin := ARC_VARIANT=2
+ARC_SRC_robowres := drivers/arcades/appoooh/appoooh.c cpu/z80dsp/z80dsp.c sound/sn76496.c sound/msm5205dsp.c machine/sega_decrypt.c
+ARC_DEFS_robowres := ARC_VARIANT=1
+ARC_SRC_combh := drivers/arcades/bankp/bankp.c cpu/z80dsp/z80dsp.c sound/sn76496.c
+ARC_DEFS_combh := ARC_VARIANT=1
+ARC_SRC_mooncrst := drivers/arcades/galaxian/galaxian.c cpu/z80dsp/z80dsp.c
+ARC_DEFS_mooncrst := ARC_VARIANT=1
+ARC_SRC_scramble := drivers/arcades/galaxian/galaxian.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_scramble := ARC_VARIANT=2
+ARC_SRC_frogger := drivers/arcades/galaxian/galaxian.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_frogger := ARC_VARIANT=3
 ARC_RAM_bombjack := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_calorie := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_mrdo := z80dsp.c.o mrdo.c.o sn76496.c.o
@@ -156,3 +176,13 @@ ARC_RAM_rtype := nec_v30.c.o z80dsp.c.o m72.c.o ym2151.c.o
 ARC_RAM_hharry := nec_v30.c.o z80dsp.c.o m72.c.o ym2151.c.o
 ARC_RAM_rtype2 := nec_v30.c.o z80dsp.c.o m72.c.o ym2151.c.o
 ARC_RAM_opwolf := m68kcpu.c.o z80dsp.c.o opwolf.c.o ym2151.c.o msm5205dsp.c.o
+ARC_RAM_lnc := m65xx.c.o btime.c.o ay8910.c.o
+ARC_RAM_mmonkey := m65xx.c.o btime.c.o ay8910.c.o
+ARC_RAM_darwin := m6809dsp.c.o brkthru.c.o ym2203dsp.c.o fmopn.c.o ay8910.c.o ym3812dsp.c.o
+ARC_RAM_saturnzi := z80dsp.c.o blueprnt.c.o ay8910.c.o
+ARC_RAM_grasspin := z80dsp.c.o blueprnt.c.o ay8910.c.o
+ARC_RAM_robowres := z80dsp.c.o appoooh.c.o sn76496.c.o msm5205dsp.c.o
+ARC_RAM_combh := z80dsp.c.o bankp.c.o sn76496.c.o
+ARC_RAM_mooncrst := z80dsp.c.o galaxian.c.o
+ARC_RAM_scramble := z80dsp.c.o galaxian.c.o ay8910.c.o
+ARC_RAM_frogger := z80dsp.c.o galaxian.c.o ay8910.c.o
