@@ -150,6 +150,8 @@ final class Game {
                 new String[] {"MARTILLO", "SALTO"}, new int[] {B1, B2}, 0xff7a4a2a),
         new Game("rtype2", "R-Type II", "Irem", 1989, JOY_8WAY,
                 new String[] {"DISPARO", "FUERZA"}, new int[] {B1, B2}, 0xff3a2a6a),
+        new Game("opwolf", "Operation Wolf", "Taito", 1987, JOY_8WAY,
+                new String[] {"DISPARO", "GRANADA"}, new int[] {B1, B2}, 0xff4a5a2a),
         new Game("esb", "starwars", new String[] {"esb"}, "The Empire Strikes Back", "Atari", 1985, JOY_YOKE,
                 new String[] {"GATILLO", "PULGAR"}, new int[] {B1, B2}, 0xff3a5a9a),
         new Game("gauntlet", "Gauntlet", "Atari Games", 1985, JOY_8WAY,
