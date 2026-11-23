@@ -1,8 +1,10 @@
 // appoooh.c - Appoooh (Sanritsu / Sega, 1984) for the common arcade
 // frontends (arc.h): C port of dsp-cpp's drivers/arcade/appoooh (from
 // dsp-emulator's appoooh_hw.pas). A Z80 at 3 MHz, three SN76496, an MSM5205
-// (dsp-cpp's hookup: it plays little of the ADPCM ROM), two layers of 8x8
-// tiles and two banks of 16x16 sprites with a priority switch.
+// , two layers of 8x8
+// tiles and two banks of 16x16 sprites with a priority switch. The ADPCM is
+// MAME's hookup (dsp-cpp's played little of it): a byte a sample pair from
+// the address the main CPU gives, until a 0x70.
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
@@ -58,8 +60,9 @@ static struct state {
     uint16_t palette[512];
     arc_fb fb;
     uint8_t in0, in1, in2, dsw, priority, bank;
-    bool nmi_vblank, flip, adpcm_playing;
-    uint32_t adpcm_pos;
+    bool nmi_vblank, flip;
+    uint32_t adpcm_address;             // 0xffffffff: stopped
+    int adpcm_data;                     // -1: the next byte to fetch
     int64_t audio_acc, msm_acc;
     int16_t audio[1024];
     int naudio;
@@ -95,9 +98,9 @@ static void port_out(void *u, uint16_t p, uint8_t v)
     switch (p & 0xff) {
     case 0: case 1: case 2: sn76496_write(&A.sn[p & 3], v); break;
     case 3:
-        A.adpcm_pos = ((uint32_t)v << 8) * 2;
+        A.adpcm_address = (uint32_t)v << 8;
         msm5205d_set_reset(&A.msm, false);
-        A.adpcm_playing = true;
+        A.adpcm_data = -1;
         break;
     case 4:
         A.nmi_vblank = (v & 1) != 0;
@@ -109,23 +112,22 @@ static void port_out(void *u, uint16_t p, uint8_t v)
     }
 }
 
+// each VCLK: the high nibble of a new byte, then its low one (MAME's appoooh)
 static void adpcm_vclk(void *u)
 {
     (void)u;
-    if (!A.adpcm_playing) return;
-    if (A.adpcm_pos / 2 >= 0x10000) {
-        msm5205d_set_reset(&A.msm, true);
-        A.adpcm_playing = false;
-        return;
+    if (A.adpcm_address == 0xffffffff) return;
+    if (A.adpcm_data == -1) {
+        A.adpcm_data = A.adpcm[A.adpcm_address++ & 0xffff];
+        msm5205d_data_w(&A.msm, (uint8_t)(A.adpcm_data >> 4));
+        if (A.adpcm_data == 0x70) {
+            A.adpcm_address = 0xffffffff;
+            msm5205d_set_reset(&A.msm, true);
+        }
+    } else {
+        msm5205d_data_w(&A.msm, (uint8_t)(A.adpcm_data & 0x0f));
+        A.adpcm_data = -1;
     }
-    const uint8_t d = A.adpcm[A.adpcm_pos / 2];
-    if (d == 0x70) {
-        msm5205d_set_reset(&A.msm, true);
-        A.adpcm_playing = false;
-        return;
-    }
-    msm5205d_data_w(&A.msm, (A.adpcm_pos & 1) ? d & 0x0f : d >> 4);
-    A.adpcm_pos = (A.adpcm_pos + 1) & 0x1ffff;
 }
 
 static void cycles(int c)
@@ -257,8 +259,6 @@ bool arc_init(void)
     zd_init(&A.cpu);
     for (int i = 0; i < 3; i++) sn76496_init(&A.sn[i], CLOCK, RATE, 1.0f);
     msm5205d_init(&A.msm, MSM_CLOCK, 64, 4);
-    A.msm.rom = A.adpcm;                // (dsp-cpp also hands it the ROM)
-    A.msm.rom_size = 0x10000;
     A.msm.vclk_handler = adpcm_vclk;
     A.dsw = 0x60;
     arc_reset();
@@ -271,8 +271,9 @@ void arc_reset(void)
     for (int i = 0; i < 3; i++) sn76496_reset(&A.sn[i]);
     msm5205d_reset(&A.msm);
     A.in0 = A.in1 = A.in2 = 0;
-    A.nmi_vblank = A.adpcm_playing = A.flip = false;
-    A.adpcm_pos = 0;
+    A.nmi_vblank = A.flip = false;
+    A.adpcm_address = 0xffffffff;
+    A.adpcm_data = -1;
     A.priority = 0xff;
     A.bank = 0;
     A.audio_acc = A.msm_acc = 0;

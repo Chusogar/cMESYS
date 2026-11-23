@@ -2,7 +2,7 @@
 // frontends (arc.h): C port of dsp-cpp's drivers/arcade/tehkanwc (from
 // dsp-emulator's tehkanworldcup_hw.pas). Three Z80 at 4.6 MHz (main and sub
 // sharing the video and work RAM, sound), two AY-3-8910 and an MSM5205
-// (dsp-cpp's hookup), a 512x256 background of 16x8 tiles, 8x8 text split
+// (MAME's hookup: dsp-cpp's played almost nothing), a 512x256 background of 16x8 tiles, 8x8 text split
 // around the sprites. The trackballs are driven by the joystick.
 #include <stdlib.h>
 #include <string.h>
@@ -48,7 +48,8 @@ static struct state {
     uint8_t ram_sub[0x4800], ram_snd[0x800], pal_ram[0x800];   // 8000-c7ff, 4000-47ff
     uint16_t palette[0x400];
     arc_fb fb;
-    uint16_t scroll_x, msm_pos;
+    uint16_t scroll_x, msm_pos;         // msm_pos: the ADPCM byte, the AYs' ports
+    bool msm_low;                       // the low nibble next
     uint8_t scroll_y, sound_latch, sound_latch2, track0[2], track1[2];
     int8_t stick0_x, stick0_y, stick1_x, stick1_y;
     bool sub_reset;
@@ -194,7 +195,7 @@ static uint8_t sound_in(void *u, uint16_t p)
     (void)u;
     switch (p & 0xff) {
     case 0: return ay8910_data_r(&T.ay0);
-    case 1: return ay1_read();
+    case 2: return ay1_read();          // (MAME: dsp-cpp read it at port 1)
     default: return 0xff;
     }
 }
@@ -209,6 +210,20 @@ static void sound_out(void *u, uint16_t p, uint8_t v)
     case 3: ay8910_address_w(&T.ay1, v); break;
     default: break;
     }
+}
+
+// each VCLK a nibble of the byte at msm_pos, the high one first, then on to
+// the next byte (the sound CPU sees how far it got through AY 1)
+static void adpcm_vclk(void *u)
+{
+    (void)u;
+    const uint8_t d = T.adpcm[T.msm_pos & 0x7fff];
+    if (!T.msm_low) msm5205d_data_w(&T.msm, d >> 4);
+    else {
+        msm5205d_data_w(&T.msm, d & 0x0f);
+        T.msm_pos++;
+    }
+    T.msm_low = !T.msm_low;
 }
 
 static uint8_t in_ff(void *u, uint16_t p) { (void)u, (void)p; return 0xff; }
@@ -324,9 +339,8 @@ bool arc_init(void)
     zd_init(&T.sound);
     ay8910_init(&T.ay0, AY_CLOCK, RATE);
     ay8910_init(&T.ay1, AY_CLOCK, RATE);
-    msm5205d_init(&T.msm, MSM_CLOCK, 96, 4);
-    T.msm.rom = T.adpcm;
-    T.msm.rom_size = 0x8000;
+    msm5205d_init(&T.msm, MSM_CLOCK, 48, 4);   // 8 kHz
+    T.msm.vclk_handler = adpcm_vclk;
     T.dsw_a = T.dsw_b = 0xff;
     T.dsw_c = 0x0f;
     arc_reset();
@@ -349,6 +363,7 @@ void arc_reset(void)
     T.in0 = T.in1 = 0x20;
     T.in2 = 0x0f;
     T.msm_pos = 0;
+    T.msm_low = false;
     T.audio_acc = T.msm_acc = 0;
     memset(T.pal_ram, 0, sizeof T.pal_ram);
     for (int i = 0; i < 0x400; i++) T.palette[i] = 0;
@@ -370,10 +385,8 @@ int arc_run_frame(const int16_t **audio)
             if (T.naudio < 1024) T.audio[T.naudio++] = arc_clamp16(s);
         }
         T.msm_acc += (int64_t)slice * msm_rate;
-        while (T.msm_acc >= CLOCK) {    // (dsp-cpp's: two VCLKs from msm_pos)
+        while (T.msm_acc >= CLOCK) {
             T.msm_acc -= CLOCK;
-            T.msm.position = T.msm_pos & 0x7fff;
-            msm5205d_vclk(&T.msm);
             msm5205d_vclk(&T.msm);
         }
         if (line == 240) {
