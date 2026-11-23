@@ -1,10 +1,11 @@
-// tigerh.c - Tiger Heli (Toaplan / Taito, 1985) for the common arcade
-// frontends (arc.h): C port of dsp-cpp's drivers/arcade/slapfight (from
-// dsp-emulator's slapfight_hw.pas). dsp-cpp's Tiger Heli variant loads the
-// Slap Fight ROMs, so the ROM map here is MAME's tigerh (slapfght.cpp): no
-// bank switching, 2048 background tiles and 512 sprites. A Z80 at 6 MHz, a
-// sound Z80 with two AY-3-8910 (the inputs and DIP switches on their ports),
-// the 68705 MCU, a scrolling background, 16x16 sprites and 8x8 text.
+// slapfght.c - Tiger Heli (Toaplan / Taito, 1985) and Slap Fight (1986) for
+// the common arcade frontends (arc.h; ARC_VARIANT 1: Slap Fight): C port of
+// dsp-cpp's drivers/arcade/slapfight (from dsp-emulator's slapfight_hw.pas).
+// dsp-cpp's Tiger Heli variant loads the Slap Fight ROMs, so the ROM map of
+// Tiger Heli here is MAME's tigerh (slapfght.cpp): no bank switching, 2048
+// background tiles and 512 sprites. A Z80 at 6 MHz, a sound Z80 with two
+// AY-3-8910 (the inputs and DIP switches on their ports), the 68705 MCU, a
+// scrolling background, 16x16 sprites and 8x8 text.
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
@@ -21,10 +22,15 @@
 #define RATE 44100
 #define W 239
 #define H 280
+#ifndef ARC_VARIANT
+#define ARC_VARIANT 0
+#endif
+#if ARC_VARIANT == 0
 #define CHARS 0x400
 #define TILES 0x800
 #define SPRITES 0x200
-
+#define MAIN_SIZE 0xc000
+#define MCU_TYPE T68705_TIGERHELI
 static const char *const kSets[] = { "tigerh", NULL };
 static const arc_rom kMain[] = {
     {"a47_00-1.8p", 0x4000, 0x0000, 0x4be73246}, {"a47_01-1.8n", 0x4000, 0x4000, 0xaad04867},
@@ -44,6 +50,35 @@ static const arc_rom kSprites[] = {
 
 const arc_info arc_game = { "tigerh", "Tiger Heli", "Toaplan / Taito", 1985, W, H, FPS, RATE, kSets,
                             { "FIRE", "BOMB", NULL, NULL }, ARC_JOY_8WAY };
+#else
+// Slap Fight (dsp-cpp's own variant): 0000-7fff, then two banks of 8000-bfff
+// picked by ports 8 / 9; 4096 background tiles and 1024 sprites
+#define CHARS 0x400
+#define TILES 0x1000
+#define SPRITES 0x400
+#define MAIN_SIZE 0x10000
+#define MCU_TYPE T68705_STANDARD
+#define BANKED 1
+static const char *const kSets[] = { "slapfght", NULL };
+static const arc_rom kMain[] = {{"a77_00.8p", 0x8000, 0x0000, 0x674c0e0f}, {"a77_01.8n", 0x8000, 0x8000, 0x3c42e4a7}};
+static const arc_rom kSound[] = {{"a77_02.12d", 0x2000, 0, 0x87f4705a}};
+static const arc_rom kMcu[] = {{"a77_13.6a", 0x800, 0, 0xa70c81d9}};
+static const arc_rom kProm[] = {
+    {"21_82s129.12q", 0x100, 0x000, 0xa0efaf99}, {"20_82s129.12m", 0x100, 0x100, 0xa56d57e5},
+    {"19_82s129.12n", 0x100, 0x200, 0x5cbf9fbf}};
+static const arc_rom kChars[] = {{"a77_04.6f", 0x2000, 0x0000, 0x2ac7b943}, {"a77_03.6g", 0x2000, 0x2000, 0x33cadc93}};
+static const arc_rom kTiles[] = {
+    {"a77_08.6k", 0x8000, 0x00000, 0xb6358305}, {"a77_07.6m", 0x8000, 0x08000, 0xe92d9d60},
+    {"a77_06.6n", 0x8000, 0x10000, 0x5faeeea3}, {"a77_05.6p", 0x8000, 0x18000, 0x974e2ea9}};
+static const arc_rom kSprites[] = {
+    {"a77_12.8j", 0x8000, 0x00000, 0x8545d397}, {"a77_11.7j", 0x8000, 0x08000, 0xb1b7b925},
+    {"a77_10.8h", 0x8000, 0x10000, 0x422d946b}, {"a77_09.7h", 0x8000, 0x18000, 0x587113ae}};
+
+const arc_info arc_game = { "slapfght", "Slap Fight", "Toaplan / Taito", 1986, W, H, FPS, RATE, kSets,
+                            { "FIRE", "BOMB", NULL, NULL }, ARC_JOY_8WAY };
+#endif
+#define TILE_ROM (TILES * 32)                 // 4 bits a pixel
+#define SPRITE_ROM (SPRITES * 128)
 
 static const int kX16[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 static const int kY8[8] = {0, 8, 16, 24, 32, 40, 48, 56};
@@ -59,7 +94,7 @@ static struct state {
     const uint8_t *chars, *tiles, *sprites;
     uint16_t palette[256];
     arc_fb fb;
-    uint8_t in0, in1, dswa, dswb, scroll_x;
+    uint8_t in0, in1, dswa, dswb, scroll_x, rom_bank;
     uint16_t scroll_y;
     bool ena_irq, sound_nmi, sound_reset;
     int status_state, sound_nmi_counter;
@@ -80,6 +115,9 @@ static uint8_t main_read(void *u, uint16_t a)
 {
     (void)u;
     if (a == 0xe803) return t68705d_read(&S.mcu);
+#if BANKED
+    if (a >= 0x8000 && a <= 0xbfff) return S.rom[0x8000 + (S.rom_bank & 1) * 0x4000 + (a & 0x3fff)];
+#endif
     if (a <= 0xbfff) return S.rom[a];
     if (a <= 0xe7ff) return S.ram[a - 0xc000];
     if (a >= 0xf000) return S.ram_f000[a - 0xf000];
@@ -121,6 +159,10 @@ static void main_out(void *u, uint16_t p, uint8_t v)
     case 1: S.sound_reset = false; S.sound_nmi = false; break;
     case 6: S.ena_irq = false; zd_set_irq(&S.main, ZD_CLEAR, 0xff); break;
     case 7: S.ena_irq = true; break;
+#if BANKED
+    case 8: S.rom_bank = 0; break;
+    case 9: S.rom_bank = 1; break;
+#endif
     default: break;
     }
 }
@@ -243,10 +285,10 @@ bool arc_init(void)
     uint8_t prom[0x300];
     if (!arc_fb_init(&S.fb, W, H)) return false;
     arc_frame_row_hook = frame_row;
-    if (!(S.rom = ARC_ROM_BLOB("main", kMain, 0xc000)) || !(S.sound_rom = ARC_ROM_BLOB("sound", kSound, 0x2000)) ||
+    if (!(S.rom = ARC_ROM_BLOB("main", kMain, MAIN_SIZE)) || !(S.sound_rom = ARC_ROM_BLOB("sound", kSound, 0x2000)) ||
         !ARC_LOAD(kProm, prom, sizeof prom))
         return false;
-    t68705d_init(&S.mcu, T68705_TIGERHELI);
+    t68705d_init(&S.mcu, MCU_TYPE);
     if (!ARC_LOAD(kMcu, S.mcu.mem, 0x800)) return false;
     S.mcu.misc = mcu_misc;
     arc_blob b;
@@ -255,13 +297,13 @@ bool arc_init(void)
     arc_layout cl = { 8, 8, CHARS, 2, 64, false, false, true, {0, CHARS * 64}, kX16, kY8 };
     if (arc_blob_begin(&b, "chars", CHARS * 64, ARC_ROM_KEY(kChars, 1))) arc_blob_gfx(&b, &cl, raw, 0x4000, 0);
     arc_blob_free(raw);
-    if (!(S.chars = arc_blob_end(&b)) || !(raw = ARC_ROM_BLOB("tiles.raw", kTiles, 0x10000))) return false;
+    if (!(S.chars = arc_blob_end(&b)) || !(raw = ARC_ROM_BLOB("tiles.raw", kTiles, TILE_ROM))) return false;
     arc_layout tl = { 8, 8, TILES, 4, 64, false, false, true, {0, TILES * 64, TILES * 128, TILES * 192}, kX16, kY8 };
-    if (arc_blob_begin(&b, "tiles", TILES * 64, ARC_ROM_KEY(kTiles, 1))) arc_blob_gfx(&b, &tl, raw, 0x10000, 0);
+    if (arc_blob_begin(&b, "tiles", TILES * 64, ARC_ROM_KEY(kTiles, 1))) arc_blob_gfx(&b, &tl, raw, TILE_ROM, 0);
     arc_blob_free(raw);
-    if (!(S.tiles = arc_blob_end(&b)) || !(raw = ARC_ROM_BLOB("sprites.raw", kSprites, 0x10000))) return false;
+    if (!(S.tiles = arc_blob_end(&b)) || !(raw = ARC_ROM_BLOB("sprites.raw", kSprites, SPRITE_ROM))) return false;
     arc_layout sl = { 16, 16, SPRITES, 4, 256, false, false, true, {0, SPRITES * 256, SPRITES * 512, SPRITES * 768}, kX16, kY16 };
-    if (arc_blob_begin(&b, "sprites", SPRITES * 256, ARC_ROM_KEY(kSprites, 1))) arc_blob_gfx(&b, &sl, raw, 0x10000, 0);
+    if (arc_blob_begin(&b, "sprites", SPRITES * 256, ARC_ROM_KEY(kSprites, 1))) arc_blob_gfx(&b, &sl, raw, SPRITE_ROM, 0);
     arc_blob_free(raw);
     if (!(S.sprites = arc_blob_end(&b))) return false;
     for (int f = 0; f < 0x100; f++)
@@ -293,7 +335,7 @@ void arc_reset(void)
     t68705d_reset(&S.mcu);
     ay8910_reset(&S.ay0);
     ay8910_reset(&S.ay1);
-    S.scroll_x = 0;
+    S.scroll_x = S.rom_bank = 0;
     S.scroll_y = 0;
     S.ena_irq = S.sound_nmi = false;
     S.sound_reset = true;

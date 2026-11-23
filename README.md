@@ -74,6 +74,14 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Tehkan World Cup (Tehkan, 1985) | `tehkanwc` | 3 x Z80 | 2 x AY-3-8910 + MSM5205 | dsp-cpp `tehkanwc.cpp` (ADPCM como en MAME) |
 | Tiger Heli (Toaplan / Taito, 1985) | `tigerh` | Z80 + Z80 + 68705 | 2 x AY-3-8910 | dsp-cpp `slapfight.cpp` con el mapa de ROMs de MAME (`slapfght.cpp`): la variante de dsp-cpp carga las ROMs de Slap Fight |
 | Wonder Boy (Sega / Westone, 1986) | `wboy` | Z80 (315-5177) + Z80 + Z80 PIO | 2 x SN76496 | dsp-cpp `sega_system1.cpp` (su PIO: `machine/z80piodsp`) |
+| Slap Fight (Toaplan / Taito, 1986) | `slapfght` | Z80 + Z80 + 68705 | 2 x AY-3-8910 | dsp-cpp `slapfight.cpp` |
+| Pitfall II (Sega, 1985) | `pitfall2` | Z80 (cifrado) + Z80 + Z80 PIO | 2 x SN76496 | dsp-cpp `sega_system1.cpp` |
+| TeddyBoy Blues (Sega, 1985) | `teddybb` | Z80 (cifrado) + Z80 + Z80 PIO | 2 x SN76496 | dsp-cpp `sega_system1.cpp` |
+| Mr. Viking (Sega, 1984) | `mrviking` | Z80 (cifrado) + Z80 + 8255 | 2 x SN76496 | dsp-cpp `sega_system1.cpp` (su 8255: `machine/i8255dsp`) |
+| Sega Ninja (Sega, 1985) | `seganinj` | Z80 (cifrado) + Z80 + Z80 PIO | 2 x SN76496 | dsp-cpp `sega_system1.cpp` |
+| Up'n Down (Sega, 1983) | `upndown` | Z80 (cifrado) + Z80 + 8255 | 2 x SN76496 | dsp-cpp `sega_system1.cpp` |
+| Flicky (Sega, 1984) | `flicky` | Z80 (cifrado) + Z80 + Z80 PIO | 2 x SN76496 | dsp-cpp `sega_system1.cpp` |
+| Gardia (Sega / Coreland, 1986) | `gardia` | Z80 (317-0006) + Z80 + Z80 PIO | 2 x SN76496 | dsp-cpp `sega_system1.cpp` (System 2) |
 
 Las treinta y una últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
@@ -531,7 +539,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |

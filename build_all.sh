@@ -10,7 +10,7 @@ set -e
 if [ "$ROMS" = external ]; then X=-noroms; XS=_noroms; else X=; XS=; fi
 mkdir -p dist
 CONSOLES=$(sed -n 's/^CONSOLES := //p' main/drivers/consoles/consoles.mk)
-for g in indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 starwars ql spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 apple2 apple2p apple2e apple2ee centiped milliped minivadr bankp citycon brkthru appoooh tehkanwc tigerh wboy $CONSOLES; do
+for g in indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 starwars ql spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 apple2 apple2p apple2e apple2ee centiped milliped minivadr bankp citycon brkthru appoooh tehkanwc tigerh wboy slapfght pitfall2 teddybb mrviking seganinj upndown flicky gardia $CONSOLES; do
     for mhz in 40 80; do
         b=build/$g$X-$mhz
         LCD_SPI_MHZ=$mhz idf.py -B $b -DGAME=$g -DROMS=${ROMS:-builtin} build
