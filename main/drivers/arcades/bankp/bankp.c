@@ -15,6 +15,28 @@
 #define W 224
 #define H 224
 
+#ifndef ARC_VARIANT
+#define ARC_VARIANT 0
+#endif
+#define COMBH (ARC_VARIANT == 1)
+
+#if COMBH
+static const char *const kSets[] = { "combh", NULL };
+static const arc_rom kRom[] = {
+    {"epr-10904.7e", 0x4000, 0x0000, 0x4b106335}, {"epr-10905.7f", 0x4000, 0x4000, 0xa76fc390},
+    {"epr-10906.7h", 0x4000, 0x8000, 0x16d54885}, {"epr-10903.7d", 0x2000, 0xc000, 0xb7a59cab}};
+static const arc_rom kChars[] = {{"epr-10914.5l", 0x2000, 0, 0x7d7a2340}, {"epr-10913.5k", 0x2000, 0x2000, 0xd5c1a8ae}};
+static const arc_rom kBg[] = {
+    {"epr-10907.5b", 0x2000, 0x0000, 0x08e5eea3}, {"epr-10908.5d", 0x2000, 0x2000, 0xd9e413f5},
+    {"epr-10909.5e", 0x2000, 0x4000, 0xfec7962c}, {"epr-10910.5f", 0x2000, 0x6000, 0x33db0fa7},
+    {"epr-10911.5h", 0x2000, 0x8000, 0x565d9e6d}, {"epr-10912.5i", 0x2000, 0xa000, 0xcbe22738}};
+static const arc_rom kProm[] = {
+    {"pr-10900.8a", 0x20, 0x000, 0xf95fcd66}, {"pr-10901.6f", 0x100, 0x020, 0x6fd981c8},
+    {"pr-10902.5a", 0x100, 0x120, 0x84d6bded}};
+const arc_info arc_game = { "combh", "Combat Hawk", "Sanritsu / Sega", 1987, W, H, FPS, RATE, kSets,
+                            { "FIRE", "BOMB", NULL, NULL }, ARC_JOY_8WAY };
+#define DSW 0x10
+#else
 static const char *const kSets[] = { "bankp", NULL };
 static const arc_rom kRom[] = {
     {"epr-6175.7e", 0x4000, 0x0000, 0x044552b8}, {"epr-6174.7f", 0x4000, 0x4000, 0xd29b1598},
@@ -30,6 +52,8 @@ static const arc_rom kProm[] = {
 
 const arc_info arc_game = { "bankp", "Bank Panic", "Sanritsu / Sega", 1984, W, H, FPS, RATE, kSets,
                             { "LEFT", "CENTRE", "RIGHT", NULL }, ARC_JOY_2WAY };
+#define DSW 0xc0
+#endif
 
 static const int kCharX[8] = {67, 66, 65, 64, 3, 2, 1, 0};
 static const int kX8[8] = {7, 6, 5, 4, 3, 2, 1, 0};
@@ -124,7 +148,7 @@ static void update_video(void)
     }
     // BG then the scrolled FG on top, or the other way round
     for (int y = 0; y < H; y++) {
-        const int wy = y + 16;
+        const int wy = COMBH ? 16 + (H - 1 - y) : y + 16;   // (Combat Hawk: upside down, as dsp-cpp)
         uint16_t *out = arc_fb_row(&K.fb, y);
         for (int x = 0; x < W; x++) {
             const int wx = x + 24;
@@ -174,7 +198,7 @@ bool arc_init(void)
     K.cpu.cycles = cycles;
     zd_init(&K.cpu);
     for (int i = 0; i < 3; i++) sn76496_init(&K.sn[i], CLOCK, RATE, 1.0f);
-    K.dsw = 0xc0;
+    K.dsw = DSW;
     arc_reset();
     return true;
 }

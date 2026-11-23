@@ -58,19 +58,29 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Bagman (Valadon Automation, 1982) | `bagman` | Z80 + PAL16R6 | AY-3-8910 | dsp-cpp `bagman.cpp` |
 | Ambush (Nippon Amuse, 1983) | `ambush` | Z80 | 2 x AY-3-8910 | dsp-cpp `ambush.cpp` |
 | Blue Print (Bally Midway, 1982) | `blueprnt` | Z80 + Z80 | 2 x AY-3-8910 | dsp-cpp `blueprint.cpp` |
+| Saturn (Jaleco, 1983) | `saturnzi` | Z80 + Z80 | 2 x AY-3-8910 | dsp-cpp `blueprint.cpp` |
+| Grasspin (Jaleco, 1983) | `grasspin` | Z80 + Z80 | 2 x AY-3-8910 | dsp-cpp `blueprint.cpp` |
 | BurgerTime (Data East, 1982) | `btime` | 6502 (opcodes cifrados) + 6502 | 2 x AY-3-8910 | dsp-cpp `btime.cpp` |
+| Lock'n'Chase (Data East, 1981) | `lnc` | 6502 (opcodes cifrados) + 6502 | 2 x AY-3-8910 | dsp-cpp `btime.cpp` |
+| Minky Monkey (Technos, 1982) | `mmonkey` | 6502 (opcodes cifrados, protección simulada) + 6502 | 2 x AY-3-8910 | dsp-cpp `btime.cpp` |
 | Shao-lin's Road (Konami, 1985) | `shaolins` | 6809 | 2 x SN76496 | dsp-cpp `shaolinsroad.cpp` |
 | Mikie (Konami, 1984) | `mikie` | 6809 + Z80 | 2 x SN76496 | dsp-cpp `mikie.cpp` |
 | Galaxian (Namco, 1979) | `galaxian` | Z80 | — (sin sonido, como en dsp-cpp) | dsp-cpp `galaxian.cpp` |
+| Moon Cresta (Nichibutsu, 1980) | `mooncrst` | Z80 (cifrado) | — (sin sonido, como en dsp-cpp) | dsp-cpp `galaxian.cpp` |
+| Scramble (Konami, 1981) | `scramble` | Z80 + Z80, 2 x 8255 (protección simulada) | 2 x AY-3-8910 | dsp-cpp `galaxian.cpp` |
+| Frogger (Konami, 1981) | `frogger` | Z80 + Z80, 2 x 8255 | AY-3-8910 | dsp-cpp `galaxian.cpp` |
 | Galaga (Namco, 1981) | `galaga` | 3 x Z80 + 06xx / 51xx | Namco WSG | dsp-cpp `galaga_hw.cpp` (sin las explosiones del 54xx, como allí) |
 | Pirates (NIX, 1994) | `pirates` | 68000 | OKI M6295 | dsp-cpp `pirates.cpp` (el 68000 con Musashi; solo escritorio, web y Android) |
 | Block Out (Technos Japan, 1989) | `blockout` | 68000 + Z80 | YM2151 + OKI M6295 | dsp-cpp `blockout.cpp` (el 68000 con Musashi) |
 | Bubble Bobble (Taito, 1986) | `bublbobl` | 3 x Z80 + HD63701 | YM2203 + YM3526 | dsp-cpp `bublbobl.cpp` (su 63701: `cpu/hd63701dsp`; su YM3812: `sound/ym3812dsp`) |
 | Renegade (Technos Japan, 1986) | `renegade` | 6502 + 6809 + 68705 | YM3526 + MSM5205 | dsp-cpp `renegade.cpp` (ADPCM como en MAME) |
 | Bank Panic (Sanritsu / Sega, 1984) | `bankp` | Z80 | 3 x SN76496 | dsp-cpp `bankpanic_hw.cpp` |
+| Combat Hawk (Sanritsu / Sega, 1987) | `combh` | Z80 | 3 x SN76496 | dsp-cpp `bankpanic_hw.cpp` |
 | City Connection (Jaleco, 1985) | `citycon` | 6809 + 6809 | AY-3-8910 + YM2203 | dsp-cpp `citycon.cpp` |
 | Break Thru (Data East, 1986) | `brkthru` | 6809 + 6809 | YM2203 + YM3526 | dsp-cpp `brkthru.cpp` |
+| Darwin 4078 (Data East, 1986) | `darwin` | 6809 + 6809 | YM2203 + YM3526 | dsp-cpp `brkthru.cpp` |
 | Appoooh (Sanritsu / Sega, 1984) | `appoooh` | Z80 | 3 x SN76496 + MSM5205 | dsp-cpp `appoooh.cpp` (su MSM5205: `sound/msm5205dsp`; ADPCM como en MAME) |
+| Robo Wres 2001 (Sega, 1986) | `robowres` | Z80 (cifrado 315-5179) | 3 x SN76496 + MSM5205 | dsp-cpp `appoooh.cpp` |
 | Tehkan World Cup (Tehkan, 1985) | `tehkanwc` | 3 x Z80 | 2 x AY-3-8910 + MSM5205 | dsp-cpp `tehkanwc.cpp` (ADPCM como en MAME) |
 | Tiger Heli (Toaplan / Taito, 1985) | `tigerh` | Z80 + Z80 + 68705 | 2 x AY-3-8910 | dsp-cpp `slapfight.cpp` con el mapa de ROMs de MAME (`slapfght.cpp`): la variante de dsp-cpp carga las ROMs de Slap Fight |
 | Wonder Boy (Sega / Westone, 1986) | `wboy` | Z80 (315-5177) + Z80 + Z80 PIO | 2 x SN76496 | dsp-cpp `sega_system1.cpp` (su PIO: `machine/z80piodsp`) |
@@ -557,7 +567,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |

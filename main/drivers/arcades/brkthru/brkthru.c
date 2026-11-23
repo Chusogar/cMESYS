@@ -1,6 +1,7 @@
-// brkthru.c - Break Thru (Data East, 1986) for the common arcade frontends
-// (arc.h): C port of dsp-cpp's drivers/arcade/brkthru (from MAME's
-// brkthru.cpp). A 6809 at 1.5 MHz with 8 banks of 8 KB, a sound 6809 with a
+// brkthru.c - Break Thru (Data East, 1986) and Darwin 4078 (1986) for the
+// common arcade frontends (arc.h): C port of dsp-cpp's drivers/arcade/brkthru
+// (from MAME's brkthru.cpp). ARC_VARIANT 1: Darwin 4078 (the shared blocks
+// elsewhere in the map, the NMI enabled by a 1, a turned monitor). A 6809 at 1.5 MHz with 8 banks of 8 KB, a sound 6809 with a
 // YM2203 and a YM3526, a 512-wide layer of 16x16 tiles split around the
 // sprites, 16x16 / 16x32 sprites and 8x8 text.
 #include <stdlib.h>
@@ -18,6 +19,29 @@
 #define W 240
 #define H 240
 
+#ifndef ARC_VARIANT
+#define ARC_VARIANT 0
+#endif
+#define DARWIN (ARC_VARIANT == 1)
+
+#if DARWIN
+static const char *const kSets[] = { "darwin", NULL };
+static const arc_rom kProgram[] = {
+    {"darw_04.rom", 0x4000, 0x00000, 0x0eabf21c}, {"darw_05.rom", 0x8000, 0x04000, 0xe771f864},
+    {"darw_07.rom", 0x8000, 0x0c000, 0x97ac052c}, {"darw_06.rom", 0x8000, 0x14000, 0x2a9fb208}};
+static const arc_rom kSound[] = {{"darw_08.rom", 0x8000, 0, 0x6b580d58}};
+static const arc_rom kChars[] = {{"darw_09.rom", 0x2000, 0, 0x067b4cf5}};
+static const arc_rom kSprites[] = {
+    {"darw_10.rom", 0x8000, 0x00000, 0x487a014c}, {"darw_11.rom", 0x8000, 0x08000, 0x548ce2d1},
+    {"darw_12.rom", 0x8000, 0x10000, 0xfaba5fef}};
+static const arc_rom kTiles[] = {
+    {"darw_03.rom", 0x8000, 0x00000, 0x57d0350d}, {"darw_02.rom", 0x8000, 0x08000, 0x559a71ab},
+    {"darw_01.rom", 0x8000, 0x10000, 0x15a16973}};
+static const arc_rom kProms[] = {{"df.12", 0x100, 0x000, 0x89b952ef}, {"df.13", 0x100, 0x100, 0xd595e91d}};
+
+const arc_info arc_game = { "darwin", "Darwin 4078", "Data East", 1986, W, H, FPS, RATE, kSets,
+                            { "FIRE", "BOMB", NULL, NULL }, ARC_JOY_8WAY };
+#else
 static const char *const kSets[] = { "brkthru", NULL };
 static const arc_rom kProgram[] = {
     {"brkthru.1", 0x4000, 0x00000, 0xcfb4265f}, {"brkthru.2", 0x8000, 0x04000, 0xfa8246d9},
@@ -34,6 +58,7 @@ static const arc_rom kProms[] = {{"brkthru.13", 0x100, 0x000, 0xaae44269}, {"brk
 
 const arc_info arc_game = { "brkthru", "Break Thru", "Data East", 1986, W, H, FPS, RATE, kSets,
                             { "FIRE", "JUMP", NULL, NULL }, ARC_JOY_8WAY };
+#endif
 
 static const int kCharX[8] = {16384, 16385, 16386, 16387, 0, 1, 2, 3};
 static const int kY8[8] = {0, 8, 16, 24, 32, 40, 48, 56};
@@ -62,16 +87,13 @@ static struct state {
 } *B_;
 #define B (*B_)
 
-static uint8_t main_read(void *u, uint16_t a)
+// the shared blocks at Break Thru's addresses (Darwin maps them elsewhere)
+static uint8_t read_common(uint16_t a)
 {
-    (void)u;
-    if (a >= 0x4000) return B.rom[a - 0x4000];
-    if (a >= 0x2000) return B.banks[B.rom_bank * 0x2000 + (a & 0x1fff)];
     if (a < 0x400) return B.bg_video[a];
     if (a < 0xc00) return B.ram[a];
     if (a < 0x1000) return B.fg_video[a & 0x3ff];
     if (a < 0x1100) return B.sprite_ram[a & 0xff];
-    if (a < 0x1800) return B.ram[a];
     switch (a) {
     case 0x1800: return B.in0;
     case 0x1801: return B.in1;
@@ -81,15 +103,12 @@ static uint8_t main_read(void *u, uint16_t a)
     }
 }
 
-static void main_write(void *u, uint16_t a, uint8_t v)
+static void write_common(uint16_t a, uint8_t v)
 {
-    (void)u;
-    if (a >= 0x2000) return;
     if (a < 0x400) B.bg_video[a] = v;
     else if (a < 0xc00) B.ram[a] = v;
     else if (a < 0x1000) B.fg_video[a & 0x3ff] = v;
     else if (a < 0x1100) B.sprite_ram[a & 0xff] = v;
-    else if (a < 0x1800) B.ram[a] = v;
     else if (a == 0x1800) B.scroll_x = (uint16_t)((B.scroll_x & 0xff00) | v);
     else if (a == 0x1801) {
         B.rom_bank = v & 7;
@@ -98,10 +117,44 @@ static void main_write(void *u, uint16_t a, uint8_t v)
     } else if (a == 0x1802) {
         B.sound_latch = v;
         m6809d_set_nmi(&B.sound, M6809D_PULSE);
-    } else if (a == 0x1803) {
-        B.nmi_enabled = (v & 1) == 0;   // the VBLANK NMI enabled by a 0
-        if (!(v & 2)) m6809d_set_irq(&B.main, M6809D_CLEAR);   // the coin IRQ acknowledge
     }
+}
+
+static void write_control(uint8_t v)
+{
+    B.nmi_enabled = DARWIN ? (v & 1) != 0 : (v & 1) == 0;   // the VBLANK NMI
+    if (!(v & 2)) m6809d_set_irq(&B.main, M6809D_CLEAR);   // the coin IRQ acknowledge
+}
+
+static uint8_t main_read(void *u, uint16_t a)
+{
+    (void)u;
+    if (a >= 0x4000) return B.rom[a - 0x4000];
+    if (a >= 0x2000) return B.banks[B.rom_bank * 0x2000 + (a & 0x1fff)];
+#if DARWIN
+    if (a < 0x100 || (a >= 0x800 && a < 0x804)) return read_common((uint16_t)(a + 0x1000));
+    if (a >= 0x1000) return read_common((uint16_t)(a - 0x1000));
+    return 0xff;
+#else
+    if (a < 0x1100 || (a >= 0x1800 && a < 0x1804)) return read_common(a);
+    if (a < 0x1800) return B.ram[a];
+    return 0xff;
+#endif
+}
+
+static void main_write(void *u, uint16_t a, uint8_t v)
+{
+    (void)u;
+    if (a >= 0x2000) return;
+#if DARWIN
+    if (a < 0x100 || (a >= 0x800 && a < 0x803)) write_common((uint16_t)(a + 0x1000), v);
+    else if (a == 0x803) write_control(v);
+    else if (a >= 0x1000) write_common((uint16_t)(a - 0x1000), v);
+#else
+    if (a < 0x1100 || (a >= 0x1800 && a < 0x1803)) write_common(a, v);
+    else if (a < 0x1800) B.ram[a] = v;
+    else if (a == 0x1803) write_control(v);
+#endif
 }
 
 static uint8_t sound_read(void *u, uint16_t a)
@@ -143,20 +196,27 @@ static void sound_cycles(void *u, int c)
     }
 }
 
-// screen (x, y) of 256x256 is fb (x - 8, y - 8)
-static inline uint16_t *screen_row(int y) { return y >= 8 && y < 8 + H ? arc_fb_row(&B.fb, y - 8) - 8 : NULL; }
+// screen (x, y) of 256x256 is fb (x - 8, y - 8) (Darwin: turned, ROT270)
+static inline void put(int x, int y, uint16_t c)
+{
+#if DARWIN
+    arc_fb_row(&B.fb, 8 + W - 1 - x)[y - 8] = c;
+#else
+    arc_fb_row(&B.fb, y - 8)[x - 8] = c;
+#endif
+}
 
 static void sprite_tile(int c, int x, int ty, int color)
 {
     const uint8_t *g = B.sprites + (size_t)(c & 0x3ff) * 256;
     for (int r = 0; r < 16; r++) {
-        uint16_t *out = screen_row((ty + r) & 0xff);
-        if (!out) continue;
+        const int y = (ty + r) & 0xff;
+        if (y < 8 || y >= 8 + H) continue;
         for (int col = 0; col < 16; col++) {
             const int px = x + col;
             if (px >= 8 + W) break;
             const int pen = g[r * 16 + col];
-            if (pen && px >= 8) out[px] = B.palette[color + pen];
+            if (pen && px >= 8) put(px, y, B.palette[color + pen]);
         }
     }
 }
@@ -179,14 +239,13 @@ static void draw_sprites(int priority)
 static void tiles(bool opaque)
 {
     for (int y = 8; y < 8 + H; y++) {
-        uint16_t *out = screen_row(y);
         for (int x = 8; x < 8 + W; x++) {
             const int px = (x + B.scroll_x) & 0x1ff, f = (px >> 4) * 16 + (y >> 4);
             const uint8_t attr = B.fg_video[f * 2 + 1];
             const int code = B.fg_video[f * 2] + ((attr & 3) << 8);
             const int color = 0x80 + ((B.bg_color + ((attr & 4) >> 2)) << 3);
             const int pen = B.tiles[(size_t)code * 256 + (y & 15) * 16 + (px & 15)];
-            if (opaque || pen) out[x] = B.palette[(color + pen) & 0xff];
+            if (opaque || pen) put(x, y, B.palette[(color + pen) & 0xff]);
         }
     }
 }
@@ -201,10 +260,9 @@ static void update_video(void)
         const uint8_t *g = B.chars + B.bg_video[i] * 64;
         const int cx = (i & 31) * 8, cy = (i >> 5) * 8;
         for (int r = 0; r < 8; r++) {
-            uint16_t *out = screen_row(cy + r);
-            if (!out) continue;
+            if (cy + r < 8 || cy + r >= 8 + H) continue;
             for (int c = 0; c < 8; c++)
-                if (g[r * 8 + c] && cx + c >= 8 && cx + c < 8 + W) out[cx + c] = B.palette[g[r * 8 + c]];
+                if (g[r * 8 + c] && cx + c >= 8 && cx + c < 8 + W) put(cx + c, cy + r, B.palette[g[r * 8 + c]]);
         }
     }
 }
@@ -268,7 +326,7 @@ bool arc_init(void)
     ym2203d_init(&B.ym2203, 1500000, 1.0f, 0.5f);
     ym3812d_init(&B.ym3526, 3000000, true, 1.0f);
     B.ym3526.irq = ym3526_irq;
-    B.dsw_a = 0x3f;
+    B.dsw_a = DARWIN ? 0xdf : 0x3f;
     B.dsw_b = 0x1f;
     arc_reset();
     return true;
