@@ -7,7 +7,7 @@
 #include <stdint.h>
 
 enum { HD_CLEAR = 0, HD_ASSERT, HD_HOLD, HD_PULSE };
-enum { HD_HD63701Y = 0, HD_HD63701V, HD_M6803 };
+enum { HD_HD63701Y = 0, HD_HD63701V, HD_M6803, HD_M6800 };   // HD_M6800: a plain 6800 / 6808 (all memory outside)
 
 typedef struct hd63701 {
     // memory beyond the chip's own (handlers set after hd63701_init)

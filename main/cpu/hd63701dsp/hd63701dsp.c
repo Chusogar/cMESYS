@@ -50,6 +50,25 @@ static const uint8_t kCycles6803[256] = {
 };
 
 // Base cycle count of every opcode (ciclos_63701 in m680x.pas).
+// the 6800's own timings (MAME's m6800 table; its undefined opcodes as 2)
+static const uint8_t kCycles6800[256] = {
+    2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    4, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 2, 5, 2, 10, 2, 2, 9, 12,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    7, 2, 2, 7, 7, 2, 7, 7, 7, 7, 7, 2, 7, 7, 4, 7,
+    6, 2, 2, 6, 6, 2, 6, 6, 6, 6, 6, 2, 6, 6, 3, 6,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 8, 3, 2,
+    3, 3, 3, 2, 3, 3, 3, 4, 3, 3, 3, 3, 4, 2, 4, 5,
+    5, 5, 5, 2, 5, 5, 5, 6, 5, 5, 5, 5, 6, 8, 6, 7,
+    4, 4, 4, 2, 4, 4, 4, 5, 4, 4, 4, 4, 5, 9, 5, 6,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+    3, 3, 3, 2, 3, 3, 3, 4, 3, 3, 3, 3, 2, 2, 4, 5,
+    5, 5, 5, 2, 5, 5, 5, 6, 5, 5, 5, 5, 2, 2, 6, 7,
+    4, 4, 4, 2, 4, 4, 4, 5, 4, 4, 4, 4, 2, 2, 5, 6};
+
 static const uint8_t kCycles[256] = {
     99, 1, 99, 99, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,        // 00
     1, 1, 99, 99, 99, 99, 1, 1, 2, 2, 4, 1, 99, 99, 99, 99,   // 10
@@ -281,6 +300,7 @@ static void write_io(hd63701 *m, uint8_t reg, uint8_t value) {
 }
 
 static uint8_t hd_rd(hd63701 *m, uint16_t address) {
+    if (m->type == HD_M6800) return m->read_mem(m->user, address);
     if (m->type == HD_M6803) {
         if (address <= 0x0007) return read_io(m, (uint8_t)(address));
         if (address >= 0x0040 && address <= 0x00ff) return m->internal_ram[address];
@@ -301,6 +321,10 @@ static uint8_t hd_rd(hd63701 *m, uint16_t address) {
 }
 
 static void hd_wr(hd63701 *m, uint16_t address, uint8_t value) {
+    if (m->type == HD_M6800) {
+        m->write_mem(m->user, address, value);
+        return;
+    }
     if (m->type == HD_M6803) {
         if (address <= 0x0007) {
             write_io(m, (uint8_t)(address), value);
@@ -1071,11 +1095,11 @@ int hd63701_run(hd63701 *m, int cycles) {
             default: break;
         }
 
-        const uint8_t* cycles = (m->type == HD_M6803) ? kCycles6803 : kCycles;
+        const uint8_t* cycles = (m->type == HD_M6800) ? kCycles6800 : (m->type == HD_M6803) ? kCycles6803 : kCycles;
         int elapsed = cycles[opcode] + m->extra_cycles;
         if (elapsed >= 99) elapsed = 1;  // invalid opcode
         executed += elapsed;
-        if (m->type != HD_M6803) {
+        if (m->type != HD_M6803 && m->type != HD_M6800) {
             m->counter += (uint32_t)(elapsed);
             if (m->counter >= m->timer_next) check_timer_event(m);
         }
