@@ -446,10 +446,12 @@ Para flashear, mantén BOOT al enchufar el USB-C nativo; aparece la unidad `RP23
 
 ### Escritorio, web y RP2040/RP2350 con teclado USB
 
-Comunes a las recreativas: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl botón 1, `X`/Alt botón 2, `C`/Espacio botón 3, F3 reset, P pausa, ESC salir. En las placas, un mando USB usa la cruceta, A/B/X como botones 1/2/3, SELECT moneda, START start y SELECT+START reset.
+Comunes a las recreativas: `5`/`6` moneda, `1`/`2` start, cursores, `Z`/Ctrl botón 1, `X`/Alt botón 2, `C`/Espacio botón 3, `V`/Mayús izquierda botón 4, F3 reset, P pausa, ESC salir. En las placas, un mando USB usa la cruceta, A/B/X/Y como botones 1/2/3/4, SELECT moneda, START start y SELECT+START reset.
 
 | Recreativa | Botones |
 |---|---|
+| Defender / Mayday / Stargate | Z disparo, X empuje, C bomba, V hiperespacio (Stargate: V giro, palanca izquierda hiperespacio); la palanca a la izquierda da la vuelta a la nave. La CMOS no se guarda: cada arranque es el primero y el «Advance» se pulsa solo |
+| Robotron: 2084 | cursores mover; disparar con Z/X/C/V (arriba / abajo / izquierda / derecha) o con la palanca del jugador 2 |
 | Indy | Z látigo, X salto; EEPROM en `indytemp.eep` |
 | Road Runner | joystick a desviación máxima, Z / X salto; EEPROM en `roadrunn.eep` |
 | Gauntlet | jugador 1; Z disparo, X magia (`1` también es magia); EEPROM en `gauntlet.eep` |
