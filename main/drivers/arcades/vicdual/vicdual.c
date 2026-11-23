@@ -934,21 +934,24 @@ static void port_wr(void *u, uint16_t port, uint8_t v)
 // ---------------------------------------------------------------------------
 // Head On's discrete board (dsp-cpp's behavioural model of MAME's)
 
+static inline double dmax(double a, double b) { return a > b ? a : b; }
+static inline double dmin(double a, double b) { return a < b ? a : b; }
+
 static double car(car_t *c, bool hispeed, double dt)
 {
     const double car_target = V.ho.car_on ? 10.8 : 12.0, car_rate = (12.0 - 10.8) / 7.0 * dt;
-    if (c->ramp_car > car_target) c->ramp_car = fmax(car_target, c->ramp_car - car_rate);
-    else c->ramp_car = fmin(car_target, c->ramp_car + car_rate);
+    if (c->ramp_car > car_target) c->ramp_car = dmax(car_target, c->ramp_car - car_rate);
+    else c->ramp_car = dmin(car_target, c->ramp_car + car_rate);
     const double hi_target = hispeed ? -2.0 : 0.0, hi_rate = 2.0 / 0.8 * dt;
-    if (c->ramp_hi > hi_target) c->ramp_hi = fmax(hi_target, c->ramp_hi - hi_rate);
-    else c->ramp_hi = fmin(hi_target, c->ramp_hi + hi_rate);
+    if (c->ramp_hi > hi_target) c->ramp_hi = dmax(hi_target, c->ramp_hi - hi_rate);
+    else c->ramp_hi = dmin(hi_target, c->ramp_hi + hi_rate);
     if (!V.ho.car_on) {
         c->cap = 4.0;
         c->charging = true;
         return 0.0;
     }
     const double vin = c->ramp_car + c->ramp_hi;
-    const double i = fmax(12.0 - vin - 0.6, 0.0) / 10000.0;
+    const double i = dmax(12.0 - vin - 0.6, 0.0) / 10000.0;
     if (i <= 0.0) c->cap -= c->cap * dt / 1.0;
     else if (c->charging) {
         c->cap += i / 100e-9 * dt;
