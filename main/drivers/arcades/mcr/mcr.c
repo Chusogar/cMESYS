@@ -23,8 +23,18 @@
 #define FPS 30.0
 #define SCANLINES 480
 #define RATE 44100
-#define W 512
-#define H 480
+#define SW 512                          // the picture as drawn
+#define SH 480
+#if (ARC_VARIANT == 1 || ARC_VARIANT == 2) && !defined(MCR_NO_ROTATE)
+// Tron and Satan's Hollow: a turned monitor (ROT90), which dsp-cpp leaves
+// sideways (as built with MCR_NO_ROTATE)
+#define ROT90 1
+#define W SH
+#define H SW
+#else
+#define W SW
+#define H SH
+#endif
 #define SSIO_PERIOD (160 * 2 * 16 * 10)
 
 #if ARC_VARIANT == 0
@@ -370,6 +380,15 @@ static int kSprY[32];
 static const arc_layout kCharL = { 16, 16, CHARS, 4, 128, false, false, false, {CHARS * 128, CHARS * 128 + 1, 0, 1}, kCharX, kCharY };
 static const arc_layout kSprL = { 32, 32, SPRITES, 4, 1024, false, false, false, {0, 1, 2, 3}, kSprX, kSprY };
 
+static inline void put(int x, int y, uint16_t c)
+{
+#ifdef ROT90
+    M.fb[x * W + (SH - 1 - y)] = c;
+#else
+    M.fb[y * W + x] = c;
+#endif
+}
+
 static inline unsigned char_px(int code, int x, int y) { return arc_gfx_px(&kCharL, M.chars, CHAR_BYTES, code, x, y); }
 static inline unsigned spr_px(int code, int x, int y) { return arc_gfx_px(&kSprL, M.sprites, SPRITE_BYTES, code, x, y); }
 
@@ -388,10 +407,9 @@ static void update_video(void)
         tprio[ty * 32 + tx] = (uint8_t)(attr >> 14);
 #endif
         const bool fx = (attr & flipx_bit) != 0, fy = (attr & flipy_bit) != 0;
-        for (int y = 0; y < 16; y++) {
-            uint16_t *out = M.fb + (ty * 16 + y) * W + tx * 16;
-            for (int x = 0; x < 16; x++) out[x] = M.palette[(pal + char_px(code, fx ? 15 - x : x, fy ? 15 - y : y)) & 0xff];
-        }
+        for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 16; x++)
+                put(tx * 16 + x, ty * 16 + y, M.palette[(pal + char_px(code, fx ? 15 - x : x, fy ? 15 - y : y)) & 0xff]);
     }
 #if TRON_MAP
     for (int f = 0; f < 0x80; f++) {
@@ -406,7 +424,7 @@ static void update_video(void)
                 const int dx = (sx + x) & 0x1ff;
                 const uint8_t pen = (uint8_t)((tprio[((dy / 16) & 0x1f) * 32 + ((dx / 16) & 0x1f)] << 4) | spr_px(code, fx ? 31 - x : x, fy ? 31 - y : y));
                 if ((pen & 7) == 0) continue;
-                if (dx < W && dy < H) M.fb[dy * W + dx] = M.palette[pen];
+                if (dx < SW && dy < SH) put(dx, dy, M.palette[pen]);
             }
         }
     }
@@ -427,7 +445,7 @@ static void update_video(void)
                 if ((pen & 0x0f) == 0) continue;
                 M.prio[k >> 3] |= (uint8_t)(1 << (k & 7));
                 if ((pen & 7) == 0) continue;
-                if (dx < W && dy < H) M.fb[dy * W + dx] = M.palette[(color + pen) & 0xff];
+                if (dx < SW && dy < SH) put(dx, dy, M.palette[(color + pen) & 0xff]);
             }
         }
     }
