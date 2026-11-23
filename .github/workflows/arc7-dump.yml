@@ -1,0 +1,59 @@
+# Temporary: the seventh batch of common arcades for web and VGA32 (no ROMs),
+# printed into the logs (base64 of a tar.xz).
+name: arc7-dump
+on:
+  push:
+    branches: [arc7-dump]
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    container: emscripten/emsdk:3.1.74
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          for g in wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion; do
+            make -C main/ports/web GAME=$g ROMS=external > /tmp/log.txt 2>&1 || { tail -60 /tmp/log.txt; exit 1; }
+          done
+          cp main/ports/web/index.html build/web-noroms/
+          ls -la build/web-noroms
+          tar -C build/web-noroms -cJf /tmp/out.tar.xz .
+          sha256sum /tmp/out.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/out.tar.xz | sed 's/^/B64:/'; echo "END-B64"
+  vga32:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          mkdir -p dist
+          ROMS=external ./build_vga32.sh wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion > /tmp/log.txt 2>&1 || { tail -80 /tmp/log.txt; exit 1; }
+          ls -la dist
+          tar -C dist -cJf /tmp/out.tar.xz .
+          sha256sum /tmp/out.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/out.tar.xz | sed 's/^/B64:/'; echo "END-B64"
+  cyd:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          mkdir -p dist
+          for g in chinagat ddragon ddragon2; do
+            for mhz in 40 80; do
+              b=build/$g-noroms-$mhz
+              LCD_SPI_MHZ=$mhz idf.py -B $b -DGAME=$g -DROMS=external build > /tmp/log.txt 2>&1 || { tail -80 /tmp/log.txt; exit 1; }
+              idf.py -B $b size 2>/dev/null | grep -E "Total|DRAM|Flash|IRAM" | head -12
+              (cd $b && esptool.py --chip esp32 merge_bin -o ../../dist/${g}_cyd_st7789_spi${mhz}mhz_noroms_full.bin @flash_args) > /dev/null
+              cp $b/${g}_cyd.bin dist/${g}_cyd_st7789_spi${mhz}mhz_noroms_app_0x10000.bin
+            done
+            python $IDF_PATH/components/partition_table/gen_esp32part.py build/$g-noroms-40/partition_table/partition-table.bin
+          done
+          ls -la dist
+          tar -C dist -cJf /tmp/out.tar.xz .
+          sha256sum /tmp/out.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/out.tar.xz | sed 's/^/B64:/'; echo "END-B64"
