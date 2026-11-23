@@ -9,11 +9,11 @@
 # <set>.zip), not built in.
 # ARC_BIG: those that need more than the 4-8 MB of the VGA32 / RP2350 (desktop,
 # web and Android only)
-ARC_BIG := pirates
+ARC_BIG := pirates simpsons
 # the CYD builds of these keep their ROMs and graphics in the flash (the arccache
 # partition, filled from the microSD on the first boot: partitions_arccache.csv)
 ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght chinagat ddragon ddragon2 kungfum darwin combh robowres
-ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber depthch safari frogs sspaceat sspacaho headon headon2 headon2s invho2 nsub samurai invinco invds tranqgun spacetrk carnival brdrline digger pulsar heiankyo alphaho asteroid baraduke metrocrs punchout shuuz skullxbo ikari athena tnk3 aso actfancr sentetst cshift hattrick gghost otwalls snakepit triviag1 snakjack stocker triviabb triviag2 triviayp triviasp gimeabrk minigolf teamht grudge triviaes toggle nstocker sfootbal spiker stompin nametune rescraid
+ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber depthch safari frogs sspaceat sspacaho headon headon2 headon2s invho2 nsub samurai invinco invds tranqgun spacetrk carnival brdrline digger pulsar heiankyo alphaho asteroid baraduke metrocrs punchout shuuz skullxbo ikari athena tnk3 aso actfancr sentetst cshift hattrick gghost otwalls snakepit triviag1 snakjack stocker triviabb triviag2 triviayp triviasp gimeabrk minigolf teamht grudge triviaes toggle nstocker sfootbal spiker stompin nametune rescraid aliens ajax simpsons
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
 ARC_SRC_calorie := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -273,6 +273,9 @@ ARC_SRC_nametune := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c 
 ARC_DEFS_nametune := ARC_VARIANT=23
 ARC_SRC_rescraid := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
 ARC_DEFS_rescraid := ARC_VARIANT=24
+ARC_SRC_aliens := drivers/arcades/konami/aliens.c cpu/konamidsp/konamidsp.c cpu/z80dsp/z80dsp.c sound/ym2151.c sound/k007232d.c video/k052109d.c video/k051960d.c
+ARC_SRC_ajax := drivers/arcades/konami/ajax.c cpu/konamidsp/konamidsp.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/ym2151.c sound/k007232d.c video/k052109d.c video/k051960d.c video/k051316d.c
+ARC_SRC_simpsons := drivers/arcades/konami/simpsons.c cpu/konamidsp/konamidsp.c cpu/z80dsp/z80dsp.c sound/ym2151.c video/k052109d.c
 ARC_RAM_bombjack := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_calorie := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_mrdo := z80dsp.c.o mrdo.c.o sn76496.c.o
@@ -420,3 +423,6 @@ ARC_RAM_spiker := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
 ARC_RAM_stompin := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
 ARC_RAM_nametune := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
 ARC_RAM_rescraid := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_aliens := konamidsp.c.o z80dsp.c.o aliens.c.o ym2151.c.o k007232d.c.o k052109d.c.o k051960d.c.o
+ARC_RAM_ajax := konamidsp.c.o m6809dsp.c.o z80dsp.c.o ajax.c.o ym2151.c.o k007232d.c.o k052109d.c.o k051960d.c.o k051316d.c.o
+ARC_RAM_simpsons := konamidsp.c.o z80dsp.c.o simpsons.c.o ym2151.c.o k052109d.c.o
