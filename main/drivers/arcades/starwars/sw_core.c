@@ -44,6 +44,8 @@ typedef struct {
     uint8_t decay[256];
     uint32_t sample_rate;
     bool draw_enabled, audio_enabled;
+    int draw_every, draw_count;  // (sw_set_draw_every)
+    bool idle_skip;             // (the boards: see run_main / run_sound)
     // the board
     uint8_t in0, in1, dsw0, dsw1, analog_x, analog_y, adc_value;
     int adc_channel;
@@ -55,15 +57,17 @@ typedef struct {
     int16_t *audio;
     int naudio;
     int64_t audio_accumulator, pokey_sum, sub_accumulator;
+    int32_t sub_acc32;          // (the boards' sub_accumulator)
     int pokey_cycles, pokey_pending, sub_samples;
     double dc_in, dc_out;
+    float dcf_in, dcf_out;      // (the boards' filter)
 } sw_state;
 
 static sw_state *S;
 
 static inline uint8_t rom_byte(uint32_t offset)
 {
-    const uint8_t *page = S->main_pages[(offset >> 13) % 0x11];
+    const uint8_t *page = S->main_pages[offset >> 13];     // (offsets below 0x22000)
     return page ? page[offset & 0x1fff] : 0;
 }
 
@@ -187,20 +191,43 @@ static void line_sink(void *user, const avg_line *l)
 {
     (void)user;
     if (!S->draw_enabled || !S->picture) return;
-    // the ends in the picture's pixels, 16.16
-    const int64_t x0 = (int64_t)l->x0 * S->width / AVG_VIS_W, y0 = (int64_t)l->y0 * S->height / AVG_VIS_H;
-    const int64_t x1 = (int64_t)l->x1 * S->width / AVG_VIS_W, y1 = (int64_t)l->y1 * S->height / AVG_VIS_H;
-    const int64_t dx = x1 - x0, dy = y1 - y0;
-    const int64_t adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
-    const int n = (int)(((adx > ady ? adx : ady) + 0x8000) >> 16);
+    // the ends in the picture's pixels
+    const float kx = (float)S->width / (AVG_VIS_W * 65536.0f), ky = (float)S->height / (AVG_VIS_H * 65536.0f);
+    float x0 = (float)l->x0 * kx, y0 = (float)l->y0 * ky, x1 = (float)l->x1 * kx, y1 = (float)l->y1 * ky;
+    // clipped to the picture (Liang-Barsky): the parts off it are not walked
+    const float xmin = -0.5f, ymin = -0.5f, xmax = (float)S->width - 0.51f, ymax = (float)S->height - 0.51f;
+    float dx = x1 - x0, dy = y1 - y0, t0 = 0.0f, t1 = 1.0f;
+    const float p[4] = {-dx, dx, -dy, dy}, q[4] = {x0 - xmin, xmax - x0, y0 - ymin, ymax - y0};
+    for (int k = 0; k < 4; k++) {
+        if (p[k] == 0.0f) {
+            if (q[k] < 0.0f) return;
+        } else {
+            const float r = q[k] / p[k];
+            if (p[k] < 0.0f) {
+                if (r > t1) return;
+                if (r > t0) t0 = r;
+            } else {
+                if (r < t0) return;
+                if (r < t1) t1 = r;
+            }
+        }
+    }
+    if (t1 < 1.0f) x1 = x0 + t1 * dx, y1 = y0 + t1 * dy;
+    if (t0 > 0.0f) x0 += t0 * dx, y0 += t0 * dy;
+    dx = x1 - x0;
+    dy = y1 - y0;
+    const float adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
+    const int n = (int)((adx > ady ? adx : ady) + 0.5f);
     const int level = ((l->intensity < 255 ? l->intensity : 255) * 31 + 127) / 255;
     const int top = (l->color & 7) << 5;
+    // one pixel a step along the longer axis (16.16)
+    int32_t x = (int32_t)(x0 * 65536.0f) + 0x8000, y = (int32_t)(y0 * 65536.0f) + 0x8000;
     if (n <= 0) {
-        plot((int)((x0 + 0x8000) >> 16), (int)((y0 + 0x8000) >> 16), level, top);
+        plot(x >> 16, y >> 16, level, top);
         return;
     }
-    for (int i = 0; i <= n; i++)
-        plot((int)((x0 + dx * i / n + 0x8000) >> 16), (int)((y0 + dy * i / n + 0x8000) >> 16), level, top);
+    const int32_t sx = (int32_t)(dx * 65536.0f / (float)n), sy = (int32_t)(dy * 65536.0f / (float)n);
+    for (int i = 0; i <= n; i++, x += sx, y += sy) plot(x >> 16, y >> 16, level, top);
 }
 
 // ---- memory
@@ -221,9 +248,25 @@ static void set_sound_pending(bool pending)
 static uint8_t main_read_raw(uint16_t address)
 {
     const bool esb = S->game == SW_GAME_ESB;
-    if (address >= 0x8000 && !esb) return rom_byte(address);
-    if (address < 0x3000) return S->vector_ram[address];
-    if (address < 0x4000) return S->vector_rom ? S->vector_rom[address - 0x3000] : 0;
+    switch (address >> 12) {
+    case 0x0: case 0x1: case 0x2:
+        return S->vector_ram[address];
+    case 0x3:
+        return S->vector_rom ? S->vector_rom[address - 0x3000] : 0;
+    case 0x5:
+        return S->math.ram[address & 0xfff];
+    case 0x6: case 0x7:
+        return rom_byte((S->bank ? 0x10000u : 0x6000u) + (address & 0x1fff));
+    case 0x8: case 0x9:
+        if (esb) return rom_byte(0x14000u + (uint32_t)S->slapstic_bank * 0x2000u + (address & 0x1fff));
+        return rom_byte(address);
+    case 0xa: case 0xb: case 0xc: case 0xd: case 0xe: case 0xf:
+        if (esb) return rom_byte((S->bank ? 0x1c000u : 0xa000u) + (address - 0xa000u));
+        return rom_byte(address);
+    default:
+        break;
+    }
+    if (address >= 0x4800) return S->work_ram[address & 0x7ff];
     if (address >= 0x4300 && address <= 0x431f) return S->in0;
     if (address >= 0x4320 && address <= 0x433f) {
         uint8_t value = (uint8_t)(S->in1 & 0x3f);
@@ -243,15 +286,6 @@ static uint8_t main_read_raw(uint16_t address)
     if (address == 0x4700) return sw_math_div_reh(&S->math);
     if (address == 0x4701) return sw_math_div_rel(&S->math);
     if (address == 0x4703) return (uint8_t)((S->prng >> 8) & 0xff);
-    if (address >= 0x4800 && address <= 0x4fff) return S->work_ram[address & 0x7ff];
-    if (address >= 0x5000 && address <= 0x5fff) return S->math.ram[address & 0xfff];
-    if (address >= 0x6000 && address <= 0x7fff) return rom_byte((S->bank ? 0x10000u : 0x6000u) + (address & 0x1fff));
-    if (esb) {
-        if (address >= 0x8000 && address <= 0x9fff)
-            return rom_byte(0x14000u + (uint32_t)S->slapstic_bank * 0x2000u + (address & 0x1fff));
-        if (address >= 0xa000) return rom_byte((S->bank ? 0x1c000u : 0xa000u) + (address - 0xa000u));
-    }
-    if (address >= 0x8000) return rom_byte(address);
     return 0xff;
 }
 
@@ -281,6 +315,9 @@ static void main_write(void *user, uint16_t address, uint8_t value)
     }
     if (address >= 0x4500 && address <= 0x45ff) { S->nvram[address & 0xff] = value; return; }
     if (address >= 0x4600 && address <= 0x461f) {
+        // (a list not drawn is not run: the AVG stays halted, "done", as it
+        // is at once anyway; each list sets its own scale and colours)
+        if (S->draw_every > 1 && ++S->draw_count % S->draw_every != 0) return;
         if (S->draw_enabled) decay_picture();
         avg_go(&S->avg);
         return;
@@ -370,6 +407,21 @@ static void on_main_cycles(void *user, int cycles)
     S->prng = ((S->prng << 1) | (1u ^ (((S->prng >> 22) ^ (S->prng >> 4)) & 1u))) & 0x7fffffu;
 }
 
+// The boards (no double-precision FPU): the same filter in float
+static void emit_sample_f(float pokeys)
+{
+    {
+        const float mix = pokeys + 0.5f * (float)tms5220_update(&S->tms, S->sample_rate);
+        const float out = 0.997f * (S->dcf_out + mix - S->dcf_in);
+        S->dcf_out = out;
+        S->dcf_in = mix;
+        int v = (int)(out < 0 ? out - 0.5f : out + 0.5f);
+        if (v < -32768) v = -32768;
+        if (v > 32767) v = 32767;
+        if (S->audio && S->naudio < SW_AUDIO_MAX) S->audio[S->naudio++] = (int16_t)v;
+    }
+}
+
 static void emit_sample(double pokeys)
 {
     const double mix = pokeys + 0.5 * (double)tms5220_update(&S->tms, S->sample_rate);
@@ -394,16 +446,18 @@ static void on_sound_cycles(void *user, int cycles)
         return;
     }
     if (S->sample_rate != SW_AUDIO_RATE) {
-        mos6532_tick(&S->riot, cycles);
+        // (the boards: called for every instruction, so kept short)
+        if (S->riot.timer_count > cycles) S->riot.timer_count -= cycles;
+        else mos6532_tick(&S->riot, cycles);
         S->pokey_pending += cycles;
-        S->sub_accumulator += (int64_t)cycles * S->sample_rate * 2;
-        while (S->sub_accumulator >= (int64_t)CPU_CLOCK) {
-            S->sub_accumulator -= CPU_CLOCK;
+        S->sub_acc32 += cycles * (int32_t)S->sample_rate * 2;
+        while (S->sub_acc32 >= CPU_CLOCK) {
+            S->sub_acc32 -= CPU_CLOCK;
             sync_pokeys();
             S->pokey_sum += pokey_update(&S->pk[0]) + pokey_update(&S->pk[1]) + pokey_update(&S->pk[2]) +
                             pokey_update(&S->pk[3]);
             if (++S->sub_samples == 2) {
-                emit_sample((double)S->pokey_sum / 2.0);
+                emit_sample_f((float)(int32_t)S->pokey_sum * 0.5f);
                 S->pokey_sum = 0;
                 S->sub_samples = 0;
             }
@@ -520,6 +574,7 @@ bool sw_init(int game, int pic_w, int pic_h)
     if (!sw_roms_get(S->game) || !map_roms(S->game)) return false;
     S->sample_rate = SW_AUDIO_RATE;
     S->draw_enabled = S->audio_enabled = true;
+    S->draw_every = 1;
     S->dsw0 = 0x98;
     S->dsw1 = 0x02;
     S->width = pic_w > 0 && pic_h > 0 ? pic_w : SW_W;
@@ -588,8 +643,10 @@ void sw_reset(void)
     S->adc_channel = 0;
     S->prng = 1;
     S->audio_accumulator = S->pokey_sum = S->sub_accumulator = 0;
+    S->sub_acc32 = 0;
     S->pokey_cycles = S->pokey_pending = S->sub_samples = 0;
     S->dc_in = S->dc_out = 0.0;
+    S->dcf_in = S->dcf_out = 0.0f;
     S->in0 = 0xff;
     S->in1 = 0x3f;
     tms5220_strobe_ws_rs(&S->tms, 3);
@@ -599,6 +656,111 @@ void sw_reset(void)
 int sw_game(void) { return S ? S->game : SW_GAME_STARWARS; }
 
 const char *sw_title(void) { return sw_game() == SW_GAME_ESB ? "The Empire Strikes Back" : "Star Wars"; }
+
+// ---- Idle loops (the boards). Both CPUs spend most of their time in a
+// loop waiting for an interrupt to set a flag: the main one for the next of
+// the 6 IRQs a frame, the sound one for the RIOT's timer or the main CPU's
+// command. There whole turns of the loop are not emulated but applied: the
+// same cycles a instruction (the PRNG, the mathbox, the RIOT, the POKEYs and
+// the samples see them as before), the registers as the loop leaves them,
+// and only while nothing can interrupt it. The result is the same as running
+// it (checked frame by frame and sample by sample).
+typedef struct {
+    uint16_t sw_head, esb_head;     // the loop's first instruction in each game
+    uint16_t sw_end, esb_end;       // its last
+    uint8_t n_sw, n_esb;            // its instructions
+    uint8_t cyc_sw[10], cyc_esb[10];
+} idle_loop;
+
+// main: LDX #0 / [ORCC #$50] / LDD #$F800 / LDA #$48 / TFR A,DP /
+//       [ANDCC #$AF] / LSR <flag / BCC loop
+static const idle_loop main_idle = {0x6005, 0x61b6, 0x6011, 0x61c6, 6, 8,
+                                    {3, 3, 2, 6, 6, 3}, {3, 3, 3, 2, 6, 3, 6, 3}};
+// sound: LDA <$00 / CMPA #$3F / BNE / TFR DP,A / CMPA #$10 / BNE /
+//        LEAX -1,X / BEQ / LSR <$0B / BCC loop
+static const idle_loop sound_idle = {0x7d4c, 0xfd42, 0x7d5e, 0xfd54, 10, 10,
+                                     {4, 2, 3, 6, 2, 3, 5, 3, 6, 3}, {4, 2, 3, 6, 2, 3, 5, 3, 6, 3}};
+
+static inline bool quiet_cpu(const m6809d *c)
+{
+    return c->irq_state_ == M6809D_CLEAR && c->firq_state_ == M6809D_CLEAR && c->nmi_request_ == M6809D_CLEAR &&
+           !c->cwai_;
+}
+
+// Up to the loop's head (if it is in it): the cycles run
+static int to_head(m6809d *c, const idle_loop *l, bool esb, int budget)
+{
+    const uint16_t head = esb ? l->esb_head : l->sw_head, end = esb ? l->esb_end : l->sw_end;
+    int done = 0;
+    for (int i = 0; i < 12 && done < budget && c->pc_ != head && c->pc_ > head && c->pc_ <= end; i++)
+        done += m6809d_run(c, 1);
+    return done;
+}
+
+static int run_main(int budget)
+{
+    m6809d *c = &S->main_cpu;
+    if (!S->idle_skip) return m6809d_run(c, budget);
+    const bool esb = S->game == SW_GAME_ESB;
+    const idle_loop *l = &main_idle;
+    int done = to_head(c, l, esb, budget);
+    const uint8_t flag = esb ? 0x44 : 0x3d;     // the flag at $48xx the IRQ sets
+    if (c->pc_ == (esb ? l->esb_head : l->sw_head) && S->work_ram[flag] == 0 && quiet_cpu(c)) {
+        const uint8_t *cyc = esb ? l->cyc_esb : l->cyc_sw;
+        const int n_ins = esb ? l->n_esb : l->n_sw;
+        int turn = 0;
+        for (int i = 0; i < n_ins; i++) turn += cyc[i];
+        const int turns = (budget - done) / turn;
+        if (turns > 0) {
+            for (int t = 0; t < turns; t++)
+                for (int i = 0; i < n_ins; i++) on_main_cycles(NULL, cyc[i]);
+            done += turns * turn;
+            if (esb) {
+                slapstic_access(c->pc_);        // (outside its window: as all the loop's)
+                c->cc.i = c->cc.f = 0;
+            }
+            c->x = 0;
+            c->a = 0x48;
+            c->b = 0;
+            c->dp = 0x48;
+            c->cc.n = 0, c->cc.z = 1, c->cc.v = 0, c->cc.c = 0;
+        }
+    }
+    if (done < budget) done += m6809d_run(c, budget - done);
+    return done;
+}
+
+static int run_sound(int budget)
+{
+    m6809d *c = &S->sound_cpu;
+    if (!S->idle_skip) return m6809d_run(c, budget);
+    const bool esb = S->game == SW_GAME_ESB;
+    const idle_loop *l = &sound_idle;
+    int done = to_head(c, l, esb, budget);
+    if (c->pc_ == (esb ? l->esb_head : l->sw_head) && c->dp == 0x10 && S->riot.ram[0] == 0x3f &&
+        S->riot.ram[0x0b] == 0 && quiet_cpu(c)) {
+        const uint8_t *cyc = esb ? l->cyc_esb : l->cyc_sw;
+        const int n_ins = esb ? l->n_esb : l->n_sw;
+        int turn = 0;
+        for (int i = 0; i < n_ins; i++) turn += cyc[i];
+        int turns = 0;
+        // each turn whole, X kept above 0, and no RIOT interrupt within it
+        while (done + turn <= budget && c->x - turns > 1 &&
+               !(S->riot.timer_counting && S->riot.ie_timer && S->riot.timer_count <= turn) &&
+               c->irq_state_ == M6809D_CLEAR) {
+            for (int i = 0; i < n_ins; i++) on_sound_cycles(NULL, cyc[i]);
+            done += turn;
+            turns++;
+        }
+        if (turns > 0) {
+            c->x = (uint16_t)(c->x - turns);
+            c->a = 0x10;
+            c->cc.n = 0, c->cc.z = 1, c->cc.v = 0, c->cc.c = 0;
+        }
+    }
+    if (done < budget) done += m6809d_run(c, budget - done);
+    return done;
+}
 
 int sw_run_frame(int16_t *audio)
 {
@@ -611,8 +773,8 @@ int sw_run_frame(int16_t *audio)
         while (done_main < IRQ_CYCLES || done_sound < IRQ_CYCLES) {
             int target = (done_main > done_sound ? done_main : done_sound) + SLICE;
             if (target > IRQ_CYCLES) target = IRQ_CYCLES;
-            if (done_main < target) done_main += m6809d_run(&S->main_cpu, target - done_main);
-            if (done_sound < target) done_sound += m6809d_run(&S->sound_cpu, target - done_sound);
+            if (done_main < target) done_main += run_main(target - done_main);
+            if (done_sound < target) done_sound += run_sound(target - done_sound);
         }
     }
     S->audio = NULL;
@@ -646,11 +808,19 @@ void sw_set_inputs(const sw_inputs *in)
 
 void sw_set_audio_rate(int rate)
 {
-    if (rate > 0 && rate < SW_AUDIO_RATE) S->sample_rate = (uint32_t)rate;
+    if (rate > 0 && rate < SW_AUDIO_RATE) {
+        S->sample_rate = (uint32_t)rate;
+        // the boards: a POKEY with every channel at volume 0 stops its
+        // counters (pokey.h: approx_mute) instead of counting at 1.5 MHz,
+        // and the CPUs' idle loops are skipped (the same results)
+        for (int i = 0; i < 4; i++) S->pk[i].approx_mute = true;
+        S->idle_skip = true;     // (the idle loops applied, not run: run_main)
+    }
 }
 
 int sw_audio_rate(void) { return (int)S->sample_rate; }
 void sw_set_audio_enabled(bool on) { S->audio_enabled = on; }
+void sw_set_draw_every(int n) { S->draw_every = n > 1 ? n : 1; }
 void sw_set_draw_enabled(bool on) { S->draw_enabled = on; }
 int sw_width(void) { return S->width; }
 int sw_height(void) { return S->height; }

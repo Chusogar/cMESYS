@@ -43,11 +43,16 @@ const char *sw_title(void);
 // One frame (6 IRQs); the samples into audio (at most SW_AUDIO_MAX); their count
 int sw_run_frame(int16_t *audio);
 void sw_set_inputs(const sw_inputs *in);
-// Below SW_AUDIO_RATE (the boards): the POKEYs run in batches
+// Below SW_AUDIO_RATE (the boards): the POKEYs run in batches (and frozen
+// while muted), the sound is filtered in float, and the CPUs' idle loops are
+// skipped (the same results as running them)
 void sw_set_audio_rate(int rate);
 int sw_audio_rate(void);
 void sw_set_audio_enabled(bool on);
 void sw_set_draw_enabled(bool on);
+// Only every n-th vector list run and drawn (the boards: 2, half of the 41
+// pictures a second, as many as their screens can show); 1: all
+void sw_set_draw_every(int n);
 int sw_width(void);
 int sw_height(void);
 const uint32_t *sw_framebuffer(void);     // the picture in 0xAARRGGBB
