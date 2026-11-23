@@ -42,12 +42,12 @@ static struct state {
     zd_z80 main, sub, sound;
     ay8910 ay0, ay1;
     msm5205d msm;
-    uint8_t mem[0x10000], mem_sub[0x10000], mem_snd[0x10000], pal_ram[0x800], adpcm[0x8000];
-    uint8_t *chars, *sprites, *tiles;
+    const uint8_t *rom, *rom_sub, *rom_snd, *adpcm;   // blobs (the CYD: in the flash)
+    const uint8_t *chars, *sprites, *tiles;
+    uint8_t ram[0x2c03];                // c000-ec02 (c800 on shared with the sub CPU)
+    uint8_t ram_sub[0x4800], ram_snd[0x800], pal_ram[0x800];   // 8000-c7ff, 4000-47ff
     uint16_t palette[0x400];
-    uint16_t composite[256 * 256], lo[256 * 256], hi[256 * 256];   // lo / hi: palette index + 1
-    uint16_t *bg;                       // 512x256
-    uint16_t *fb;
+    arc_fb fb;
     uint16_t scroll_x, msm_pos;
     uint8_t scroll_y, sound_latch, sound_latch2, track0[2], track1[2];
     int8_t stick0_x, stick0_y, stick1_x, stick1_y;
@@ -66,9 +66,11 @@ static void set_palette_color(int index)
     T.palette[dir >> 1] = arc_rgb565((uint32_t)((hi & 15) * 0x11) << 16 | (uint32_t)((hi >> 4) * 0x11) << 8 | (uint32_t)((lo & 15) * 0x11));
 }
 
+#define MEM(a) T.ram[(a) - 0xc000]
+
 static void shared_write(uint16_t a, uint8_t v)
 {
-    T.mem[a] = v;
+    MEM(a) = v;
     const uint16_t off = (uint16_t)(a - 0xc800);
     if (off >= 0x1000 && off <= 0x17ff) {
         T.pal_ram[a & 0x7ff] = v;
@@ -81,7 +83,8 @@ static void shared_write(uint16_t a, uint8_t v)
 static uint8_t main_read(void *u, uint16_t a)
 {
     (void)u;
-    if (a <= 0xec02) return T.mem[a];
+    if (a <= 0xbfff) return T.rom[a];
+    if (a <= 0xec02) return MEM(a);
     switch (a) {
     case 0xf800: return (uint8_t)(T.track0[0] - T.stick0_x);
     case 0xf801: return (uint8_t)(T.track0[1] - T.stick0_y);
@@ -102,7 +105,7 @@ static void main_write(void *u, uint16_t a, uint8_t v)
 {
     (void)u;
     if (a <= 0xbfff) return;
-    if (a <= 0xc7ff) { T.mem[a] = v; return; }
+    if (a <= 0xc7ff) { MEM(a) = v; return; }
     if (a <= 0xec02) { shared_write(a, v); return; }
     switch (a) {
     case 0xf800: T.track0[0] = v; break;
@@ -124,8 +127,9 @@ static void main_write(void *u, uint16_t a, uint8_t v)
 static uint8_t sub_read(void *u, uint16_t a)
 {
     (void)u;
-    if (a <= 0xc7ff) return T.mem_sub[a];
-    if (a <= 0xec02) return T.mem[a];
+    if (a <= 0x7fff) return T.rom_sub[a];
+    if (a <= 0xc7ff) return T.ram_sub[a - 0x8000];
+    if (a <= 0xec02) return MEM(a);
     return 0xff;
 }
 
@@ -133,14 +137,15 @@ static void sub_write(void *u, uint16_t a, uint8_t v)
 {
     (void)u;
     if (a <= 0x7fff) return;
-    if (a <= 0xc7ff) T.mem_sub[a] = v;
+    if (a <= 0xc7ff) T.ram_sub[a - 0x8000] = v;
     else if (a <= 0xec02) shared_write(a, v);
 }
 
 static uint8_t sound_read(void *u, uint16_t a)
 {
     (void)u;
-    if (a <= 0x47ff) return T.mem_snd[a];
+    if (a <= 0x3fff) return T.rom_snd[a];
+    if (a <= 0x47ff) return T.ram_snd[a - 0x4000];
     if (a == 0xc000) return T.sound_latch;
     return 0xff;
 }
@@ -149,7 +154,7 @@ static void sound_write(void *u, uint16_t a, uint8_t v)
 {
     (void)u;
     if (a <= 0x3fff) return;
-    if (a <= 0x47ff) { T.mem_snd[a] = v; return; }
+    if (a <= 0x47ff) { T.ram_snd[a - 0x4000] = v; return; }
     switch (a) {
     case 0x8001: msm5205d_set_reset(&T.msm, (v & 1) == 0); break;
     case 0x8003: zd_set_nmi(&T.sound, ZD_CLEAR); break;
@@ -209,90 +214,101 @@ static void sound_out(void *u, uint16_t p, uint8_t v)
 static uint8_t in_ff(void *u, uint16_t p) { (void)u, (void)p; return 0xff; }
 static void out_nop(void *u, uint16_t p, uint8_t v) { (void)u, (void)p, (void)v; }
 
+// the text: palette index + 1 (0 transparent); *high: in front of the sprites
+static inline int text_px(int x, int y, bool *high)
+{
+    const int f = (y >> 3) * 32 + (x >> 3);
+    const uint8_t attr = MEM(0xd400 + f);
+    const int code = MEM(0xd000 + f) + ((attr & 0x10) << 4);
+    const int py = y & 7, px = x & 7;
+    const uint8_t pen = T.chars[(size_t)code * 64 + ((attr & 0x80) ? 7 - py : py) * 8 + ((attr & 0x40) ? 7 - px : px)];
+    *high = (attr & 0x20) == 0;
+    return pen ? ((((attr & 0x0f) << 4) + pen) & 0x3ff) + 1 : 0;
+}
+
+// the 512x256 background
+static inline uint16_t bg_px(int x, int y)
+{
+    const int f = (y >> 3) * 32 + (x >> 4);
+    const uint8_t attr = MEM(0xe001 + f * 2);
+    const int code = MEM(0xe000 + f * 2) + ((attr & 0x30) << 4);
+    const int py = y & 7, px = x & 15;
+    const uint8_t pen = T.tiles[(size_t)code * 128 + ((attr & 0x80) ? 7 - py : py) * 16 + ((attr & 0x40) ? 15 - px : px)];
+    return T.palette[(((attr & 0x0f) << 4) + pen + 512) & 0x3ff];
+}
+
+// rows 16-239 of the 256x256 screen are the picture
 static void update_video(void)
 {
-    for (int f = 0; f < 0x400; f++) {   // the background, 512x256
-        const uint8_t attr = T.mem[0xe001 + f * 2];
-        const int code = T.mem[0xe000 + f * 2] + ((attr & 0x30) << 4);
-        const bool fx = (attr & 0x40) != 0, fy = (attr & 0x80) != 0;
-        const int x = (f % 32) * 16, y = (f / 32) * 8;
-        const uint8_t *tile = T.tiles + (size_t)code * 128;
-        for (int py = 0; py < 8; py++) {
-            uint16_t *line = T.bg + (y + py) * 512;
-            const uint8_t *src = tile + (fy ? 7 - py : py) * 16;
-            for (int px = 0; px < 16; px++)
-                line[x + px] = T.palette[(((attr & 0x0f) << 4) + src[fx ? 15 - px : px] + 512) & 0x3ff];
-        }
-    }
-    memset(T.lo, 0, sizeof T.lo);
-    memset(T.hi, 0, sizeof T.hi);
-    for (int f = 0; f < 0x400; f++) {   // the text, low and high priority
-        const uint8_t attr = T.mem[0xd400 + f];
-        const int code = T.mem[0xd000 + f] + ((attr & 0x10) << 4);
-        const bool fx = (attr & 0x40) != 0, fy = (attr & 0x80) != 0, high = (attr & 0x20) == 0;
-        const int x = (f % 32) * 8, y = (f / 32) * 8;
-        const uint8_t *tile = T.chars + (size_t)code * 64;
-        for (int py = 0; py < 8; py++)
-            for (int px = 0; px < 8; px++) {
-                const uint8_t pen = tile[(fy ? 7 - py : py) * 8 + (fx ? 7 - px : px)];
-                if (!pen) continue;
-                const uint16_t idx = (uint16_t)((((attr & 0x0f) << 4) + pen) & 0x3ff) + 1;
-                T.lo[(y + py) * 256 + x + px] = idx;
-                if (high) T.hi[(y + py) * 256 + x + px] = idx;
-            }
-    }
     // (dsp-cpp skips the black text pixels: only colours with RGB != 0 show)
-    for (int y = 0; y < 256; y++) {
-        const uint16_t *bg = T.bg + ((y + T.scroll_y) & 0xff) * 512;
-        uint16_t *dst = T.composite + y * 256;
+    for (int y = 16; y < 16 + H; y++) {
+        uint16_t *dst = arc_fb_row(&T.fb, y - 16);
+        const int by = (y + T.scroll_y) & 0xff;
         for (int x = 0; x < 256; x++) {
-            dst[x] = bg[(x + T.scroll_x) & 0x1ff];
-            const uint16_t l = T.lo[y * 256 + x];
+            dst[x] = bg_px((x + T.scroll_x) & 0x1ff, by);
+            bool high;
+            const int l = text_px(x, y, &high);
             if (l && T.palette[l - 1]) dst[x] = T.palette[l - 1];
         }
     }
     for (int f = 0; f < 0x100; f++) {
-        const uint8_t attr = T.mem[0xe801 + f * 4];
-        const int x = T.mem[0xe802 + f * 4] + ((attr & 0x20) << 3) - 128, y = T.mem[0xe803 + f * 4];
-        const int color = (attr & 7) << 4, code = T.mem[0xe800 + f * 4] + ((attr & 8) << 5);
+        const uint8_t attr = MEM(0xe801 + f * 4);
+        const int x = MEM(0xe802 + f * 4) + ((attr & 0x20) << 3) - 128, y = MEM(0xe803 + f * 4);
+        const int color = (attr & 7) << 4, code = MEM(0xe800 + f * 4) + ((attr & 8) << 5);
         const bool fx = (attr & 0x40) != 0, fy = (attr & 0x80) != 0;
         const uint8_t *spr = T.sprites + (size_t)code * 256;
         for (int py = 0; py < 16; py++) {
             const int dy = y + py;
-            if (dy >= 256) continue;
+            if (dy >= 16 + H || dy < 16) continue;
+            uint16_t *dst = arc_fb_row(&T.fb, dy - 16);
             for (int px = 0; px < 16; px++) {
                 const int dx = x + px;
                 if (dx < 0 || dx >= 256) continue;
                 const uint8_t pen = spr[(fy ? 15 - py : py) * 16 + (fx ? 15 - px : px)];
-                if (pen) T.composite[dy * 256 + dx] = T.palette[(color + pen + 256) & 0x3ff];
+                if (pen) dst[dx] = T.palette[(color + pen + 256) & 0x3ff];
             }
         }
     }
-    for (int i = 0; i < 256 * 256; i++) {
-        const uint16_t h = T.hi[i];
-        if (h && T.palette[h - 1]) T.composite[i] = T.palette[h - 1];
+    for (int y = 16; y < 16 + H; y++) {
+        uint16_t *dst = arc_fb_row(&T.fb, y - 16);
+        for (int x = 0; x < 256; x++) {
+            bool high;
+            const int h = text_px(x, y, &high);
+            if (h && high && T.palette[h - 1]) dst[x] = T.palette[h - 1];
+        }
     }
-    memcpy(T.fb, T.composite + 16 * 256, W * H * 2);
 }
+
+static const uint16_t *frame_row(int y) { return arc_fb_row(&T.fb, y); }
 
 bool arc_init(void)
 {
     if (!(T_ = (struct state *)calloc(1, sizeof(struct state)))) return false;
-    T.fb = (uint16_t *)calloc(W * H, 2);
-    T.bg = (uint16_t *)calloc(512 * 256, 2);
-    uint8_t *g = (uint8_t *)calloc(1, 0x10000);
-    if (!T.fb || !T.bg || !g) return false;
-    if (!ARC_LOAD(kMain, T.mem, 0xc000) || !ARC_LOAD(kSub, T.mem_sub, 0x8000) || !ARC_LOAD(kSound, T.mem_snd, 0x4000) ||
-        !ARC_LOAD(kAdpcm, T.adpcm, 0x4000))
+    if (!arc_fb_init(&T.fb, W, H)) return false;
+    arc_frame_row_hook = frame_row;
+    if (!(T.rom = ARC_ROM_BLOB("main", kMain, 0xc000)) || !(T.rom_sub = ARC_ROM_BLOB("sub", kSub, 0x8000)) ||
+        !(T.rom_snd = ARC_ROM_BLOB("sound", kSound, 0x4000)))
         return false;
-    memcpy(T.adpcm + 0x4000, T.adpcm, 0x4000);   // the 32 KB window, mirrored
+    arc_blob b;
+    if (arc_blob_begin(&b, "adpcm", 0x8000, ARC_ROM_KEY(kAdpcm, 0))) {   // the 32 KB window, mirrored
+        static const arc_rom kAdpcm2[] = {{"twc-5.bin", 0x4000, 0x4000, 0x444b5544}};
+        b.err |= !ARC_BLOB_LOAD(&b, kAdpcm) || !ARC_BLOB_LOAD(&b, kAdpcm2);
+    }
+    if (!(T.adpcm = arc_blob_end(&b))) return false;
+    const uint8_t *raw = ARC_ROM_BLOB("chars.raw", kChars, 0x4000);
+    if (!raw) return false;
     arc_layout cl = { 8, 8, 512, 4, 256, false, false, false, {0, 1, 2, 3}, kPsX, kPsY };
-    if (!ARC_LOAD(kChars, g, 0x4000) || !(T.chars = arc_gfx_decode(&cl, g, 0x4000))) return false;
+    if (arc_blob_begin(&b, "chars", 512 * 64, ARC_ROM_KEY(kChars, 1))) arc_blob_gfx(&b, &cl, raw, 0x4000, 0);
+    arc_blob_free(raw);
+    if (!(T.chars = arc_blob_end(&b)) || !(raw = ARC_ROM_BLOB("sprites.raw", kSprites, 0x10000))) return false;
     arc_layout sl = { 16, 16, 512, 4, 1024, false, false, false, {0, 1, 2, 3}, kPsX, kPsY };
-    if (!ARC_LOAD(kSprites, g, 0x10000) || !(T.sprites = arc_gfx_decode(&sl, g, 0x10000))) return false;
+    if (arc_blob_begin(&b, "sprites", 512 * 256, ARC_ROM_KEY(kSprites, 1))) arc_blob_gfx(&b, &sl, raw, 0x10000, 0);
+    arc_blob_free(raw);
+    if (!(T.sprites = arc_blob_end(&b)) || !(raw = ARC_ROM_BLOB("tiles.raw", kTiles, 0x10000))) return false;
     arc_layout tl = { 16, 8, 1024, 4, 512, false, false, false, {0, 1, 2, 3}, kPsX, kPsY };
-    if (!ARC_LOAD(kTiles, g, 0x10000) || !(T.tiles = arc_gfx_decode(&tl, g, 0x10000))) return false;
-    free(g);
+    if (arc_blob_begin(&b, "tiles", 1024 * 128, ARC_ROM_KEY(kTiles, 1))) arc_blob_gfx(&b, &tl, raw, 0x10000, 0);
+    arc_blob_free(raw);
+    if (!(T.tiles = arc_blob_end(&b))) return false;
     T.main.read = main_read;
     T.main.write = main_write;
     T.sub.read = sub_read;
@@ -371,7 +387,7 @@ int arc_run_frame(const int16_t **audio)
     return T.naudio;
 }
 
-const uint16_t *arc_frame(void) { return T.fb; }
+const uint16_t *arc_frame(void) { return arc_fb_whole(&T.fb); }
 
 void arc_input(const arc_in *in)
 {

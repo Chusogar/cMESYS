@@ -54,11 +54,11 @@ static struct state {
     zd_z80 main, sound;
     t68705d mcu;
     ay8910 ay0, ay1;
-    uint8_t mem[0x10000], sound_mem[0x10000];
-    uint8_t *chars, *tiles, *sprites;
+    const uint8_t *rom, *sound_rom;     // blobs (the CYD: in the flash)
+    uint8_t ram[0x2800], ram_f000[0x1000], sound_ram[0x3000];   // c000-e7ff, f000-ffff; d000-ffff
+    const uint8_t *chars, *tiles, *sprites;
     uint16_t palette[256];
-    uint16_t *fg, *bg, *screen;         // 256x512: fg palette index + 1, bg and screen colours
-    uint16_t *fb;
+    arc_fb fb;
     uint8_t in0, in1, dswa, dswb, scroll_x;
     uint16_t scroll_y;
     bool ena_irq, sound_nmi, sound_reset;
@@ -80,7 +80,9 @@ static uint8_t main_read(void *u, uint16_t a)
 {
     (void)u;
     if (a == 0xe803) return t68705d_read(&S.mcu);
-    if (a <= 0xbfff || (a >= 0xc000 && a <= 0xe7ff) || a >= 0xf000) return S.mem[a];
+    if (a <= 0xbfff) return S.rom[a];
+    if (a <= 0xe7ff) return S.ram[a - 0xc000];
+    if (a >= 0xf000) return S.ram_f000[a - 0xf000];
     return 0xff;
 }
 
@@ -95,7 +97,8 @@ static void main_write(void *u, uint16_t a, uint8_t v)
     case 0xe803: t68705d_write(&S.mcu, v); return;
     default: break;
     }
-    if (a <= 0xe7ff || a >= 0xf000) S.mem[a] = v;
+    if (a <= 0xe7ff) S.ram[a - 0xc000] = v;
+    else if (a >= 0xf000) S.ram_f000[a - 0xf000] = v;
 }
 
 static uint8_t main_in(void *u, uint16_t p)
@@ -134,10 +137,11 @@ static uint8_t ay_read(ay8910 *ay, uint8_t a, uint8_t b)
 static uint8_t sound_read(void *u, uint16_t a)
 {
     (void)u;
-    if (a <= 0x1fff || a >= 0xd000) return S.sound_mem[a];
+    if (a <= 0x1fff) return S.sound_rom[a];
+    if (a >= 0xd000) return S.sound_ram[a - 0xd000];
     if (a == 0xa081) return ay_read(&S.ay0, S.in0, S.in1);
     if (a == 0xa091) return ay_read(&S.ay1, S.dswa, S.dswb);
-    if (a >= 0xc800 && a <= 0xcfff) return S.mem[a];
+    if (a >= 0xc800 && a <= 0xcfff) return S.ram[a - 0xc000];
     return 0xff;
 }
 
@@ -150,8 +154,8 @@ static void sound_write(void *u, uint16_t a, uint8_t v)
     else if (a == 0xa090) ay8910_address_w(&S.ay1, v);
     else if (a == 0xa092) ay8910_data_w(&S.ay1, v);
     else if (a >= 0xa0e0 && a <= 0xa0ef) S.sound_nmi = (a & 1) == 0;
-    else if (a >= 0xc800 && a <= 0xcfff) S.mem[a] = v;
-    else if (a >= 0xd000) S.sound_mem[a] = v;
+    else if (a >= 0xc800 && a <= 0xcfff) S.ram[a - 0xc000] = v;
+    else if (a >= 0xd000) S.sound_ram[a - 0xd000] = v;
 }
 
 static uint8_t in_ff(void *u, uint16_t p) { (void)u, (void)p; return 0xff; }
@@ -173,72 +177,93 @@ static void sound_cycles(int c)
     }
 }
 
+#define MEM(a) ((a) >= 0xf000 ? S.ram_f000[(a) - 0xf000] : S.ram[(a) - 0xc000])
+
+// The 256x512 layers, a pixel at a time: tile f is column x / 8, row 63 - y / 8
+static inline int layer_tile(int x, int y) { return (x >> 3) * 64 + 63 - (y >> 3); }
+
+static inline uint16_t bg_px(int x, int y)
+{
+    const int f = layer_tile(x, y);
+    const uint8_t attr = S.ram[0xd800 - 0xc000 + f];
+    const uint8_t *px = S.tiles + (size_t)((S.ram[0xd000 - 0xc000 + f] + ((attr & 0x0f) << 8)) & (TILES - 1)) * 64;
+    return S.palette[((attr & 0xf0) + px[(y & 7) * 8 + (x & 7)]) & 0xff];
+}
+
+// the text: palette index + 1, 0 transparent
+static inline int fg_px(int x, int y)
+{
+    const int f = layer_tile(x, y);
+    const uint8_t attr = S.ram_f000[0x800 + f];
+    const uint8_t p = S.chars[(size_t)((S.ram_f000[f] + ((attr & 3) << 8)) & (CHARS - 1)) * 64 + (y & 7) * 8 + (x & 7)];
+    return p ? (((attr & 0xfc) + p) & 0xff) + 1 : 0;
+}
+
+// the scrolled background, the sprites, then the text (taken 16 right and 224 down)
 static void update_video(void)
 {
-    memset(S.fg, 0, 256 * 512 * 2);
-    for (int f = 0; f < 0x800; f++) {
-        const int x = (f / 64) * 8, y = (63 - (f % 64)) * 8;
-        uint8_t attr = S.mem[0xf800 + f];
-        const uint8_t *px = S.chars + (size_t)((S.mem[0xf000 + f] + ((attr & 3) << 8)) & (CHARS - 1)) * 64;
-        int base = attr & 0xfc;
-        for (int r = 0; r < 8; r++)
-            for (int c = 0; c < 8; c++)
-                if (px[r * 8 + c]) S.fg[(y + r) * 256 + x + c] = (uint16_t)(((base + px[r * 8 + c]) & 0xff) + 1);
-        attr = S.mem[0xd800 + f];
-        px = S.tiles + (size_t)((S.mem[0xd000 + f] + ((attr & 0x0f) << 8)) & (TILES - 1)) * 64;
-        base = attr & 0xf0;
-        for (int r = 0; r < 8; r++)
-            for (int c = 0; c < 8; c++) S.bg[(y + r) * 256 + x + c] = S.palette[(base + px[r * 8 + c]) & 0xff];
-    }
     const int sx = S.scroll_x + 17, sy = 736 - S.scroll_y;
-    for (int y = 0; y < 512; y++)
-        for (int x = 0; x < 256; x++) S.screen[y * 256 + x] = S.bg[((y + sy) & 0x1ff) * 256 + ((x + sx) & 0xff)];
+    for (int y = 0; y < H; y++) {
+        uint16_t *out = arc_fb_row(&S.fb, y);
+        for (int x = 0; x < W; x++) out[x] = bg_px((x + sx) & 0xff, (y + sy) & 0x1ff);
+    }
     for (int f = 0; f < 0x200; f++) {
-        const uint8_t attr = S.mem[0xe002 + f * 4];
-        const int code = (S.mem[0xe000 + f * 4] + ((attr & 0xc0) << 2)) & (SPRITES - 1);
-        const int color = (attr & 0x1e) << 3, x = S.mem[0xe003 + f * 4] - 16;
-        const int y = (797 - (S.mem[0xe001 + f * 4] + ((attr & 1) << 8))) & 0x1ff;
+        const uint8_t attr = MEM(0xe002 + f * 4);
+        const int code = (MEM(0xe000 + f * 4) + ((attr & 0xc0) << 2)) & (SPRITES - 1);
+        const int color = (attr & 0x1e) << 3, x = MEM(0xe003 + f * 4) - 16;
+        const int y = (797 - (MEM(0xe001 + f * 4) + ((attr & 1) << 8))) & 0x1ff;
         const uint8_t *px = S.sprites + (size_t)code * 256;
         for (int r = 0; r < 16; r++) {
             const int py = y + r;
-            if (py >= 512) continue;
+            if (py >= H) continue;
+            uint16_t *out = arc_fb_row(&S.fb, py);
             for (int c = 0; c < 16; c++) {
                 const int qx = x + c;
-                if (qx < 0 || qx >= 256 || !px[r * 16 + c]) continue;
-                S.screen[py * 256 + qx] = S.palette[(color + px[r * 16 + c]) & 0xff];
+                if (qx < 0 || qx >= W || !px[r * 16 + c]) continue;
+                out[qx] = S.palette[(color + px[r * 16 + c]) & 0xff];
             }
         }
     }
-    for (int y = 0; y < H; y++)
+    for (int y = 0; y < H; y++) {
+        uint16_t *out = arc_fb_row(&S.fb, y);
         for (int x = 0; x < W; x++) {
-            const uint16_t f = S.fg[(y + 224) * 256 + x + 16];
-            S.fb[y * W + x] = f ? S.palette[f - 1] : S.screen[y * 256 + x];
+            const int f = fg_px(x + 16, y + 224);
+            if (f) out[x] = S.palette[f - 1];
         }
+    }
 }
+
+static const uint16_t *frame_row(int y) { return arc_fb_row(&S.fb, y); }
 
 static uint8_t bitw(uint8_t v) { return (uint8_t)(0x0e * (v & 1) + 0x1f * ((v >> 1) & 1) + 0x43 * ((v >> 2) & 1) + 0x8f * ((v >> 3) & 1)); }
 
 bool arc_init(void)
 {
     if (!(S_ = (struct state *)calloc(1, sizeof(struct state)))) return false;
-    S.fg = (uint16_t *)calloc(256 * 512, 2);
-    S.bg = (uint16_t *)calloc(256 * 512, 2);
-    S.screen = (uint16_t *)calloc(256 * 512, 2);
-    S.fb = (uint16_t *)calloc(W * H, 2);
-    uint8_t *g = (uint8_t *)calloc(1, 0x10000), prom[0x300];
-    if (!S.fg || !S.bg || !S.screen || !S.fb || !g) return false;
-    if (!ARC_LOAD(kMain, S.mem, 0xc000) || !ARC_LOAD(kSound, S.sound_mem, 0x2000) || !ARC_LOAD(kProm, prom, sizeof prom))
+    uint8_t prom[0x300];
+    if (!arc_fb_init(&S.fb, W, H)) return false;
+    arc_frame_row_hook = frame_row;
+    if (!(S.rom = ARC_ROM_BLOB("main", kMain, 0xc000)) || !(S.sound_rom = ARC_ROM_BLOB("sound", kSound, 0x2000)) ||
+        !ARC_LOAD(kProm, prom, sizeof prom))
         return false;
     t68705d_init(&S.mcu, T68705_TIGERHELI);
     if (!ARC_LOAD(kMcu, S.mcu.mem, 0x800)) return false;
     S.mcu.misc = mcu_misc;
+    arc_blob b;
+    const uint8_t *raw = ARC_ROM_BLOB("chars.raw", kChars, 0x4000);
+    if (!raw) return false;
     arc_layout cl = { 8, 8, CHARS, 2, 64, false, false, true, {0, CHARS * 64}, kX16, kY8 };
-    if (!ARC_LOAD(kChars, g, 0x4000) || !(S.chars = arc_gfx_decode(&cl, g, 0x4000))) return false;
+    if (arc_blob_begin(&b, "chars", CHARS * 64, ARC_ROM_KEY(kChars, 1))) arc_blob_gfx(&b, &cl, raw, 0x4000, 0);
+    arc_blob_free(raw);
+    if (!(S.chars = arc_blob_end(&b)) || !(raw = ARC_ROM_BLOB("tiles.raw", kTiles, 0x10000))) return false;
     arc_layout tl = { 8, 8, TILES, 4, 64, false, false, true, {0, TILES * 64, TILES * 128, TILES * 192}, kX16, kY8 };
-    if (!ARC_LOAD(kTiles, g, 0x10000) || !(S.tiles = arc_gfx_decode(&tl, g, 0x10000))) return false;
+    if (arc_blob_begin(&b, "tiles", TILES * 64, ARC_ROM_KEY(kTiles, 1))) arc_blob_gfx(&b, &tl, raw, 0x10000, 0);
+    arc_blob_free(raw);
+    if (!(S.tiles = arc_blob_end(&b)) || !(raw = ARC_ROM_BLOB("sprites.raw", kSprites, 0x10000))) return false;
     arc_layout sl = { 16, 16, SPRITES, 4, 256, false, false, true, {0, SPRITES * 256, SPRITES * 512, SPRITES * 768}, kX16, kY16 };
-    if (!ARC_LOAD(kSprites, g, 0x10000) || !(S.sprites = arc_gfx_decode(&sl, g, 0x10000))) return false;
-    free(g);
+    if (arc_blob_begin(&b, "sprites", SPRITES * 256, ARC_ROM_KEY(kSprites, 1))) arc_blob_gfx(&b, &sl, raw, 0x10000, 0);
+    arc_blob_free(raw);
+    if (!(S.sprites = arc_blob_end(&b))) return false;
     for (int f = 0; f < 0x100; f++)
         S.palette[f] = arc_rgb565((uint32_t)bitw(prom[f]) << 16 | (uint32_t)bitw(prom[0x100 + f]) << 8 | bitw(prom[0x200 + f]));
     S.main.read = main_read;
@@ -297,7 +322,7 @@ int arc_run_frame(const int16_t **audio)
     return S.naudio;
 }
 
-const uint16_t *arc_frame(void) { return S.fb; }
+const uint16_t *arc_frame(void) { return arc_fb_whole(&S.fb); }
 
 void arc_input(const arc_in *in)
 {

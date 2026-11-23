@@ -82,7 +82,7 @@ static void render(int y, uint16_t *row)
         return;
     }
     if (ox > 0) memset(row, 0, 320 * sizeof *row);
-    const uint16_t *src = arc_frame() + sy * w + (ox < 0 ? -ox * xs : 0);
+    const uint16_t *src = arc_frame_row(sy) + (ox < 0 ? -ox * xs : 0);
     uint16_t *d = row + (ox > 0 ? ox : 0);
     for (int x = 0; x < sw && x < 320; x++) {
         const uint16_t p = src[x * xs];

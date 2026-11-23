@@ -10,6 +10,9 @@
 # ARC_BIG: those that need more than the 4-8 MB of the VGA32 / RP2350 (desktop,
 # web and Android only)
 ARC_BIG := pirates
+# the CYD builds of these keep their ROMs and graphics in the flash (the arccache
+# partition, filled from the microSD on the first boot: partitions_arccache.csv)
+ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy
 ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c

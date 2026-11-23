@@ -249,16 +249,17 @@ void sega_decrypt(const uint8_t *rom, size_t size, int game, uint8_t *data, uint
     }
 }
 
-void sega_decrypt_type2(const uint8_t *rom, size_t size, int chip, int shift, uint8_t *data, uint8_t *opcodes)
+void sega_decrypt_type2_part(const uint8_t *rom, size_t size, uint32_t addr, int chip, int shift, uint8_t *data,
+                             uint8_t *opcodes)
 {
     memmove(data, rom, size);
     memset(opcodes, 0, size);
-    const size_t limit = size < 0x8000 ? size : 0x8000;
     const bool s317 = chip == SEGA2_317_000X;
-    for (size_t f = 0; f < limit; f++) {
-        const uint8_t src = data[f];
-        const int row = (bit_n((uint32_t)f, 14) << 5) | (bit_n((uint32_t)f, 12) << 4) | (bit_n((uint32_t)f, 9) << 3) |
-                        (bit_n((uint32_t)f, 6) << 2) | (bit_n((uint32_t)f, 3) << 1) | bit_n((uint32_t)f, 0);
+    for (size_t i = 0; i < size && addr + i < 0x8000; i++) {
+        const uint32_t f = addr + (uint32_t)i;
+        const uint8_t src = data[i];
+        const int row = (bit_n(f, 14) << 5) | (bit_n(f, 12) << 4) | (bit_n(f, 9) << 3) |
+                        (bit_n(f, 6) << 2) | (bit_n(f, 3) << 1) | bit_n(f, 0);
         uint8_t ox, dx;
         int os, ds;
         if (s317) {
@@ -273,7 +274,12 @@ void sega_decrypt_type2(const uint8_t *rom, size_t size, int chip, int shift, ui
             ds = kType2Row[chip][2 * row + 1];
         }
         const uint8_t *ot = kSwapTable[os], *dt = kSwapTable[ds];
-        opcodes[f] = (uint8_t)(bitswap8(src, 7, ot[0], 5, ot[1], 3, ot[2], 1, ot[3]) ^ ox);
-        data[f] = (uint8_t)(bitswap8(src, 7, dt[0], 5, dt[1], 3, dt[2], 1, dt[3]) ^ dx);
+        opcodes[i] = (uint8_t)(bitswap8(src, 7, ot[0], 5, ot[1], 3, ot[2], 1, ot[3]) ^ ox);
+        data[i] = (uint8_t)(bitswap8(src, 7, dt[0], 5, dt[1], 3, dt[2], 1, dt[3]) ^ dx);
     }
+}
+
+void sega_decrypt_type2(const uint8_t *rom, size_t size, int chip, int shift, uint8_t *data, uint8_t *opcodes)
+{
+    sega_decrypt_type2_part(rom, size, 0, chip, shift, data, opcodes);
 }

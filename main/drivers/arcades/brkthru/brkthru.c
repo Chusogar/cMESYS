@@ -22,7 +22,7 @@ static const char *const kSets[] = { "brkthru", NULL };
 static const arc_rom kProgram[] = {
     {"brkthru.1", 0x4000, 0x00000, 0xcfb4265f}, {"brkthru.2", 0x8000, 0x04000, 0xfa8246d9},
     {"brkthru.4", 0x8000, 0x0c000, 0x8cabf252}, {"brkthru.3", 0x8000, 0x14000, 0x2f2c40c2}};
-static const arc_rom kSound[] = {{"brkthru.5", 0x8000, 0x8000, 0xc309435f}};
+static const arc_rom kSound[] = {{"brkthru.5", 0x8000, 0, 0xc309435f}};
 static const arc_rom kChars[] = {{"brkthru.12", 0x2000, 0, 0x58c0b29b}};
 static const arc_rom kSprites[] = {
     {"brkthru.9", 0x8000, 0x00000, 0xf54e50a7}, {"brkthru.10", 0x8000, 0x08000, 0xfd156945},
@@ -46,12 +46,12 @@ static struct state {
     m6809d main, sound;
     ym2203d ym2203;
     ym3812d ym3526;
-    uint8_t *rom, *banks;               // 4000-ffff, 8 x 8 KB
-    uint8_t *chars, *tiles, *sprites;
-    uint8_t sound_mem[0x10000], ram[0x1800], bg_video[0x400], fg_video[0x400], sprite_ram[0x100];
+    const uint8_t *rom, *banks;         // 4000-ffff, 8 x 8 KB (blobs: on the CYD in the flash)
+    const uint8_t *sound_rom;           // 8000-ffff
+    const uint8_t *chars, *tiles, *sprites;
+    uint8_t sound_ram[0x2000], ram[0x1800], bg_video[0x400], fg_video[0x400], sprite_ram[0x100];
     uint16_t palette[0x100];
-    uint16_t screen[256 * 256];
-    uint16_t *fb;
+    arc_fb fb;                          // the visible 240x240 of the 256x256 screen
     uint8_t in0, in1, in2, dsw_a, dsw_b, sound_latch, rom_bank, bg_color;
     uint16_t scroll_x;
     bool nmi_enabled, old_coin1, old_coin2;
@@ -107,7 +107,8 @@ static void main_write(void *u, uint16_t a, uint8_t v)
 static uint8_t sound_read(void *u, uint16_t a)
 {
     (void)u;
-    if (a < 0x2000 || a >= 0x8000) return B.sound_mem[a];
+    if (a < 0x2000) return B.sound_ram[a];
+    if (a >= 0x8000) return B.sound_rom[a - 0x8000];
     switch (a) {
     case 0x2000: return ym3812d_status(&B.ym3526);
     case 0x4000: return B.sound_latch;
@@ -119,7 +120,7 @@ static uint8_t sound_read(void *u, uint16_t a)
 static void sound_write(void *u, uint16_t a, uint8_t v)
 {
     (void)u;
-    if (a < 0x2000) { B.sound_mem[a] = v; return; }
+    if (a < 0x2000) { B.sound_ram[a] = v; return; }
     switch (a) {
     case 0x2000: ym3812d_control(&B.ym3526, v); break;
     case 0x2001: ym3812d_write(&B.ym3526, v); break;
@@ -142,16 +143,20 @@ static void sound_cycles(void *u, int c)
     }
 }
 
+// screen (x, y) of 256x256 is fb (x - 8, y - 8)
+static inline uint16_t *screen_row(int y) { return y >= 8 && y < 8 + H ? arc_fb_row(&B.fb, y - 8) - 8 : NULL; }
+
 static void sprite_tile(int c, int x, int ty, int color)
 {
     const uint8_t *g = B.sprites + (size_t)(c & 0x3ff) * 256;
     for (int r = 0; r < 16; r++) {
-        uint16_t *out = &B.screen[((ty + r) & 0xff) * 256];
+        uint16_t *out = screen_row((ty + r) & 0xff);
+        if (!out) continue;
         for (int col = 0; col < 16; col++) {
             const int px = x + col;
-            if (px >= 256) break;
+            if (px >= 8 + W) break;
             const int pen = g[r * 16 + col];
-            if (pen) out[px] = B.palette[color + pen];
+            if (pen && px >= 8) out[px] = B.palette[color + pen];
         }
     }
 }
@@ -173,9 +178,9 @@ static void draw_sprites(int priority)
 
 static void tiles(bool opaque)
 {
-    for (int y = 0; y < 256; y++) {
-        uint16_t *out = &B.screen[y * 256];
-        for (int x = 0; x < 256; x++) {
+    for (int y = 8; y < 8 + H; y++) {
+        uint16_t *out = screen_row(y);
+        for (int x = 8; x < 8 + W; x++) {
             const int px = (x + B.scroll_x) & 0x1ff, f = (px >> 4) * 16 + (y >> 4);
             const uint8_t attr = B.fg_video[f * 2 + 1];
             const int code = B.fg_video[f * 2] + ((attr & 3) << 8);
@@ -195,54 +200,64 @@ static void update_video(void)
     for (int i = 0; i < 0x400; i++) {   // the text, colours 0-7
         const uint8_t *g = B.chars + B.bg_video[i] * 64;
         const int cx = (i & 31) * 8, cy = (i >> 5) * 8;
-        for (int r = 0; r < 8; r++)
+        for (int r = 0; r < 8; r++) {
+            uint16_t *out = screen_row(cy + r);
+            if (!out) continue;
             for (int c = 0; c < 8; c++)
-                if (g[r * 8 + c]) B.screen[(cy + r) * 256 + cx + c] = B.palette[g[r * 8 + c]];
+                if (g[r * 8 + c] && cx + c >= 8 && cx + c < 8 + W) out[cx + c] = B.palette[g[r * 8 + c]];
+        }
     }
-    for (int y = 0; y < H; y++) memcpy(B.fb + y * W, B.screen + (8 + y) * 256 + 8, W * 2);
 }
+
+static const uint16_t *frame_row(int y) { return arc_fb_row(&B.fb, y); }
 
 static uint8_t weight4(uint8_t v) { return (uint8_t)(0x0e * (v & 1) + 0x1f * ((v >> 1) & 1) + 0x43 * ((v >> 2) & 1) + 0x8f * ((v >> 3) & 1)); }
 
 bool arc_init(void)
 {
     if (!(B_ = (struct state *)calloc(1, sizeof(struct state)))) return false;
-    B.fb = (uint16_t *)calloc(W * H, 2);
-    uint8_t *prog = (uint8_t *)malloc(0x1c000), *src = (uint8_t *)calloc(1, 0x18000), *gfx = (uint8_t *)calloc(1, 0x20000);
-    B.tiles = (uint8_t *)malloc((size_t)0x400 * 256);
-    if (!B.fb || !prog || !src || !gfx || !B.tiles) return false;
-    memset(prog, 0xff, 0x1c000);
-    if (!ARC_LOAD(kProgram, prog, 0x1c000)) return false;
-    B.rom = prog;
-    B.banks = prog + 0xc000;
-    memset(B.sound_mem, 0xff, sizeof B.sound_mem);
-    if (!ARC_LOAD(kSound, B.sound_mem, 0x10000)) return false;
+    if (!arc_fb_init(&B.fb, W, H)) return false;
+    arc_frame_row_hook = frame_row;
+    arc_blob b;
+    // the ROMs cover the whole of it
+    if (arc_blob_begin(&b, "program", 0x1c000, ARC_ROM_KEY(kProgram, 0)) && !ARC_BLOB_LOAD(&b, kProgram)) b.err = true;
+    if (!(B.rom = arc_blob_end(&b))) return false;
+    B.banks = B.rom + 0xc000;
+    if (!(B.sound_rom = ARC_ROM_BLOB("sound", kSound, 0x8000))) return false;
+    const uint8_t *raw = ARC_ROM_BLOB("chars.raw", kChars, 0x2000);
     arc_layout cl = { 8, 8, 0x100, 3, 64, false, false, false, {512 * 64 + 4, 0, 4}, kCharX, kY8 };
-    if (!ARC_LOAD(kChars, src, 0x2000) || !(B.chars = arc_gfx_decode(&cl, src, 0x2000))) return false;
+    if (!raw) return false;
+    if (arc_blob_begin(&b, "chars", 0x100 * 64, ARC_ROM_KEY(kChars, 1))) arc_blob_gfx(&b, &cl, raw, 0x2000, 0);
+    arc_blob_free(raw);
+    if (!(B.chars = arc_blob_end(&b))) return false;
     // the tiles: eight groups of 128 rearranged like MAME, then decoded
-    memset(src, 0, 0x18000);
-    if (!ARC_LOAD(kTiles, src, 0x18000)) return false;
-    for (int f = 0; f < 4; f++) {
-        memcpy(gfx + 0x8000 * f, src + 0x4000 * f, 0x4000);
-        memcpy(gfx + 0x8000 * f + 0x4000, src + 0x10000 + 0x2000 * f, 0x1000);
-        memcpy(gfx + 0x8000 * f + 0x6000, src + 0x11000 + 0x2000 * f, 0x1000);
-    }
-    for (int group = 0; group < 8; group++) {
-        const int f = group / 2;
-        const bool odd = group & 1;
-        arc_layout tl = { 16, 16, 0x80, 3, 256, false, false, false, {odd ? 0x3000 * 8 : 0x4000 * 8 + 4, 0, 4}, kTileX, kY16 };
-        uint8_t *d = arc_gfx_decode(&tl, gfx + 0x8000 * f + (odd ? 0x1000 : 0), 0x7000);
-        if (!d) return false;
-        memcpy(B.tiles + (size_t)group * 0x80 * 256, d, 0x80 * 256);
-        free(d);
-    }
-    free(gfx);
-    memset(src, 0, 0x18000);
+    const uint8_t *src = ARC_ROM_BLOB("tiles.raw", kTiles, 0x18000);
+    if (!src) return false;
+    if (arc_blob_begin(&b, "tiles.gfx", 0x20000, ARC_ROM_KEY(kTiles, 1)))
+        for (int f = 0; f < 4; f++) {
+            arc_blob_write(&b, 0x8000 * f, src + 0x4000 * f, 0x4000);
+            arc_blob_write(&b, 0x8000 * f + 0x4000, src + 0x10000 + 0x2000 * f, 0x1000);
+            arc_blob_write(&b, 0x8000 * f + 0x6000, src + 0x11000 + 0x2000 * f, 0x1000);
+        }
+    arc_blob_free(src);
+    const uint8_t *gfx = arc_blob_end(&b);
+    if (!gfx) return false;
+    if (arc_blob_begin(&b, "tiles", 0x400 * 256, ARC_ROM_KEY(kTiles, 2)))
+        for (int group = 0; group < 8; group++) {
+            const int f = group / 2;
+            const bool odd = group & 1;
+            arc_layout tl = { 16, 16, 0x80, 3, 256, false, false, false, {odd ? 0x3000 * 8 : 0x4000 * 8 + 4, 0, 4}, kTileX, kY16 };
+            arc_blob_gfx(&b, &tl, gfx + 0x8000 * f + (odd ? 0x1000 : 0), 0x7000, group * 0x80);
+        }
+    arc_blob_free(gfx);
+    if (!(B.tiles = arc_blob_end(&b))) return false;
     arc_layout sl = { 16, 16, 0x400, 3, 256, false, false, false, {2 * 1024 * 256, 1024 * 256, 0}, kSprX, kY16 };
-    if (!ARC_LOAD(kSprites, src, 0x18000) || !(B.sprites = arc_gfx_decode(&sl, src, 0x18000))) return false;
+    if (!(raw = ARC_ROM_BLOB("sprites.raw", kSprites, 0x18000))) return false;
+    if (arc_blob_begin(&b, "sprites", 0x400 * 256, ARC_ROM_KEY(kSprites, 1))) arc_blob_gfx(&b, &sl, raw, 0x18000, 0);
+    arc_blob_free(raw);
+    if (!(B.sprites = arc_blob_end(&b))) return false;
     uint8_t proms[0x200];
     if (!ARC_LOAD(kProms, proms, sizeof proms)) return false;
-    free(src);
     for (int i = 0; i < 0x100; i++)
         B.palette[i] = arc_rgb565((uint32_t)weight4(proms[i] & 15) << 16 | (uint32_t)weight4(proms[i] >> 4) << 8 | weight4(proms[0x100 + i] & 15));
     B.main.read = main_read;
@@ -265,7 +280,7 @@ void arc_reset(void)
     memset(B.bg_video, 0, sizeof B.bg_video);
     memset(B.fg_video, 0, sizeof B.fg_video);
     memset(B.sprite_ram, 0, sizeof B.sprite_ram);
-    memset(B.sound_mem, 0, 0x8000);
+    memset(B.sound_ram, 0, sizeof B.sound_ram);
     B.in0 = B.in1 = 0xff;
     B.in2 = 0xe0;
     B.rom_bank = 0;
@@ -301,7 +316,7 @@ int arc_run_frame(const int16_t **audio)
     return B.naudio;
 }
 
-const uint16_t *arc_frame(void) { return B.fb; }
+const uint16_t *arc_frame(void) { return arc_fb_whole(&B.fb); }
 
 static uint8_t pad(unsigned p)
 {
