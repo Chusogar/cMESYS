@@ -1,23 +1,106 @@
-// galaga.c - Galaga (Namco, 1981) for the common arcade frontends (arc.h):
-// C port of dsp-cpp's drivers/arcade/galaga_hw (from dsp-emulator's
-// galaga_hw.pas), the Galaga machine. Three Z80 at 3 MHz sharing the video
-// and work RAM, a Namco 06xx bus with the 51xx (inputs and coins, the
-// software model of dsp-emulator) and the 3-voice Namco WSG. Like dsp-cpp,
-// the 54xx's explosions are not played. 8x8 characters, 16x16 sprites and
-// the star field from a table of seeds.
+// galaga.c - Galaga (Namco, 1981), Dig Dug (Namco, 1982), Xevious (Namco,
+// 1982), Super Xevious (Namco, 1984) and Bosconian (Namco / Midway, 1981) for
+// the common arcade frontends (arc.h): C port of dsp-cpp's
+// drivers/arcade/galaga_hw (from dsp-emulator's galaga_hw.pas). Three Z80 at
+// 3 MHz sharing the video and work RAM, a Namco 06xx bus with the 51xx (the
+// software model of dsp-emulator), Dig Dug's 53xx and the 50xx of Xevious and
+// Bosconian (MB88 MCUs running their ROMs), and the 3-voice Namco WSG. Like
+// dsp-cpp, the 54xx's explosions are not played. ARC_VARIANT: 0 galaga,
+// 1 digdug, 2 xevious, 3 sxevious, 4 bosco.
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
 #include "../../../cpu/z80dsp/z80dsp.h"
+#include "../../../cpu/mb88xx/mb88xx.h"
+#include "../../../rom/romfs.h"
+
+#ifndef ARC_VARIANT
+#define ARC_VARIANT 0
+#endif
+#define GALAGA (ARC_VARIANT == 0)
+#define DIGDUG (ARC_VARIANT == 1)
+#define XEVIOUS (ARC_VARIANT == 2 || ARC_VARIANT == 3)
+#define SUPER (ARC_VARIANT == 3)
+#define BOSCO (ARC_VARIANT == 4)
+#define HAS50 (!GALAGA)                 // (Dig Dug's slot 2 is wired, its MCU without a ROM)
 
 #define CLOCK 3072000
 #define SCANLINES 264
 #define FPS 60.606060606
 #define RATE 96000                      // the WSG: the CPU clock / 32
+#if BOSCO
+#define W 285
+#define H 224
+#else
 #define W 224
 #define H 288
+#endif
 #define NMI_PERIOD 768                  // the 06xx's NMI while a chip is selected
 
+#if DIGDUG
+static const char *const kSets[] = { "digdug", "namco53", NULL };
+static const arc_rom kMain[] = {
+    {"dd1a.1", 0x1000, 0x0000, 0xa80ec984}, {"dd1a.2", 0x1000, 0x1000, 0x559f00bd},
+    {"dd1a.3", 0x1000, 0x2000, 0x8cbc6fe1}, {"dd1a.4", 0x1000, 0x3000, 0xd066f830}};
+static const arc_rom kSub[] = {{"dd1a.5", 0x1000, 0, 0x6687933b}, {"dd1a.6", 0x1000, 0x1000, 0x843d857f}};
+static const arc_rom kSub2[] = {{"dd1.7", 0x1000, 0, 0xa41bce72}};
+static const arc_rom kWave[] = {{"136007.110", 0x100, 0, 0x7a2815b4}};
+static const arc_rom kChars[] = {{"dd1.9", 0x800, 0, 0xf14a6fe1}};
+static const arc_rom kSprites[] = {
+    {"dd1.15", 0x1000, 0x0000, 0xe22957c8}, {"dd1.14", 0x1000, 0x1000, 0x2829ec99},
+    {"dd1.13", 0x1000, 0x2000, 0x458499e9}, {"dd1.12", 0x1000, 0x3000, 0xc58252a0}};
+static const arc_rom kBgMap[] = {{"dd1.10b", 0x1000, 0, 0x2cf399c2}};
+static const arc_rom kBgChars[] = {{"dd1.11", 0x1000, 0, 0x7b383983}};
+static const arc_rom kProms[] = {
+    {"136007.113", 0x20, 0, 0x4cb9da99}, {"136007.111", 0x100, 0x20, 0x00c7c419}, {"136007.112", 0x100, 0x120, 0xe9b3e08e}};
+const arc_info arc_game = { "digdug", "Dig Dug", "Namco", 1982, W, H, FPS, RATE, kSets,
+                            { "PUMP", NULL, NULL, NULL }, ARC_JOY_4WAY };
+#elif XEVIOUS
+#if SUPER
+static const char *const kSets[] = { "sxevious", "xevious", "namco50", NULL };
+static const arc_rom kMain[] = {
+    {"cpu_3p.rom", 0x1000, 0x0000, 0x1c8d27d5}, {"cpu_3m.rom", 0x1000, 0x1000, 0xfd04e615},
+    {"xv3_3.2m", 0x1000, 0x2000, 0x294d5404}, {"xv3_4.2l", 0x1000, 0x3000, 0x6a44bf92}};
+static const arc_rom kSub[] = {{"xv3_5.3f", 0x1000, 0, 0xd4bd3d81}, {"xv3_6.3j", 0x1000, 0x1000, 0xaf06be5f}};
+const arc_info arc_game = { "sxevious", "Super Xevious", "Namco", 1984, W, H, FPS, RATE, kSets,
+                            { "ZAPPER", "BLASTER", NULL, NULL }, ARC_JOY_8WAY };
+#else
+static const char *const kSets[] = { "xevious", "namco50", NULL };
+static const arc_rom kMain[] = {
+    {"xvi_1.3p", 0x1000, 0x0000, 0x09964dda}, {"xvi_2.3m", 0x1000, 0x1000, 0x60ecce84},
+    {"xvi_3.2m", 0x1000, 0x2000, 0x79754b7d}, {"xvi_4.2l", 0x1000, 0x3000, 0xc7d4bbf0}};
+static const arc_rom kSub[] = {{"xvi_5.3f", 0x1000, 0, 0xc85b703f}, {"xvi_6.3j", 0x1000, 0x1000, 0xe18cdaad}};
+const arc_info arc_game = { "xevious", "Xevious", "Namco", 1982, W, H, FPS, RATE, kSets,
+                            { "ZAPPER", "BLASTER", NULL, NULL }, ARC_JOY_8WAY };
+#endif
+static const arc_rom kSub2[] = {{"xvi_7.2c", 0x1000, 0, 0xdd35cf1c}};
+static const arc_rom kWave[] = {{"xvi-2.7n", 0x100, 0, 0x550f06bc}};
+static const arc_rom kChars[] = {{"xvi_12.3b", 0x1000, 0, 0x088c8b26}};
+static const arc_rom kSprites[] = {
+    {"xvi_15.4m", 0x2000, 0x0000, 0xdc2c0ecb}, {"xvi_17.4p", 0x2000, 0x2000, 0xdfb587ce},
+    {"xvi_16.4n", 0x1000, 0x4000, 0x605ca889}, {"xvi_18.4r", 0x2000, 0x5000, 0x02417d19}};
+static const arc_rom kBgChars[] = {{"xvi_13.3c", 0x1000, 0, 0xde60ba25}, {"xvi_14.3d", 0x1000, 0x1000, 0x535cdbbc}};
+static const arc_rom kBgMap[] = {
+    {"xvi_9.2a", 0x1000, 0x0000, 0x57ed9879}, {"xvi_10.2b", 0x2000, 0x1000, 0xae3ba9e5}, {"xvi_11.2c", 0x1000, 0x3000, 0x31e244dd}};
+static const arc_rom kProms[] = {
+    {"xvi-8.6a", 0x100, 0x000, 0x5cc2727f}, {"xvi-9.6d", 0x100, 0x100, 0x5c8796cc}, {"xvi-10.6e", 0x100, 0x200, 0x3cb60975},
+    {"xvi-7.4h", 0x200, 0x300, 0x22d98032}, {"xvi-6.4f", 0x200, 0x500, 0x3a7599f0}, {"xvi-4.3l", 0x200, 0x700, 0xfd8b9d91},
+    {"xvi-5.3m", 0x200, 0x900, 0xbf906d82}};
+#elif BOSCO
+static const char *const kSets[] = { "bosco", "boscomd", "namco50", NULL };
+static const arc_rom kMain[] = {
+    {"bos5_1.3p", 0x1000, 0x0000, 0}, {"bos5_2.3m", 0x1000, 0x1000, 0}, {"bos5_3.2m", 0x1000, 0x2000, 0}, {"bos5_4.2l", 0x1000, 0x3000, 0}};
+static const arc_rom kSub[] = {{"bos5_5.3f", 0x1000, 0, 0}, {"bos5_6.3j", 0x1000, 0x1000, 0}};
+static const arc_rom kSub2[] = {{"bos1_7.2c", 0x1000, 0, 0}};
+static const arc_rom kWave[] = {{"bos1-1.1d", 0x100, 0, 0xde2316c6}};
+static const arc_rom kChars[] = {{"bos1_14.5d", 0x1000, 0, 0xa956d3c5}};
+static const arc_rom kSprites[] = {{"bos1_13.5e", 0x1000, 0, 0xe869219c}};
+static const arc_rom kProms[] = {
+    {"bos1-6.6b", 0x20, 0, 0}, {"bos1-5.4m", 0x100, 0x20, 0}, {"bos1-4.2r", 0x100, 0x120, 0},
+    {"bos1-3.2d", 0x20, 0x220, 0}, {"bos1-2.5c", 0x100, 0x240, 0}};
+const arc_info arc_game = { "bosco", "Bosconian", "Namco / Midway", 1981, W, H, FPS, RATE, kSets,
+                            { "FIRE", NULL, NULL, NULL }, ARC_JOY_8WAY };
+#else
 static const char *const kSets[] = { "galaga", NULL };
 static const arc_rom kMain[] = {
     {"gg1_1b.3p", 0x1000, 0x0000, 0xab036c9f}, {"gg1_2b.3m", 0x1000, 0x1000, 0xd9232240},
@@ -32,6 +115,7 @@ static const arc_rom kProms[] = {
 
 const arc_info arc_game = { "galaga", "Galaga", "Namco", 1981, W, H, FPS, RATE, kSets,
                             { "FIRE", NULL, NULL, NULL }, ARC_JOY_2WAY };
+#endif
 
 // the star field: (x, y, colour, set) of the hardware's four sets of 63
 typedef struct { uint16_t x, y; uint8_t col, set; } star_seed;
@@ -102,38 +186,67 @@ static const star_seed kStars[252] = {
 {0x00A8,0x00F3,0x0C,3},{0x00DE,0x00F9,0x1D,3},{0x002C,0x00FA,0x13,3},
 };
 
+
 static const int kCharX[8] = {64, 65, 66, 67, 0, 1, 2, 3};
+static const int kX8[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+static const int kX8r[8] = {7, 6, 5, 4, 3, 2, 1, 0};
 static const int kCharY[8] = {0, 8, 16, 24, 32, 40, 48, 56};
 static const int kSprX[16] = {0, 1, 2, 3, 64, 65, 66, 67, 128, 129, 130, 131, 192, 193, 194, 195};
+static const int kBoscoSprX[16] = {64, 65, 66, 67, 128, 129, 130, 131, 192, 193, 194, 195, 0, 1, 2, 3};
 static const int kSprY[16] = {0, 8, 16, 24, 32, 40, 48, 56, 256, 264, 272, 280, 288, 296, 304, 312};
+
+// an MB88 MCU on the 06xx: the 50xx (protection / scores) or the 53xx (I/O)
+typedef struct {
+    mb88 cpu;
+    uint8_t cmd, port_o;
+    bool rw;
+    int prot_step, prot_idx;
+} n50_t;
 
 // the machine on the heap (calloc in arc_init: the ESP32's DRAM is short)
 static struct state {
     zd_z80 main, sub, sub2;
-    uint8_t mem[0x10000], sub_rom[0x1000], sub2_rom[0x1000], wave[0x100];
-    uint8_t *chars, *sprites;           // rotated a quarter turn clockwise
-    uint16_t palette[96];
-    uint8_t char_lut[0x100], tile_lut[0x100], star_control[6];
+    uint8_t mem[0x10000], sub_rom[0x4000], sub2_rom[0x4000], wave[0x100];
+    uint8_t *chars, *sprites, *tiles;   // (Galaga and Dig Dug: turned a quarter clockwise)
+    uint16_t palette[256];
+    uint8_t char_lut[0x100], tile_lut[0x200], sprite_lut[0x200];
+    uint8_t star_control[6];
     uint16_t *fb;
     bool main_irq, sub_irq, sub2_nmi, sub_held, sub2_held, flip;
-    // 06xx
-    uint8_t ctrl;
+    // 06xx (and Bosconian's second one, whose NMI goes nowhere)
+    uint8_t ctrl, ctrl2;
+    bool sel[4], sel2;
     bool nmi_enabled;
     int nmi_acc;
+#if HAS50
+    n50_t n50, n50b;
+    uint8_t n50_rom[0x800];
+#endif
+#if DIGDUG
+    mb88 n53;
+    uint8_t n53_rom[0x400], n53_o, bg_map[0x1000], bg_select, bg_color_bank, tx_color_mode;
+    bool bg_disable;
+    uint8_t dd_char_lut[0x100], dd_bg_lut[0x100];
+#endif
+#if XEVIOUS
+    uint8_t xtiles[0x4000], bs[2];
+#endif
+    int scrollx_bg, scrolly_bg, scrollx_fg, scrolly_fg;
     // 51xx (software model)
     uint8_t mode, coincred_mode, credits, in_count, lastcoins, lastbuttons, coins[2], coins_per_cred[2], creds_per_coin[2];
-    bool remap_joy;
+    bool remap_joy, kludge;
     // WSG
     uint8_t wsg[0x20];
-    uint8_t in0, in1, dsw_a, dsw_b;
+    uint8_t in0, in1, in2, dsw_a, dsw_b;
     int64_t wsg_acc;
     int16_t audio[2048];
     int naudio;
 } *G_;
 #define G (*G_)
 
-static void ns51_reset(void)
+static void ns51_reset(bool kludge)
 {
+    G.kludge = kludge;
     G.credits = 0;
     G.coins[0] = G.coins[1] = 0;
     G.coins_per_cred[0] = G.coins_per_cred[1] = 1;
@@ -157,7 +270,15 @@ static void ns51_write(uint8_t d)
         return;
     }
     switch (d) {
-    case 1: G.coincred_mode = 4; G.credits = 0; break;
+    case 1:
+        if (G.kludge) {
+            G.coincred_mode = 6;
+            G.remap_joy = true;
+        } else {
+            G.coincred_mode = 4;
+            G.credits = 0;
+        }
+        break;
     case 2: G.mode = 1; G.in_count = 0; break;
     case 3: G.remap_joy = false; break;
     case 4: G.remap_joy = true; break;
@@ -224,13 +345,112 @@ static uint8_t ns51_read(void)
     return res;
 }
 
-// the 06xx: slot 0 the 51xx (slot 3, the 54xx, has no effect here)
+
+#if HAS50
+// ---------------------------------------------------------------------------
+// The 50xx: K = the command's high nibble, R0 its low one, R2 = R/W; O the
+// answer, a nibble at a time. dsp-cpp also feeds Xevious the answers of its
+// start-up protection check.
+
+static uint8_t n50_k(void *u) { return (uint8_t)(((n50_t *)u)->cmd >> 4); }
+static uint8_t n50_r(void *u, int p)
+{
+    n50_t *n = u;
+    return p == 0 ? (uint8_t)(n->cmd & 15) : p == 2 ? (n->rw ? 1 : 0) : 0;
+}
+static void n50_o(void *u, uint8_t d)
+{
+    n50_t *n = u;
+    const uint8_t nib = d & 0x0f;
+    n->port_o = (d & 0x10) ? (uint8_t)((n->port_o & 0x0f) | (nib << 4)) : (uint8_t)((n->port_o & 0xf0) | nib);
+}
+
+static void n50_init(n50_t *n, const uint8_t *rom)
+{
+    mb88_init(&n->cpu, MB8842, rom);
+    n->cpu.read_k = n50_k;
+    n->cpu.read_r = n50_r;
+    n->cpu.write_o = n50_o;
+    n->cpu.user = n;
+    mb88_set_reset_line(&n->cpu, true);
+}
+
+static void n50_reset(n50_t *n)
+{
+    n->cmd = n->port_o = 0;
+    n->rw = true;
+    n->prot_step = n->prot_idx = 0;
+    mb88_reset(&n->cpu);
+}
+
+static void n50_pulse(n50_t *n)
+{
+    mb88_set_irq(&n->cpu, true);
+    mb88_run(&n->cpu, 48);
+    mb88_set_irq(&n->cpu, false);
+    mb88_run(&n->cpu, 64);
+}
+
+static void n50_write(n50_t *n, uint8_t d)
+{
+    n->cmd = d;
+    n->rw = false;
+    if (d == 0x10) {
+        n->prot_step = 1;
+        n->prot_idx = 0;
+    } else if (d == 0x80 && n->prot_step == 1) {
+        n->prot_step = 2;
+        n->prot_idx = 0;
+    } else if (d == 0xe5) {
+        n->prot_step = 3;
+        n->prot_idx = 0;
+    }
+    n50_pulse(n);
+}
+
+static uint8_t n50_read(n50_t *n)
+{
+    uint8_t r = n->port_o;
+    if (n->prot_step == 2 || n->prot_step == 3) {
+        r = (n->prot_idx & 3) == 3 ? (n->prot_step == 2 ? 0x05 : 0x95) : 0x00;
+        if (++n->prot_idx >= 4) n->prot_step = 0;
+    }
+    n->rw = true;
+    n50_pulse(n);
+    return r;
+}
+#endif
+
+#if DIGDUG
+static uint8_t n53_zero(void *u) { (void)u; return 0; }
+static uint8_t n53_r(void *u, int p) { (void)u, (void)p; return 0; }
+static void n53_o(void *u, uint8_t d) { (void)u; G.n53_o = d; }
+#endif
+
+// ---------------------------------------------------------------------------
+// The 06xx: slot 0 the 51xx, 1 Dig Dug's 53xx, 2 the 50xx (3, the 54xx, has
+// no effect here)
+
 static void ctrl_write(uint8_t v)
 {
     G.ctrl = v;
-    if ((v & 0x0f) == 0) G.nmi_enabled = false;
-    else G.nmi_enabled = true;
+    const uint8_t mask = v & 0x0f;
+    const bool rd = (v & 0x10) != 0;
+    for (int i = 0; i < 4; i++) {
+        const bool s = (mask >> i) & 1;
+        if (s != G.sel[i]) {
+            G.sel[i] = s;
+#if DIGDUG
+            if (i == 1) mb88_set_irq(&G.n53, s);
+#endif
+        }
+#if HAS50
+        if (s && i == 2) G.n50.rw = rd;
+#endif
+    }
+    G.nmi_enabled = mask != 0;
     G.nmi_acc = 0;
+    (void)rd;
 }
 
 static uint8_t data_read(void)
@@ -238,6 +458,12 @@ static uint8_t data_read(void)
     if (!(G.ctrl & 0x10)) return 0;
     uint8_t r = 0xff;
     if (G.ctrl & 1) r &= ns51_read();
+#if DIGDUG
+    if (G.ctrl & 2) r &= G.n53_o;
+#endif
+#if HAS50
+    if (G.ctrl & 4) r &= n50_read(&G.n50);
+#endif
     return r;
 }
 
@@ -245,7 +471,24 @@ static void data_write(uint8_t v)
 {
     if (G.ctrl & 0x10) return;
     if (G.ctrl & 1) ns51_write(v);
+#if HAS50
+    if (G.ctrl & 4) n50_write(&G.n50, v);
+#endif
 }
+
+#if BOSCO
+// the second 06xx: slot 0 the second 50xx
+static void ctrl2_write(uint8_t v)
+{
+    G.ctrl2 = v;
+    if (v & 1) G.n50b.rw = (v & 0x10) != 0;
+}
+static uint8_t data2_read(void) { return !(G.ctrl2 & 0x10) ? 0 : (G.ctrl2 & 1) ? n50_read(&G.n50b) : 0xff; }
+static void data2_write(uint8_t v)
+{
+    if (!(G.ctrl2 & 0x10) && (G.ctrl2 & 1)) n50_write(&G.n50b, v);
+}
+#endif
 
 static int16_t wsg_update(void)
 {
@@ -265,6 +508,7 @@ static int16_t wsg_update(void)
     }
     return arc_clamp16(mix);
 }
+
 
 static void latch_write(int bit, uint8_t v)
 {
@@ -288,34 +532,108 @@ static void latch_write(int bit, uint8_t v)
     }
 }
 
+#if XEVIOUS
+// the Xevious BB custom: the background map's lookup
+static uint8_t xevious_bb(uint16_t a)
+{
+    const uint16_t adr_2b = (uint16_t)(((G.bs[1] & 0x7e) << 6) | ((G.bs[0] & 0xfe) >> 1));
+    uint16_t dat1;
+    if (adr_2b & 1) dat1 = (uint16_t)(((G.xtiles[adr_2b >> 1] & 0xf0) << 4) | G.xtiles[0x1000 + adr_2b]);
+    else dat1 = (uint16_t)(((G.xtiles[adr_2b >> 1] & 0x0f) << 8) | G.xtiles[0x1000 + adr_2b]);
+    uint16_t adr_2c = (uint16_t)(((dat1 & 0x1ff) << 2) | ((G.bs[1] & 1) << 1) | (G.bs[0] & 1));
+    if (dat1 & 0x400) adr_2c ^= 1;
+    if (dat1 & 0x200) adr_2c ^= 2;
+    if (a & 1) return G.xtiles[0x3000 + (adr_2c | 0x800)];
+    uint8_t dat2 = G.xtiles[0x3000 + adr_2c];
+    dat2 = (uint8_t)(((dat2 & 0x40) << 1) | ((dat2 & 0x80) >> 1) | (dat2 & 0x3f));
+    if (dat1 & 0x400) dat2 ^= 0x40;
+    if (dat1 & 0x200) dat2 ^= 0x80;
+    return dat2;
+}
+#endif
+
 static uint8_t main_read(void *u, uint16_t a)
 {
     (void)u;
     if (a <= 0x3fff) return G.mem[a];
     if (a >= 0x6800 && a <= 0x6807) {
         const int b = a & 7;
+#if XEVIOUS
+        return (uint8_t)((((G.dsw_b | G.in2) >> b) & 1) | (((G.dsw_a >> b) & 1) << 1));
+#else
         return (uint8_t)(((G.dsw_b >> b) & 1) | (((G.dsw_a >> b) & 1) << 1));
+#endif
     }
     if (a >= 0x7000 && a <= 0x70ff) return data_read();
     if (a == 0x7100) return G.ctrl;
+#if DIGDUG
+    if ((a >= 0x8000 && a <= 0x8bff) || (a >= 0x9000 && a <= 0x93ff) || (a >= 0x9800 && a <= 0x9bff) || (a >= 0xb800 && a <= 0xb83f))
+        return G.mem[a];
+#elif XEVIOUS
+    if ((a >= 0x7800 && a <= 0x87ff) || (a >= 0x9000 && a <= 0x97ff) || (a >= 0xa000 && a <= 0xa7ff) || (a >= 0xb000 && a <= 0xcfff))
+        return G.mem[a];
+    if (a >= 0xf000) return xevious_bb(a);
+#elif BOSCO
+    if (a >= 0x7800 && a <= 0x8fff) return G.mem[a];
+    if (a >= 0x9000 && a <= 0x90ff) return data2_read();
+    if (a == 0x9100) return G.ctrl2;
+#else
     if ((a >= 0x8000 && a <= 0x8bff) || (a >= 0x9000 && a <= 0x93ff) || (a >= 0x9800 && a <= 0x9bff)) return G.mem[a];
+#endif
     return 0xff;
 }
 
-static uint8_t sub_read(void *u, uint16_t a) { return a <= 0x3fff ? (a < 0x1000 ? G.sub_rom[a] : 0) : main_read(u, a); }
-static uint8_t sub2_read(void *u, uint16_t a) { return a <= 0x3fff ? (a < 0x1000 ? G.sub2_rom[a] : 0) : main_read(u, a); }
+static uint8_t sub_read(void *u, uint16_t a) { return a <= 0x3fff ? G.sub_rom[a] : main_read(u, a); }
+static uint8_t sub2_read(void *u, uint16_t a) { return a <= 0x3fff ? G.sub2_rom[a] : main_read(u, a); }
 
 static void main_write(void *u, uint16_t a, uint8_t v)
 {
     (void)u;
     if (a <= 0x3fff) return;
-    if (a >= 0x6800 && a <= 0x681f) G.wsg[a & 0x1f] = v & 0x0f;
-    else if (a >= 0x6820 && a <= 0x6827) latch_write(a & 7, v);
-    else if (a >= 0x7000 && a <= 0x70ff) data_write(v);
-    else if (a == 0x7100) ctrl_write(v);
-    else if ((a >= 0x8000 && a <= 0x8bff) || (a >= 0x9000 && a <= 0x93ff) || (a >= 0x9800 && a <= 0x9bff)) G.mem[a] = v;
+    if (a >= 0x6800 && a <= 0x681f) { G.wsg[a & 0x1f] = v & 0x0f; return; }
+    if (a >= 0x6820 && a <= 0x6827) { latch_write(a & 7, v); return; }
+    if (a >= 0x7000 && a <= 0x70ff) { data_write(v); return; }
+    if (a == 0x7100) { ctrl_write(v); return; }
+#if DIGDUG
+    if ((a >= 0x8000 && a <= 0x8bff) || (a >= 0x9000 && a <= 0x93ff) || (a >= 0x9800 && a <= 0x9bff) || (a >= 0xb800 && a <= 0xb840))
+        G.mem[a] = v;
+    else if (a >= 0xa000 && a <= 0xa007) {
+        const int b = a & 7;
+        switch (b) {
+        case 0: case 1: G.bg_select = (uint8_t)((G.bg_select & ~(1 << b)) | ((v & 1) << b)); break;
+        case 2: G.tx_color_mode = v & 1; break;
+        case 3: G.bg_disable = (v & 1) != 0; break;
+        case 4: case 5: G.bg_color_bank = (uint8_t)((G.bg_color_bank & ~(1 << b)) | ((v & 1) << b)); break;
+        case 7: G.flip = v & 1; break;
+        default: break;
+        }
+    }
+#elif XEVIOUS
+    if ((a >= 0x7800 && a <= 0x87ff) || (a >= 0x9000 && a <= 0x97ff) || (a >= 0xa000 && a <= 0xa7ff) || (a >= 0xb000 && a <= 0xcfff))
+        G.mem[a] = v;
+    else if (a >= 0xd000 && a <= 0xd07f) {
+        const int s = v + ((a & 1) << 8);
+        switch ((a & 0xf0) >> 4) {
+        case 0: G.scrollx_bg = s; break;
+        case 1: G.scrollx_fg = s; break;
+        case 2: G.scrolly_bg = s; break;
+        case 3: G.scrolly_fg = s; break;
+        case 7: G.flip = s & 1; break;
+        default: break;
+        }
+    } else if (a >= 0xf000) G.bs[a & 1] = v;
+#elif BOSCO
+    if (a >= 0x7800 && a <= 0x8fff) G.mem[a] = v;
+    else if (a >= 0x9000 && a <= 0x90ff) data2_write(v);
+    else if (a == 0x9100) ctrl2_write(v);
+    else if (a >= 0xa000 && a <= 0xa005) G.star_control[a & 7] = v;
+    else if (a == 0xa006 || a == 0xffc0) G.scrollx_bg = v;
+    else if (a == 0xffc1) G.scrolly_bg = v;
+#else
+    if ((a >= 0x8000 && a <= 0x8bff) || (a >= 0x9000 && a <= 0x93ff) || (a >= 0x9800 && a <= 0x9bff)) G.mem[a] = v;
     else if (a >= 0xa000 && a <= 0xa005) G.star_control[a & 7] = v;
     else if (a == 0xa007) G.flip = v & 1;
+#endif
 }
 
 static uint8_t in_ff(void *u, uint16_t p) { (void)u, (void)p; return 0xff; }
@@ -339,6 +657,15 @@ static void main_cycles(void *u, int c)
     }
 }
 
+// ---------------------------------------------------------------------------
+// Video
+
+static inline void plot(int x, int y, uint16_t c)
+{
+    if ((unsigned)x < W && (unsigned)y < H) G.fb[y * W + x] = c;
+}
+
+#if GALAGA
 static void render(void)
 {
     const uint16_t black = arc_rgb565(0);
@@ -386,6 +713,221 @@ static void render(void)
         }
 }
 
+
+#elif DIGDUG
+static void render(void)
+{
+    for (int i = 0; i < W * H; i++) G.fb[i] = 0;
+    if (!G.bg_disable)                  // the playfield from the map ROM
+        for (int x = 0; x <= 27; x++)
+            for (int y = 0; y <= 35; y++) {
+                const int sx = 29 - x, sy = y - 2;
+                const int pos = (sy & 0x20) ? sx + ((sy & 0x1f) << 5) : sy + (sx << 5);
+                const uint8_t code = G.bg_map[(pos | (G.bg_select << 10)) & 0xfff];
+                const int color = ((code >> 4) | (G.bg_color_bank << 4)) << 2;
+                const uint8_t *px = G.tiles + code * 64;
+                for (int py = 0; py < 8; py++)
+                    for (int qx = 0; qx < 8; qx++) {
+                        const uint8_t pen = px[py * 8 + qx];
+                        if (pen) plot(x * 8 + qx, y * 8 + py, G.palette[G.dd_bg_lut[(color + pen) & 0xff] & 0x1f]);
+                    }
+            }
+    for (int x = 0; x <= 27; x++)       // the characters, 1bpp
+        for (int y = 0; y <= 35; y++) {
+            const int sx = 29 - x, sy = y - 2;
+            const int pos = (sy & 0x20) ? sx + ((sy & 0x1f) << 5) : sy + (sx << 5);
+            if (pos < 0 || pos >= 0x400) continue;
+            const uint8_t code = G.mem[0x8000 + pos];
+            const int color = (((code >> 4) & 0x0e) | ((code >> 3) & 2)) << 1;
+            const uint8_t *px = G.chars + (code & 0x7f) * 64;
+            for (int py = 0; py < 8; py++)
+                for (int qx = 0; qx < 8; qx++) {
+                    const uint8_t pen = px[py * 8 + qx];
+                    if (!pen) continue;
+                    const uint8_t idx = G.dd_char_lut[(color + pen) & 0xff];
+                    if (idx) plot(x * 8 + qx, y * 8 + py, G.palette[idx & 0x1f]);
+                }
+        }
+    for (int f = 0; f < 0x40; f++) {    // the sprites, 16x16 or 32x32
+        const uint8_t code = G.mem[0x8b80 + f * 2];
+        const int color = (G.mem[0x8b81 + f * 2] & 0x3f) << 2;
+        int y = G.mem[0x9381 + f * 2] - 40 + 1;
+        if (y <= 0) y += 256;
+        const int x = G.mem[0x9380 + f * 2] - 16 - 1;
+        const uint8_t attr = G.mem[0x9b80 + f * 2];
+        const bool fx = attr & 2, fy = attr & 1;
+        int codes[4], xs[4], ys[4], n = 1;
+        if (!(code & 0x80)) {
+            codes[0] = code, xs[0] = x, ys[0] = y;
+        } else {
+            const int k = (int)fy ^ ((int)fx << 1), base = (code & 0xc0) | ((code & 0x3f) << 2);
+            codes[0] = base + (0 ^ k), xs[0] = x + 16, ys[0] = y;
+            codes[1] = base + (1 ^ k), xs[1] = x + 16, ys[1] = y + 16;
+            codes[2] = base + (2 ^ k), xs[2] = x, ys[2] = y;
+            codes[3] = base + (3 ^ k), xs[3] = x, ys[3] = y + 16;
+            n = 4;
+        }
+        for (int t = 0; t < n; t++) {
+            const uint8_t *px = G.sprites + (codes[t] & 0xff) * 256;
+            for (int sy = 0; sy < 16; sy++) {
+                const int srcy = fy ? 15 - sy : sy;
+                for (int sx = 0; sx < 16; sx++) {
+                    const uint8_t pen = px[srcy * 16 + (fx ? 15 - sx : sx)];
+                    if (pen == 0 || pen >= 0x1f) continue;
+                    plot(xs[t] + sx, ys[t] + sy, G.palette[G.tile_lut[(color + pen) & 0xff] & 0x1f]);
+                }
+            }
+        }
+    }
+}
+#elif XEVIOUS
+// the 512x512 layers: tile f at (x, y) = (31 - f / 64, f % 64), so only
+// x < 256 holds anything; -1 where nothing is drawn
+static int bg_px(int lx, int ly)
+{
+    if (lx >= 256) return -1;
+    const int f = (31 - (lx >> 3)) * 64 + (ly >> 3);
+    const uint8_t lo = G.mem[0xc800 + f], attr = G.mem[0xb800 + f];
+    const int code = lo + ((attr & 1) << 8);
+    const int color = (((attr & 0x3c) >> 2) | ((lo & 0x80) >> 3) | ((attr & 3) << 5)) << 2;
+    const int py = (attr & 0x80) ? 7 - (ly & 7) : ly & 7, qx = (attr & 0x40) ? 7 - (lx & 7) : lx & 7;
+    const uint8_t pen = G.tiles[(code % 0x200) * 64 + py * 8 + qx];
+    return pen ? G.palette[G.tile_lut[(color + pen) & 0x1ff]] : -1;
+}
+
+static int fg_px(int lx, int ly)
+{
+    if (lx >= 256) return -1;
+    const int f = (31 - (lx >> 3)) * 64 + (ly >> 3);
+    const uint8_t attr = G.mem[0xb000 + f], code = G.mem[0xc000 + f];
+    const int color = (((attr & 0x03) << 4) | ((attr & 0x3c) >> 2)) << 1;
+    const int py = (attr & 0x80) ? 7 - (ly & 7) : ly & 7, qx = (attr & 0x40) ? 7 - (lx & 7) : lx & 7;
+    const uint8_t pen = G.chars[(code % 0x200) * 64 + py * 8 + qx];
+    if (!pen) return -1;
+    const uint8_t lut = G.char_lut[(color + pen) & 0xff];
+    return lut == 0x80 ? -1 : G.palette[lut];
+}
+
+static void blit_xsprite(int code, int ox, int oy, int color, bool fx, bool fy)
+{
+    const uint8_t *px = G.sprites + (code % 0x140) * 256;
+    for (int sy = 0; sy < 16; sy++)
+        for (int sx = 0; sx < 16; sx++) {
+            const uint8_t pen = px[(fy ? 15 - sy : sy) * 16 + (fx ? 15 - sx : sx)];
+            if (!pen) continue;
+            const uint8_t idx = G.sprite_lut[(color + pen) & 0x1ff];
+            if (idx != 0x80) plot(ox + sx, oy + sy, G.palette[idx]);
+        }
+}
+
+static void render(void)
+{
+    const int bsx = G.scrolly_bg + 20, bsy = G.scrollx_bg + 20;
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++) {
+            const int c = bg_px((x + bsx) & 511, (y + bsy) & 511);
+            G.fb[y * W + x] = c < 0 ? 0 : (uint16_t)c;
+        }
+    for (int f = 0; f < 0x40; f++) {
+        if (G.mem[0xa781 + f * 2] & 0x40) continue;
+        int code = G.mem[0xa780 + f * 2];
+        const uint8_t a2 = G.mem[0x9780 + f * 2];
+        if (a2 & 0x80) code = (code & 0x3f) + 0x100;
+        const int color = (G.mem[0xa781 + f * 2] & 0x7f) << 3;
+        const bool fy = (a2 & 4) != 0, fx = (a2 & 8) != 0;
+        const int y = G.mem[0x8781 + f * 2] - 39 + 0x100 * (G.mem[0x9781 + f * 2] & 1);
+        const int x = G.mem[0x8780 + f * 2] - 19;
+        switch (a2 & 3) {
+        case 0: blit_xsprite(code, x, y, color, fx, fy); break;
+        case 1: {
+            const int c = code & 0x1fe;
+            blit_xsprite(c, x + (fx ? 16 : 0), y, color, fx, fy);
+            blit_xsprite(c + 1, x + (fx ? 0 : 16), y, color, fx, fy);
+            break;
+        }
+        case 2: {
+            const int c = code & 0x1fd;
+            blit_xsprite(c + 2, x, y + (fy ? 16 : 0), color, fx, fy);
+            blit_xsprite(c, x, y + (fy ? 0 : 16), color, fx, fy);
+            break;
+        }
+        default: {
+            const int c = code & 0x1fc, sx1 = fx ? 16 : 0, sx2 = fx ? 0 : 16, sy1 = fy ? 16 : 0, sy2 = fy ? 0 : 16;
+            blit_xsprite(c + 3, x + sx1, y + sy2, color, fx, fy);
+            blit_xsprite(c + 1, x + sx2, y + sy2, color, fx, fy);
+            blit_xsprite(c + 2, x + sx1, y + sy1, color, fx, fy);
+            blit_xsprite(c, x + sx2, y + sy1, color, fx, fy);
+            break;
+        }
+        }
+    }
+    const int fsx = G.scrolly_fg + 18, fsy = G.scrollx_fg + 32;
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++) {
+            const int c = fg_px((x + fsx) & 511, (y + fsy) & 511);
+            if (c >= 0) G.fb[y * W + x] = (uint16_t)c;
+        }
+}
+#elif BOSCO
+// the layers' (x, y) is the picture's (x, y - 16)
+static inline void lplot(int x, int y, uint16_t c) { plot(x, y - 16, c); }
+
+static int pf_px(int lx, int ly)
+{
+    const int f = (ly >> 3) * 32 + (lx >> 3);
+    const uint8_t code = G.mem[0x8400 + f], attr = G.mem[0x8c00 + f];
+    const int color = (attr & 0x3f) << 2;
+    const bool fx = (attr & 0x40) == 0, fy = (attr & 0x80) != 0;
+    const uint8_t pen = G.chars[code * 64 + (fy ? 7 - (ly & 7) : ly & 7) * 8 + (fx ? 7 - (lx & 7) : lx & 7)];
+    if (pen == 0 || pen >= 0x0f) return -1;
+    return G.palette[G.char_lut[(color + pen) & 0xff] & 0x5f];
+}
+
+static void render(void)
+{
+    for (int i = 0; i < W * H; i++) G.fb[i] = 0;
+    const int sx = G.scrollx_bg & 0xff, sy = G.scrolly_bg & 0xff;
+    if (G.star_control[5] & 1) {
+        const int set_a = G.star_control[0] & 1, set_b = (G.star_control[1] & 1) | 2;
+        for (int i = 0; i < 252; i++) {
+            const star_seed *s = &kStars[i];
+            if (s->set != set_a && s->set != set_b) continue;
+            lplot((s->x + sx) & 0xff, (s->y + sy) & 0xff, G.palette[32 + (s->col & 63)]);
+        }
+    }
+    for (int dy = 16; dy < 240; dy++)
+        for (int dx = 0; dx < 256; dx++) {
+            const int c = pf_px((dx + sx) & 0xff, (dy + sy) & 0xff);
+            if (c >= 0) lplot(dx, dy, (uint16_t)c);
+        }
+    for (int f = 0; f < 6; f++) {
+        const int x = G.mem[0x83d5 + f * 2] - 1, y = 240 - G.mem[0x8bd4 + f * 2];
+        const uint8_t a = G.mem[0x83d4 + f * 2];
+        const bool fx = a & 1, fy = a & 2;
+        const int color = (G.mem[0x8bd5 + f * 2] & 0x3f) << 2;
+        const uint8_t *px = G.sprites + ((a & 0xfc) >> 2) * 256;
+        for (int r = 0; r < 16; r++)
+            for (int c = 0; c < 16; c++) {
+                const uint8_t pen = px[(fy ? 15 - r : r) * 16 + (fx ? 15 - c : c)];
+                if (pen == 0 || pen >= 0x0f) continue;
+                if (x + c >= 0 && x + c < 512 && y + r >= 0 && y + r < 512)
+                    lplot(x + c, y + r, G.palette[G.char_lut[(color + pen) & 0xff] & 0x5f]);
+            }
+    }
+    // the radar: its 8 columns of characters, the right half first
+    for (int y = 16; y < 240; y++)
+        for (int x = 0; x < 64; x++) {
+            const int pos = (x >> 3) + ((y >> 3) << 5);
+            const uint8_t attr = G.mem[0x8800 + pos], code = G.mem[0x8000 + pos];
+            const int color = (attr & 0x3f) << 2;
+            const bool fx = (attr & 0x40) == 0, fy = (attr & 0x80) != 0;
+            const uint8_t pen = G.chars[code * 64 + (fy ? 7 - (y & 7) : y & 7) * 8 + (fx ? 7 - (x & 7) : x & 7)];
+            if (!pen) continue;
+            lplot(x >= 32 ? 221 + (x - 32) : 253 + x, y, G.palette[G.char_lut[(color + pen) & 0xff] & 0x5f]);
+        }
+}
+#endif
+
 // decoded, then turned a quarter clockwise (galaga_hw.pas's rot90)
 static uint8_t *rotated(const arc_layout *l, const uint8_t *rom, size_t len)
 {
@@ -403,29 +945,130 @@ static uint8_t *rotated(const arc_layout *l, const uint8_t *rom, size_t len)
 
 static uint8_t rw3(uint8_t b) { return (uint8_t)(0x21 * (b & 1) + 0x47 * ((b >> 1) & 1) + 0x97 * ((b >> 2) & 1)); }
 
-bool arc_init(void)
+static void base_palette(const uint8_t *prom, bool stars)
 {
-    if (!(G_ = (struct state *)calloc(1, sizeof(struct state)))) return false;
-    G.fb = (uint16_t *)calloc(W * H, 2);
-    uint8_t crom[0x1000], srom[0x2000], prom[0x220];
-    if (!G.fb || !ARC_LOAD(kMain, G.mem, 0x4000) || !ARC_LOAD(kSub, G.sub_rom, 0x1000) ||
-        !ARC_LOAD(kSub2, G.sub2_rom, 0x1000) || !ARC_LOAD(kWave, G.wave, 0x100) || !ARC_LOAD(kChars, crom, sizeof crom) ||
-        !ARC_LOAD(kSprites, srom, sizeof srom) || !ARC_LOAD(kProms, prom, sizeof prom))
-        return false;
-    arc_layout cl = { 8, 8, 0x100, 2, 128, false, false, false, {4, 0}, kCharX, kCharY };
-    arc_layout sl = { 16, 16, 0x80, 2, 512, false, false, false, {4, 0}, kSprX, kSprY };
-    if (!(G.chars = rotated(&cl, crom, sizeof crom)) || !(G.sprites = rotated(&sl, srom, sizeof srom))) return false;
     for (int i = 0; i < 0x20; i++) {
         const uint8_t v = prom[i];
         G.palette[i] = arc_rgb565((uint32_t)rw3(v) << 16 | (uint32_t)rw3(v >> 3) << 8 | (uint32_t)(0x47 * ((v >> 6) & 1) + 0x97 * ((v >> 7) & 1)));
     }
+    if (!stars) return;
     static const uint8_t kStarMap[4] = {0x00, 0x47, 0x97, 0xde};
     for (int i = 0; i < 64; i++)
         G.palette[32 + i] = arc_rgb565((uint32_t)kStarMap[i & 3] << 16 | (uint32_t)kStarMap[(i >> 2) & 3] << 8 | kStarMap[(i >> 4) & 3]);
+}
+
+// an MCU's ROM, if there (the MB88 runs zeros without one, as dsp-cpp's)
+static bool optional_rom(const char *name, uint32_t crc, uint8_t *dst, uint32_t size)
+{
+    return romfs_get_into(arc_game.sets, name, crc, dst, size);
+}
+
+static bool load_gfx(void)
+{
+#if GALAGA
+    uint8_t crom[0x1000], srom[0x2000], prom[0x220];
+    if (!ARC_LOAD(kChars, crom, sizeof crom) || !ARC_LOAD(kSprites, srom, sizeof srom) || !ARC_LOAD(kProms, prom, sizeof prom)) return false;
+    arc_layout cl = { 8, 8, 0x100, 2, 128, false, false, false, {4, 0}, kCharX, kCharY };
+    arc_layout sl = { 16, 16, 0x80, 2, 512, false, false, false, {4, 0}, kSprX, kSprY };
+    if (!(G.chars = rotated(&cl, crom, sizeof crom)) || !(G.sprites = rotated(&sl, srom, sizeof srom))) return false;
+    base_palette(prom, true);
     for (int i = 0; i < 0x100; i++) {
         G.char_lut[i] = (uint8_t)(prom[0x20 + i] + 0x10);
         G.tile_lut[i] = prom[0x120 + i];
     }
+#elif DIGDUG
+    uint8_t crom[0x800], srom[0x4000], brom[0x1000], prom[0x220];
+    if (!ARC_LOAD(kChars, crom, sizeof crom) || !ARC_LOAD(kSprites, srom, sizeof srom) || !ARC_LOAD(kBgChars, brom, sizeof brom) ||
+        !ARC_LOAD(kBgMap, G.bg_map, sizeof G.bg_map) || !ARC_LOAD(kProms, prom, sizeof prom))
+        return false;
+    arc_layout cl = { 8, 8, 0x100, 1, 64, false, false, false, {0}, kX8r, kCharY };
+    arc_layout sl = { 16, 16, 0x100, 2, 512, false, false, false, {4, 0}, kSprX, kSprY };
+    arc_layout bl = { 8, 8, 0x100, 2, 128, false, false, false, {4, 0}, kCharX, kCharY };
+    if (!(G.chars = rotated(&cl, crom, sizeof crom)) || !(G.sprites = rotated(&sl, srom, sizeof srom)) ||
+        !(G.tiles = rotated(&bl, brom, sizeof brom)))
+        return false;
+    base_palette(prom, false);
+    for (int i = 0; i < 16; i++) {
+        G.dd_char_lut[i * 2] = 0;
+        G.dd_char_lut[i * 2 + 1] = (uint8_t)i;
+    }
+    for (int i = 0; i < 0x100; i++) {
+        G.tile_lut[i] = (uint8_t)(prom[0x20 + i] + 0x10);
+        G.dd_bg_lut[i] = prom[0x120 + i];
+    }
+#elif XEVIOUS
+    uint8_t *srom = (uint8_t *)calloc(1, 0xa000), crom[0x1000], brom[0x2000], prom[0xb00];
+    if (!srom || !ARC_LOAD(kChars, crom, sizeof crom) || !ARC_LOAD(kSprites, srom, 0x7000) || !ARC_LOAD(kBgChars, brom, sizeof brom) ||
+        !ARC_LOAD(kBgMap, G.xtiles, sizeof G.xtiles) || !ARC_LOAD(kProms, prom, sizeof prom))
+        return false;
+    for (int f = 0x5000; f <= 0x6fff; f++) srom[f + 0x2000] = (uint8_t)(srom[f] >> 4);
+    static const int kXSprX[16] = {0, 1, 2, 3, 64, 65, 66, 67, 128, 129, 130, 131, 192, 193, 194, 195};
+    arc_layout cl = { 8, 8, 0x200, 1, 64, false, true, false, {0}, kX8, kCharY };
+    arc_layout sl = { 16, 16, 0x140, 3, 512, false, true, false, {0x140 * 512 + 4, 0, 4}, kXSprX, kSprY };
+    arc_layout bl = { 8, 8, 0x200, 2, 64, false, true, false, {0, 0x1000 * 8}, kX8, kCharY };
+    if (!(G.chars = arc_gfx_decode(&cl, crom, sizeof crom)) || !(G.sprites = arc_gfx_decode(&sl, srom, 0xa000)) ||
+        !(G.tiles = arc_gfx_decode(&bl, brom, sizeof brom)))
+        return false;
+    free(srom);
+    for (int i = 0; i < 0x100; i++) {
+#define W4(v) (uint32_t)(0x0e * ((v) & 1) + 0x1f * (((v) >> 1) & 1) + 0x43 * (((v) >> 2) & 1) + 0x8f * (((v) >> 3) & 1))
+        G.palette[i] = arc_rgb565(W4(prom[i]) << 16 | W4(prom[0x100 + i]) << 8 | W4(prom[0x200 + i]));
+#undef W4
+    }
+    for (int f = 0; f < 0x100; f++) G.char_lut[f] = (f & 1) ? (uint8_t)(f >> 1) : 0x80;
+    for (int f = 0; f < 0x200; f++) {
+        G.tile_lut[f] = (uint8_t)((prom[0x300 + f] & 0x0f) | ((prom[0x500 + f] & 0x0f) << 4));
+        const uint8_t c = (uint8_t)((prom[0x700 + f] & 0x0f) | ((prom[0x900 + f] & 0x0f) << 4));
+        G.sprite_lut[f] = (c & 0x80) ? (c & 0x7f) : 0x80;
+    }
+#elif BOSCO
+    uint8_t crom[0x1000], srom[0x1000], prom[0x340];
+    if (!ARC_LOAD(kChars, crom, sizeof crom) || !ARC_LOAD(kSprites, srom, sizeof srom) || !ARC_LOAD(kProms, prom, sizeof prom)) return false;
+    arc_layout cl = { 8, 8, 0x100, 2, 128, false, false, false, {0, 4}, kCharX, kCharY };
+    arc_layout sl = { 16, 16, 0x40, 2, 512, false, false, false, {0, 4}, kBoscoSprX, kSprY };
+    if (!(G.chars = arc_gfx_decode(&cl, crom, sizeof crom)) || !(G.sprites = arc_gfx_decode(&sl, srom, sizeof srom))) return false;
+    base_palette(prom, true);
+    for (int i = 0; i < 0x100; i++) {
+        G.char_lut[i] = (uint8_t)(prom[0x20 + i] + 0x10);
+        G.tile_lut[i] = prom[0x120 + i];
+    }
+#endif
+    return true;
+}
+
+bool arc_init(void)
+{
+    if (!(G_ = (struct state *)calloc(1, sizeof(struct state)))) return false;
+    G.fb = (uint16_t *)calloc(W * H, 2);
+    if (!G.fb || !ARC_LOAD(kMain, G.mem, 0x4000) || !ARC_LOAD(kSub, G.sub_rom, sizeof G.sub_rom) ||
+        !ARC_LOAD(kSub2, G.sub2_rom, sizeof G.sub2_rom) || !ARC_LOAD(kWave, G.wave, 0x100) || !load_gfx())
+        return false;
+#if XEVIOUS
+    // dsp-cpp skips the long ROM checksum
+    G.mem[0x8500] = 0x10;
+#if SUPER
+    G.mem[0x015a] = 0xc3, G.mem[0x015b] = 0xe9, G.mem[0x015c] = 0x01;
+    G.mem[0x0263] = 0x18, G.mem[0x0264] = 0x00;
+    G.mem[0x0450] = 0x18, G.mem[0x0451] = 0x00;
+#else
+    G.mem[0x015b] = 0xc3, G.mem[0x015c] = 0xe7, G.mem[0x015d] = 0x01;
+    G.mem[0x0261] = 0x18, G.mem[0x0262] = 0x00;
+#endif
+#endif
+#if HAS50
+    if (!DIGDUG && !ARC_LOAD(((const arc_rom[]){{"50xx.bin", 0x800, 0, 0xa0acbaf7}}), G.n50_rom, sizeof G.n50_rom)) return false;
+    n50_init(&G.n50, DIGDUG ? NULL : G.n50_rom);
+    n50_init(&G.n50b, G.n50_rom);
+#endif
+#if DIGDUG
+    const bool have53 = optional_rom("53xx.bin", 0xb326fecb, G.n53_rom, sizeof G.n53_rom) ||
+                        optional_rom("136007.105", 0, G.n53_rom, sizeof G.n53_rom);
+    mb88_init(&G.n53, MB8843, have53 ? G.n53_rom : NULL);
+    G.n53.read_k = n53_zero;
+    G.n53.read_r = n53_r;
+    G.n53.write_o = n53_o;
+    mb88_set_reset_line(&G.n53, true);
+#endif
     G.main.read = main_read;
     G.sub.read = sub_read;
     G.sub2.read = sub2_read;
@@ -436,7 +1079,6 @@ bool arc_init(void)
     zd_init(&G.main);
     zd_init(&G.sub);
     zd_init(&G.sub2);
-    G.dsw_a = G.dsw_b = 0xff;
     arc_reset();
     return true;
 }
@@ -446,16 +1088,34 @@ void arc_reset(void)
     zd_reset(&G.main);
     zd_reset(&G.sub);
     zd_reset(&G.sub2);
-    ns51_reset();
-    G.ctrl = 0;
+    ns51_reset(XEVIOUS);
+#if HAS50
+    n50_reset(&G.n50);
+    n50_reset(&G.n50b);
+    mb88_set_reset_line(&G.n50.cpu, false);
+    mb88_set_reset_line(&G.n50b.cpu, false);
+#endif
+#if DIGDUG
+    G.n53_o = 0;
+    mb88_reset(&G.n53);
+    mb88_set_reset_line(&G.n53, false);
+    G.bg_select = G.bg_color_bank = G.tx_color_mode = 0;
+    G.bg_disable = false;
+#endif
+    G.ctrl = G.ctrl2 = 0;
+    memset(G.sel, 0, sizeof G.sel);
     G.nmi_enabled = false;
     G.nmi_acc = 0;
     memset(G.wsg, 0, sizeof G.wsg);
     memset(G.star_control, 0, sizeof G.star_control);
+    G.scrollx_bg = G.scrolly_bg = G.scrollx_fg = G.scrolly_fg = 0;
     G.main_irq = G.sub_irq = G.sub2_nmi = false;
     G.sub_held = G.sub2_held = true;
     G.flip = false;
     G.in0 = G.in1 = 0xff;
+    G.dsw_a = 0xff;
+    G.dsw_b = SUPER ? 0x62 : XEVIOUS ? 0xee : 0xff;
+    G.in2 = 0x11;
     for (int i = 0; i < 8; i++) latch_write(i, 0);
 }
 
@@ -467,6 +1127,15 @@ int arc_run_frame(const int16_t **audio)
         zd_run(&G.main, line_cycles);
         if (!G.sub_held) zd_run(&G.sub, line_cycles);
         if (!G.sub2_held) zd_run(&G.sub2, line_cycles);
+#if HAS50
+        mb88_run(&G.n50.cpu, line_cycles);
+#if BOSCO
+        mb88_run(&G.n50b.cpu, line_cycles);
+#endif
+#endif
+#if DIGDUG
+        mb88_run(&G.n53, line_cycles);
+#endif
         if (line == 63 || line == 191) {
             if (G.sub2_nmi) zd_set_nmi(&G.sub2, ZD_PULSE);
         } else if (line == 223) {
@@ -508,3 +1177,4 @@ void arc_dip(int bank, uint8_t v)
     if (bank == 0) G.dsw_a = v;
     if (bank == 1) G.dsw_b = v;
 }
+

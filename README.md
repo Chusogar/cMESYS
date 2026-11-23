@@ -70,6 +70,10 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Scramble (Konami, 1981) | `scramble` | Z80 + Z80, 2 x 8255 (protección simulada) | 2 x AY-3-8910 | dsp-cpp `galaxian.cpp` |
 | Frogger (Konami, 1981) | `frogger` | Z80 + Z80, 2 x 8255 | AY-3-8910 | dsp-cpp `galaxian.cpp` |
 | Galaga (Namco, 1981) | `galaga` | 3 x Z80 + 06xx / 51xx | Namco WSG | dsp-cpp `galaga_hw.cpp` (sin las explosiones del 54xx, como allí) |
+| Dig Dug (Namco, 1982) | `digdug` | 3 x Z80, 06xx + 51xx + 53xx (MB88) | Namco WSG | dsp-cpp `galaga_hw.cpp` |
+| Xevious (Namco, 1982) | `xevious` | 3 x Z80, 06xx + 51xx + 50xx (MB88) | Namco WSG | dsp-cpp `galaga_hw.cpp` (salta la suma de la ROM, como dsp-cpp) |
+| Super Xevious (Namco, 1984) | `sxevious` | 3 x Z80, 06xx + 51xx + 50xx (MB88) | Namco WSG | dsp-cpp `galaga_hw.cpp` |
+| Bosconian (Namco / Midway, 1981) | `bosco` | 3 x Z80, 2 x 06xx + 51xx + 2 x 50xx (MB88) | Namco WSG | dsp-cpp `galaga_hw.cpp` |
 | Pirates (NIX, 1994) | `pirates` | 68000 | OKI M6295 | dsp-cpp `pirates.cpp` (el 68000 con Musashi; solo escritorio, web y Android) |
 | Block Out (Technos Japan, 1989) | `blockout` | 68000 + Z80 | YM2151 + OKI M6295 | dsp-cpp `blockout.cpp` (el 68000 con Musashi) |
 | Bubble Bobble (Taito, 1986) | `bublbobl` | 3 x Z80 + HD63701 | YM2203 + YM3526 | dsp-cpp `bublbobl.cpp` (su 63701: `cpu/hd63701dsp`; su YM3812: `sound/ym3812dsp`) |
@@ -110,6 +114,10 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Hammerin' Harry (Irem, 1990) | `hharry` | NEC V30 + Z80 | YM2151 + DAC | dsp-cpp `m72.cpp` |
 | R-Type II (Irem, 1989) | `rtype2` | NEC V30 + Z80 | YM2151 + DAC | dsp-cpp `m72.cpp` |
 | Operation Wolf (Taito, 1987) | `opwolf` | 68000 + Z80 + C-Chip (simulado, como dsp-cpp) | YM2151 + 2 x MSM5205 | dsp-cpp `opwolf.cpp` (la mira se mueve con el joystick) |
+| Arabian (Sun Electronics, 1983) | `arabian` | Z80 + MB8841 | AY-3-8910 | dsp-cpp `arabian.cpp` |
+| Cabal (TAD, 1988) | `cabal` | 68000 + Z80 (cifrado) | YM2151 + 2 x ADPCM (sonido Seibu) | dsp-cpp `cabal.cpp` (versión con joystick) |
+| Blood Bros. (TAD, 1990) | `bloodbro` | 68000 + Z80 | YM3812 + OKI M6295 (sonido Seibu) | dsp-cpp `bloodbros.cpp` |
+| Sky Smasher (Nihon System, 1990) | `skysmash` | 68000 + Z80 | YM3812 + OKI M6295 (sonido Seibu) | dsp-cpp `bloodbros.cpp` |
 
 Las treinta y una últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
@@ -567,7 +575,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |
