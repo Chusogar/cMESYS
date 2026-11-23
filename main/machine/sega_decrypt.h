@@ -16,6 +16,8 @@ enum { SEGA2_315_5179, SEGA2_315_5177, SEGA2_317_000X };
 
 // `rom` (size bytes; may be `data` itself) into data and opcodes (size bytes each)
 void sega_decrypt(const uint8_t *rom, size_t size, int game, uint8_t *data, uint8_t *opcodes);
+// the same for the bytes at addr..addr + size - 1 (a part at a time)
+void sega_decrypt_part(const uint8_t *rom, size_t size, uint32_t addr, int game, uint8_t *data, uint8_t *opcodes);
 void sega_decrypt_type2(const uint8_t *rom, size_t size, int chip, int shift, uint8_t *data, uint8_t *opcodes);
 // the same for the bytes at addr..addr + size - 1 (a part at a time)
 void sega_decrypt_type2_part(const uint8_t *rom, size_t size, uint32_t addr, int chip, int shift, uint8_t *data,

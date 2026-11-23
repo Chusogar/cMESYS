@@ -229,14 +229,14 @@ static inline uint8_t bitswap8(uint8_t v, int b7, int b6, int b5, int b4, int b3
 }
 
 
-void sega_decrypt(const uint8_t *rom, size_t size, int game, uint8_t *data, uint8_t *opcodes)
+void sega_decrypt_part(const uint8_t *rom, size_t size, uint32_t addr, int game, uint8_t *data, uint8_t *opcodes)
 {
     memmove(data, rom, size);
     memset(opcodes, 0, size);
-    const size_t limit = size < 0x8000 ? size : 0x8000;
-    for (size_t f = 0; f < limit; f++) {
+    for (size_t i = 0; i < size && addr + i < 0x8000; i++) {
+        const uint32_t f = addr + (uint32_t)i;
         uint8_t xor_value = 0;
-        const uint8_t src = rom == data ? data[f] : rom[f];
+        const uint8_t src = data[i];
         int row = (int)(f & 1) | ((int)((f >> 4) & 1) << 1) | ((int)((f >> 8) & 1) << 2) | ((int)((f >> 12) & 1) << 3);
         int col = ((src >> 3) & 1) | (((src >> 5) & 1) << 1);
         if (src & 0x80) {
@@ -244,9 +244,14 @@ void sega_decrypt(const uint8_t *rom, size_t size, int game, uint8_t *data, uint
             xor_value = 0xa8;
         }
         const uint8_t base = (uint8_t)(src & (uint8_t)~0xa8);
-        opcodes[f] = base | (uint8_t)(kConvTable[game][2 * row][col] ^ xor_value);
-        data[f] = base | (uint8_t)(kConvTable[game][2 * row + 1][col] ^ xor_value);
+        opcodes[i] = base | (uint8_t)(kConvTable[game][2 * row][col] ^ xor_value);
+        data[i] = base | (uint8_t)(kConvTable[game][2 * row + 1][col] ^ xor_value);
     }
+}
+
+void sega_decrypt(const uint8_t *rom, size_t size, int game, uint8_t *data, uint8_t *opcodes)
+{
+    sega_decrypt_part(rom, size, 0, game, data, opcodes);
 }
 
 void sega_decrypt_type2_part(const uint8_t *rom, size_t size, uint32_t addr, int chip, int shift, uint8_t *data,

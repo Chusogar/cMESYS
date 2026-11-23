@@ -12,8 +12,8 @@
 ARC_BIG := pirates
 # the CYD builds of these keep their ROMs and graphics in the flash (the arccache
 # partition, filled from the microSD on the first boot: partitions_arccache.csv)
-ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy
-ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy
+ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght
+ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
 ARC_SRC_calorie := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -47,8 +47,24 @@ ARC_SRC_citycon := drivers/arcades/citycon/citycon.c cpu/m6809dsp/m6809dsp.c sou
 ARC_SRC_brkthru := drivers/arcades/brkthru/brkthru.c cpu/m6809dsp/m6809dsp.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/ym3812dsp.c
 ARC_SRC_appoooh := drivers/arcades/appoooh/appoooh.c cpu/z80dsp/z80dsp.c sound/sn76496.c sound/msm5205dsp.c
 ARC_SRC_tehkanwc := drivers/arcades/tehkanwc/tehkanwc.c cpu/z80dsp/z80dsp.c sound/ay8910.c sound/msm5205dsp.c
-ARC_SRC_tigerh := drivers/arcades/tigerh/tigerh.c cpu/z80dsp/z80dsp.c cpu/m6805dsp/m6805dsp.c machine/taito68705dsp.c sound/ay8910.c
-ARC_SRC_wboy := drivers/arcades/wboy/wboy.c cpu/z80dsp/z80dsp.c machine/sega_decrypt.c machine/z80piodsp.c sound/sn76496.c
+ARC_SRC_tigerh := drivers/arcades/slapfght/slapfght.c cpu/z80dsp/z80dsp.c cpu/m6805dsp/m6805dsp.c machine/taito68705dsp.c sound/ay8910.c
+ARC_SRC_slapfght := drivers/arcades/slapfght/slapfght.c cpu/z80dsp/z80dsp.c cpu/m6805dsp/m6805dsp.c machine/taito68705dsp.c sound/ay8910.c
+ARC_DEFS_slapfght := ARC_VARIANT=1
+ARC_SRC_wboy := drivers/arcades/system1/system1.c cpu/z80dsp/z80dsp.c machine/sega_decrypt.c machine/z80piodsp.c machine/i8255dsp.c sound/sn76496.c
+ARC_SRC_pitfall2 := drivers/arcades/system1/system1.c cpu/z80dsp/z80dsp.c machine/sega_decrypt.c machine/z80piodsp.c machine/i8255dsp.c sound/sn76496.c
+ARC_DEFS_pitfall2 := ARC_VARIANT=1
+ARC_SRC_teddybb := drivers/arcades/system1/system1.c cpu/z80dsp/z80dsp.c machine/sega_decrypt.c machine/z80piodsp.c machine/i8255dsp.c sound/sn76496.c
+ARC_DEFS_teddybb := ARC_VARIANT=2
+ARC_SRC_mrviking := drivers/arcades/system1/system1.c cpu/z80dsp/z80dsp.c machine/sega_decrypt.c machine/z80piodsp.c machine/i8255dsp.c sound/sn76496.c
+ARC_DEFS_mrviking := ARC_VARIANT=3
+ARC_SRC_seganinj := drivers/arcades/system1/system1.c cpu/z80dsp/z80dsp.c machine/sega_decrypt.c machine/z80piodsp.c machine/i8255dsp.c sound/sn76496.c
+ARC_DEFS_seganinj := ARC_VARIANT=4
+ARC_SRC_upndown := drivers/arcades/system1/system1.c cpu/z80dsp/z80dsp.c machine/sega_decrypt.c machine/z80piodsp.c machine/i8255dsp.c sound/sn76496.c
+ARC_DEFS_upndown := ARC_VARIANT=5
+ARC_SRC_flicky := drivers/arcades/system1/system1.c cpu/z80dsp/z80dsp.c machine/sega_decrypt.c machine/z80piodsp.c machine/i8255dsp.c sound/sn76496.c
+ARC_DEFS_flicky := ARC_VARIANT=6
+ARC_SRC_gardia := drivers/arcades/system1/system1.c cpu/z80dsp/z80dsp.c machine/sega_decrypt.c machine/z80piodsp.c machine/i8255dsp.c sound/sn76496.c
+ARC_DEFS_gardia := ARC_VARIANT=7
 ARC_SRC_bionicc := drivers/arcades/bionicc/bionicc.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c sound/ym2151.c
 ARC_DEFS_bionicc := M68K_FLASH_TABLES
 ARC_RAM_bombjack := z80dsp.c.o bombjack.c.o ay8910.c.o
@@ -80,5 +96,13 @@ ARC_RAM_citycon := m6809dsp.c.o citycon.c.o ym2203dsp.c.o fmopn.c.o ay8910.c.o
 ARC_RAM_brkthru := m6809dsp.c.o brkthru.c.o ym2203dsp.c.o fmopn.c.o ay8910.c.o ym3812dsp.c.o
 ARC_RAM_appoooh := z80dsp.c.o appoooh.c.o sn76496.c.o msm5205dsp.c.o
 ARC_RAM_tehkanwc := z80dsp.c.o tehkanwc.c.o ay8910.c.o msm5205dsp.c.o
-ARC_RAM_tigerh := z80dsp.c.o m6805dsp.c.o taito68705dsp.c.o tigerh.c.o ay8910.c.o
-ARC_RAM_wboy := z80dsp.c.o wboy.c.o z80piodsp.c.o sn76496.c.o
+ARC_RAM_tigerh := z80dsp.c.o m6805dsp.c.o taito68705dsp.c.o slapfght.c.o ay8910.c.o
+ARC_RAM_slapfght := z80dsp.c.o m6805dsp.c.o taito68705dsp.c.o slapfght.c.o ay8910.c.o
+ARC_RAM_wboy := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
+ARC_RAM_pitfall2 := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
+ARC_RAM_teddybb := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
+ARC_RAM_mrviking := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
+ARC_RAM_seganinj := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
+ARC_RAM_upndown := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
+ARC_RAM_flicky := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
+ARC_RAM_gardia := z80dsp.c.o system1.c.o z80piodsp.c.o i8255dsp.c.o sn76496.c.o
