@@ -165,6 +165,31 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Ikari Warriors (SNK, 1986) | `ikari` | 3 x Z80 | 2 x YM3526 | dsp-cpp `snk.cpp` |
 | Athena (SNK, 1986) | `athena` | 3 x Z80 | 2 x YM3526 | dsp-cpp `snk.cpp` |
 | Act-Fancer (Data East, 1989) | `actfancr` | HuC6280, 6502 | YM2203, YM3812, OKI M6295 | dsp-cpp `actfancer.cpp` |
+| Sente Diagnostic Cartridge (Bally/Sente, 1984) | `sentetst` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Chicken Shift (Bally/Sente, 1984) | `cshift` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Hat Trick (Bally/Sente, 1984) | `hattrick` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Goalie Ghost (Bally/Sente, 1984) | `gghost` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Off the Wall (Bally/Sente, 1984) | `otwalls` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Snake Pit (Bally/Sente, 1984) | `snakepit` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Trivial Pursuit (Genus I) (Bally/Sente, 1984) | `triviag1` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Snacks'n Jaxson (Bally/Sente, 1984) | `snakjack` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Stocker (Bally/Sente, 1984) | `stocker` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Trivial Pursuit (Baby Boomer Edition) (Bally/Sente, 1984) | `triviabb` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Trivial Pursuit (Genus II Edition) (Bally/Sente, 1984) | `triviag2` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Trivial Pursuit (Young Players Edition) (Bally/Sente, 1984) | `triviayp` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Trivial Pursuit (All Star Sports Edition) (Bally/Sente, 1984) | `triviasp` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Gimme A Break (Bally/Sente, 1985) | `gimeabrk` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Mini Golf (Bally/Sente, 1985) | `minigolf` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Team Hat Trick (Bally/Sente, 1985) | `teamht` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Grudge Match (Bally/Sente, 1985) | `grudge` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Trivial Pursuit (Spanish Edition) (Bally/Sente, 1987) | `triviaes` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Toggle (Bally/Sente, 1985) | `toggle` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Night Stocker (Bally/Sente, 1986) | `nstocker` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Street Football (Bally/Sente, 1986) | `sfootbal` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Spiker (Bally/Sente, 1986) | `spiker` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Stompin' (Bally/Sente, 1986) | `stompin` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Name That Tune (Bally/Sente, 1986) | `nametune` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Rescue Raider (Bally/Sente, 1987) | `rescraid` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
 
 Las treinta y una últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
@@ -624,7 +649,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash`, `defender`, `mayday`, `colony7`, `stargate`, `robotron`, `joust`, `elevator`, `junglek`, `tron`, `shollow`, `domino`, `wacko`, `tapper`, `dotron`, `timber`, `depthch`, `safari`, `frogs`, `sspaceat`, `sspacaho`, `headon`, `headon2`, `headon2s`, `invho2`, `nsub`, `samurai`, `invinco`, `invds`, `tranqgun`, `spacetrk`, `carnival`, `brdrline`, `digger`, `pulsar`, `heiankyo`, `alphaho`, `asteroid`, `baraduke`, `metrocrs`, `punchout`, `skullxbo`, `shuuz`, `tnk3`, `aso`, `ikari`, `athena`, `actfancr` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash`, `defender`, `mayday`, `colony7`, `stargate`, `robotron`, `joust`, `elevator`, `junglek`, `tron`, `shollow`, `domino`, `wacko`, `tapper`, `dotron`, `timber`, `depthch`, `safari`, `frogs`, `sspaceat`, `sspacaho`, `headon`, `headon2`, `headon2s`, `invho2`, `nsub`, `samurai`, `invinco`, `invds`, `tranqgun`, `spacetrk`, `carnival`, `brdrline`, `digger`, `pulsar`, `heiankyo`, `alphaho`, `asteroid`, `baraduke`, `metrocrs`, `punchout`, `skullxbo`, `shuuz`, `tnk3`, `aso`, `ikari`, `athena`, `actfancr`, `sentetst`, `cshift`, `hattrick`, `gghost`, `otwalls`, `snakepit`, `triviag1`, `snakjack`, `stocker`, `triviabb`, `triviag2`, `triviayp`, `triviasp`, `gimeabrk`, `minigolf`, `teamht`, `grudge`, `triviaes`, `toggle`, `nstocker`, `sfootbal`, `spiker`, `stompin`, `nametune`, `rescraid` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |
