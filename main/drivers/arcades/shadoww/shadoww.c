@@ -48,6 +48,7 @@ const arc_info arc_game = { "shadoww", "Shadow Warriors", "Tecmo", 1988, W, H, F
 static const int kPX[16] = {0, 4, 8, 12, 16, 20, 24, 28, 256, 260, 264, 268, 272, 276, 280, 284};
 static const int kPY[16] = {0, 32, 64, 96, 128, 160, 192, 224, 512, 544, 576, 608, 640, 672, 704, 736};
 static const arc_layout k8 = { 8, 8, 0x800, 4, 256, false, false, false, {0, 1, 2, 3}, kPX, kPY };
+static const arc_layout kSpr8 = { 8, 8, 0x8000, 4, 256, false, false, false, {0, 1, 2, 3}, kPX, kPY };
 static const arc_layout k16 = { 16, 16, 0x1000, 4, 1024, false, false, false, {0, 1, 2, 3}, kPX, kPY };
 
 // the machine on the heap
@@ -264,7 +265,7 @@ static void draw_sprites(int priority)
                     for (int px = 0; px < 8; px++) {
                         const int x = 64 + ((pos_x + sx + px) & 0x1ff) - 64;
                         if (x >= W) continue;
-                        const unsigned pen = arc_gfx_px(&k8, S.sprites, 0x100000, c, fx ? 7 - px : px, fy ? 7 - py : py);
+                        const unsigned pen = arc_gfx_px(&kSpr8, S.sprites, 0x100000, c, fx ? 7 - px : px, fy ? 7 - py : py);
                         if (!pen) continue;
                         const uint16_t p = S.palette[base + pen];
                         out[x] = blend ? blend565(out[x], p) : p;

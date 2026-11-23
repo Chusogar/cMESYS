@@ -28,7 +28,7 @@ static const arc_rom kEven[] = {{"24ac-0_j-1.34", 0x20000, 0, 0xec8fd2c9}};
 static const arc_rom kOdd[] = {{"24ad-0_j-1.35", 0x20000, 0, 0x54e614e4}};
 static const arc_rom kSound[] = {{"24ab-0.12", 0x8000, 0, 0x1e44f8aa}};
 static const arc_rom kOki[] = {{"24a9-0.46", 0x20000, 0, 0x703ff08f}, {"24j8-0.45", 0x20000, 0x20000, 0x61138487}};
-static const arc_rom kChars[] = {{"24aa-0_j.58", 0x20000, 0, 0xb9201b36}};
+static const arc_rom kChars[] = {{"24aa-0.58", 0x20000, 0, 0xcb12ba40}};
 static const arc_rom kBg[] = {{"24j7-0.113", 0x40000, 0, 0xe0a1909e}, {"24j6-0.112", 0x40000, 0x40000, 0x77932ef8}};
 static const arc_rom kSprites[] = {
     {"c951.114", 0x80000, 0x000000, 0xfa76d1f0}, {"24j4-0.115", 0x40000, 0x080000, 0xc4a589a3},

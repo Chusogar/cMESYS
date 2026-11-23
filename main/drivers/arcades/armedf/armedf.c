@@ -144,15 +144,16 @@ static const int kCharY[8] = {0, 32, 64, 96, 128, 160, 192, 224};
 static const int kTileX[16] = {4, 0, 12, 8, 20, 16, 28, 24, 36, 32, 44, 40, 52, 48, 60, 56};
 static const int kTileY[16] = {0, 64, 128, 192, 256, 320, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960};
 #if defined(WIDE_SPRITES)
-#define SB (0x800 * 64 * 8)
+#define SPRITES 0x800
 #else
-#define SB (0x400 * 64 * 8)
+#define SPRITES 0x400
 #endif
+#define SB (SPRITES * 64 * 8)
 static const int kSprX[16] = {4, 0, SB + 4, SB + 0, 12, 8, SB + 12, SB + 8, 20, 16, SB + 20, SB + 16, 28, 24, SB + 28, SB + 24};
 static const int kSprY[16] = {0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 480};
 static const arc_layout kCharL = { 8, 8, 0x400, 4, 256, false, false, false, {0, 1, 2, 3}, kCharX, kCharY };
 static const arc_layout kTileL = { 16, 16, 0x400, 4, 1024, false, false, false, {0, 1, 2, 3}, kTileX, kTileY };
-static const arc_layout kSprL = { 16, 16, 0x800, 4, 512, false, false, false, {0, 1, 2, 3}, kSprX, kSprY };
+static const arc_layout kSprL = { 16, 16, SPRITES, 4, 512, false, false, false, {0, 1, 2, 3}, kSprX, kSprY };
 
 // the machine on the heap
 static struct state {
