@@ -126,6 +126,34 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Joust (Williams, 1982) | `joust` | 6809 + 6808 | DAC | dsp-cpp `williams.cpp` (el sonido no: allí apenas suena; aquí el 6808 completo) |
 | Elevator Action (Taito, 1983) | `elevator` | Z80 + Z80 + 68705 | 4 x AY-3-8910 + DAC | dsp-cpp `taitosj.cpp` |
 | Jungle King (Taito, 1982) | `junglek` | Z80 + Z80 | 4 x AY-3-8910 + DAC | dsp-cpp `taitosj.cpp` |
+| Tron (Bally Midway, 1982) | `tron` | Z80 + CTC, SSIO (Z80) | 2 x AY-3-8910 | dsp-cpp `mcr.cpp` (aquí con el monitor girado; dsp-cpp lo deja de lado) |
+| Satan's Hollow (Bally Midway, 1982) | `shollow` | Z80 + CTC, SSIO (Z80) | 2 x AY-3-8910 | dsp-cpp `mcr.cpp` (aquí con el monitor girado; dsp-cpp lo deja de lado) |
+| Domino Man (Bally Midway, 1982) | `domino` | Z80 + CTC, SSIO (Z80) | 2 x AY-3-8910 | dsp-cpp `mcr.cpp` |
+| Wacko (Bally Midway, 1982) | `wacko` | Z80 + CTC, SSIO (Z80) | 2 x AY-3-8910 | dsp-cpp `mcr.cpp` |
+| Tapper (Bally Midway, 1983) | `tapper` | Z80 + CTC, SSIO (Z80) | 2 x AY-3-8910 | dsp-cpp `mcr.cpp` |
+| Discs of Tron (Bally Midway, 1983) | `dotron` | Z80 + CTC, SSIO (Z80) | 2 x AY-3-8910 | dsp-cpp `mcr.cpp` |
+| Timber (Bally Midway, 1984) | `timber` | Z80 + CTC, SSIO (Z80) | 2 x AY-3-8910 | dsp-cpp `mcr.cpp` |
+| Depthcharge (Gremlin, 1977) | `depthch` | Z80 | muestras sintetizadas | dsp-cpp `vicdual.cpp` |
+| Safari (Gremlin, 1977) | `safari` | Z80 | — | dsp-cpp `vicdual.cpp` |
+| Frogs (Gremlin, 1978) | `frogs` | Z80 | sintetizado | dsp-cpp `vicdual.cpp` |
+| Space Attack (Sega, 1979) | `sspaceat` | Z80 | — | dsp-cpp `vicdual.cpp` |
+| Space Attack / Head On (Sega, 1979) | `sspacaho` | Z80 | discreto (modelo) | dsp-cpp `vicdual.cpp` |
+| Head On (Gremlin, 1979) | `headon` | Z80 | discreto (modelo) | dsp-cpp `vicdual.cpp` |
+| Head On 2 (Sega, 1979) | `headon2` | Z80 | discreto (modelo) | dsp-cpp `vicdual.cpp` |
+| Head On 2 (bootleg de Sidam, 1979) | `headon2s` | Z80 | discreto (modelo) | dsp-cpp `vicdual.cpp` |
+| Invinco / Head On 2 (Sega, 1979) | `invho2` | Z80 | muestras sintetizadas + discreto | dsp-cpp `vicdual.cpp` |
+| N-Sub (Sega, 1980) | `nsub` | Z80 | muestras sintetizadas | dsp-cpp `vicdual.cpp` |
+| Samurai (Sega, 1980) | `samurai` | Z80 | — | dsp-cpp `vicdual.cpp` |
+| Invinco (Sega, 1979) | `invinco` | Z80 | muestras sintetizadas | dsp-cpp `vicdual.cpp` |
+| Invinco / Deep Scan (Sega, 1979) | `invds` | Z80 | muestras sintetizadas | dsp-cpp `vicdual.cpp` |
+| Tranquillizer Gun (Sega, 1980) | `tranqgun` | Z80 | sintetizado | dsp-cpp `vicdual.cpp` |
+| Space Trek (Sega, 1980) | `spacetrk` | Z80 | — | dsp-cpp `vicdual.cpp` |
+| Carnival (Sega, 1980) | `carnival` | Z80 | i8035 + AY-3-8912, muestras sintetizadas | dsp-cpp `vicdual.cpp` |
+| Borderline (Sega, 1981) | `brdrline` | Z80 | sintetizado | dsp-cpp `vicdual.cpp` |
+| Digger (Sega, 1980) | `digger` | Z80 | — | dsp-cpp `vicdual.cpp` |
+| Pulsar (Sega, 1981) | `pulsar` | Z80 | muestras sintetizadas | dsp-cpp `vicdual.cpp` |
+| Heiankyo Alien (Denki Onkyo, 1979) | `heiankyo` | Z80 | — | dsp-cpp `vicdual.cpp` |
+| Alpha Fighter / Head On (Data East, 1980) | `alphaho` | Z80 | — | dsp-cpp `vicdual.cpp` |
 
 Las treinta y una últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
@@ -585,7 +613,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash`, `defender`, `mayday`, `colony7`, `stargate`, `robotron`, `joust`, `elevator`, `junglek` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash`, `defender`, `mayday`, `colony7`, `stargate`, `robotron`, `joust`, `elevator`, `junglek`, `tron`, `shollow`, `domino`, `wacko`, `tapper`, `dotron`, `timber`, `depthch`, `safari`, `frogs`, `sspaceat`, `sspacaho`, `headon`, `headon2`, `headon2s`, `invho2`, `nsub`, `samurai`, `invinco`, `invds`, `tranqgun`, `spacetrk`, `carnival`, `brdrline`, `digger`, `pulsar`, `heiankyo`, `alphaho` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |
