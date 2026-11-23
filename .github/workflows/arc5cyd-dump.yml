@@ -1,0 +1,30 @@
+# Temporary: the CYD builds of the fifth batch of common arcades (no ROMs,
+# the arccache partition), printed into the logs (base64 of a tar.xz).
+name: arc5cyd-dump
+on:
+  push:
+    branches: [arc5cyd-dump]
+jobs:
+  cyd:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          mkdir -p dist
+          for g in bankp citycon brkthru appoooh tehkanwc tigerh wboy; do
+            for mhz in 40 80; do
+              b=build/$g-noroms-$mhz
+              LCD_SPI_MHZ=$mhz idf.py -B $b -DGAME=$g -DROMS=external build > /tmp/log.txt 2>&1 || { tail -80 /tmp/log.txt; exit 1; }
+              idf.py -B $b size 2>/dev/null | grep -E "Total|DRAM|Flash|IRAM" | head -12
+              (cd $b && esptool.py --chip esp32 merge_bin -o ../../dist/${g}_cyd_st7789_spi${mhz}mhz_noroms_full.bin @flash_args) > /dev/null
+              cp $b/${g}_cyd.bin dist/${g}_cyd_st7789_spi${mhz}mhz_noroms_app_0x10000.bin
+            done
+            python $IDF_PATH/components/partition_table/gen_esp32part.py build/$g-noroms-40/partition_table/partition-table.bin
+          done
+          ls -la dist
+          tar -C dist -cJf /tmp/out.tar.xz .
+          sha256sum /tmp/out.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/out.tar.xz | sed 's/^/B64:/'; echo "END-B64"
