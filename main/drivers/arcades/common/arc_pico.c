@@ -1,7 +1,8 @@
 // arc_pico.c - any arcade game of arc.h on the RP2040 / RP2350-PiZero (HDMI,
 // 320x240): the frontend all of them share. A picture taller than 240 lines
 // loses as many at the top and the bottom (a vertical game's 256: 8 each);
-// one wider than 320, every other column. The ROMs come from the microSD
+// one up to 360 wide, as many columns at each side (Tetris's 336: 8 each);
+// a wider one, every other column. The ROMs come from the microSD
 // (roms/<set>/ or <set>.zip) when they are not built in.
 //
 // Keys: 5 / 6 coin, 1 / 2 start, cursors, Z / X / C (or Ctrl / Alt) buttons,
@@ -20,21 +21,22 @@ static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
 {
     (void)user;
     const int w = arc_game.w, h = arc_game.h;
-    const int xs = w > PICO_W ? 2 : 1;
-    const int sw = w / xs, ox = (PICO_W - sw) / 2;
+    const int xs = w > 360 ? 2 : 1;
+    const int sw = w / xs, ox = (PICO_W - sw) / 2;  // negative: cropped
     const int oy = (PICO_H - h) / 2;                // negative: cropped
     const uint16_t *fb = ready ? arc_frame() : NULL;
     for (int i = 0; i < n; i++, out += PICO_W) {
         const int sy = y + i - oy;
         if (!fb || sy < 0 || sy >= h) { pico_fill(out, PICO_W, 0); continue; }
-        const uint16_t *src = fb + sy * w;
+        const uint16_t *src = fb + sy * w + (ox < 0 ? -ox * xs : 0);
+        const int cw = sw < PICO_W ? sw : PICO_W;
         if (ox > 0) {
             pico_fill(out, ox, 0);
             pico_fill(out + ox + sw, PICO_W - ox - sw, 0);
         }
         uint16_t *d = out + (ox > 0 ? ox : 0);
-        if (xs == 1) memcpy(d, src, (size_t)sw * 2);
-        else for (int x = 0; x < sw && x < PICO_W; x++) d[x] = src[x * 2];
+        if (xs == 1) memcpy(d, src, (size_t)cw * 2);
+        else for (int x = 0; x < cw; x++) d[x] = src[x * 2];
     }
 }
 

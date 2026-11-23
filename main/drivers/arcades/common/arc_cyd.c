@@ -1,7 +1,8 @@
 // arc_cyd.c - any arcade game of arc.h on the ESP32 CYD and the TTGO VGA32
 // (computers/common/comp_cyd.h): the frontend all of them share. The
 // picture in the middle of the 320x240 panel (a vertical game's 256 lines
-// lose 8 at the top and 8 at the bottom; a wider one every other column).
+// lose 8 at the top and 8 at the bottom; one up to 360 wide, its sides;
+// a wider one, every other column).
 // The ROMs come from the SD card (roms/<set>/ or <set>.zip) when they are
 // not built in.
 //
@@ -73,14 +74,15 @@ static int frame(const int16_t **audio)
 static void render(int y, uint16_t *row)
 {
     const int w = arc_game.w, h = arc_game.h;
-    const int xs = w > 320 ? 2 : 1, sw = w / xs, ox = (320 - sw) / 2, oy = (240 - h) / 2;
+    // up to 360 wide: the sides cropped; wider: every other column
+    const int xs = w > 360 ? 2 : 1, sw = w / xs, ox = (320 - sw) / 2, oy = (240 - h) / 2;
     const int sy = y - oy;
     if (sy < 0 || sy >= h) {
         memset(row, 0, 320 * sizeof *row);
         return;
     }
     if (ox > 0) memset(row, 0, 320 * sizeof *row);
-    const uint16_t *src = arc_frame() + sy * w;
+    const uint16_t *src = arc_frame() + sy * w + (ox < 0 ? -ox * xs : 0);
     uint16_t *d = row + (ox > 0 ? ox : 0);
     for (int x = 0; x < sw && x < 320; x++) {
         const uint16_t p = src[x * xs];

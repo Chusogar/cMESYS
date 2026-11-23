@@ -13,7 +13,9 @@ set -e
 if [ "$ROMS" = external ]; then X=-noroms; XS=_noroms; else X=; XS=; fi
 mkdir -p dist
 CONSOLES=$(sed -n 's/^CONSOLES := //p' main/drivers/consoles/consoles.mk)
-ARCADES=$(sed -n 's/^ARCADES := //p' main/drivers/arcades/arcades.mk)
+ARC_BIG=" $(sed -n 's/^ARC_BIG := //p' main/drivers/arcades/arcades.mk) "
+# (the arcades of ARC_BIG do not fit: not built)
+ARCADES=$(for a in $(sed -n 's/^ARCADES := //p' main/drivers/arcades/arcades.mk); do case "$ARC_BIG" in *" $a "*) ;; *) printf '%s ' $a;; esac; done)
 GAMES=${*:-"hdmitest hdmitest2 indytemp roadrunn gauntlet outrun snowbros trackfld pbobble retofinv robocop polepos polepos2 starwars ql spectrum48 spectrum128 plus3 pentagon pentagon1024 scorpion cpc6128 c64 lynx msx1 msx2 amiga atarist apple2 apple2p apple2e apple2ee apple2gs macplus macii specnext samcoupe exl100 exeltel $ARCADES $CONSOLES"}
 if [ "$USB" = native ]; then B=pico2n; SUF=_usbc; NAT=ON; else B=pico2; SUF=; NAT=OFF; fi
 for g in $GAMES; do

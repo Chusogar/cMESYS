@@ -22,7 +22,8 @@ jobs:
           consoles=$(sed -n 's/^CONSOLES := //p' main/drivers/consoles/consoles.mk)
           games=$(sed -n 's/^for g in \(.*\) \$CONSOLES; do$/\1/p' build_all.sh)
           echo "cyd=$(printf '%s\n' $games $consoles | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
-          arcades=$(sed -n 's/^ARCADES := //p' main/drivers/arcades/arcades.mk)
+          big=$(sed -n 's/^ARC_BIG := //p' main/drivers/arcades/arcades.mk)
+          arcades=$(sed -n 's/^ARCADES := //p' main/drivers/arcades/arcades.mk | tr ' ' '\n' | grep -vxF $(printf -- '-e %s ' $big) | tr '\n' ' ')
           echo "vga32=$(printf '%s\n' $games $arcades $consoles | sort -u | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
 
   cyd:

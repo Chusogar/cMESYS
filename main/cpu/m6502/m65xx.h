@@ -15,6 +15,7 @@ typedef struct m65xx {
     uint8_t (*read)(void *user, uint16_t addr);
     void (*write)(void *user, uint16_t addr, uint8_t value);
     void (*cycles)(void *user, int cycles);     // after every instruction (may be NULL)
+    uint8_t (*opcode_read)(void *user, uint16_t addr);  // the opcode fetches (may be NULL)
     void *user;
     const uint8_t *page_r[256];                 // direct pages (NULL: the handlers)
     uint8_t *page_w[256];
