@@ -13,7 +13,7 @@ ARC_BIG := pirates
 # the CYD builds of these keep their ROMs and graphics in the flash (the arccache
 # partition, filled from the microSD on the first boot: partitions_arccache.csv)
 ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght chinagat ddragon ddragon2 kungfum darwin combh robowres
-ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber depthch safari frogs sspaceat sspacaho headon headon2 headon2s invho2 nsub samurai invinco invds tranqgun spacetrk carnival brdrline digger pulsar heiankyo alphaho asteroid baraduke metrocrs punchout shuuz skullxbo
+ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber depthch safari frogs sspaceat sspacaho headon headon2 headon2s invho2 nsub samurai invinco invds tranqgun spacetrk carnival brdrline digger pulsar heiankyo alphaho asteroid baraduke metrocrs punchout shuuz skullxbo ikari athena tnk3 aso actfancr
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
 ARC_SRC_calorie := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -214,6 +214,15 @@ ARC_SRC_shuuz := drivers/arcades/shuuz/shuuz.c video/atari_mo.c sound/okim6295ds
 ARC_DEFS_shuuz := M68K_FLASH_TABLES
 ARC_SRC_skullxbo := drivers/arcades/skullxbo/skullxbo.c video/atari_mo.c sound/okim6295dsp.c sound/ym2151.c cpu/m6502/m65xx.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c
 ARC_DEFS_skullxbo := M68K_FLASH_TABLES
+ARC_SRC_ikari := drivers/arcades/snk/snk.c cpu/z80dsp/z80dsp.c sound/ym3812dsp.c
+ARC_DEFS_ikari := ARC_VARIANT=0
+ARC_SRC_athena := drivers/arcades/snk/snk.c cpu/z80dsp/z80dsp.c sound/ym3812dsp.c
+ARC_DEFS_athena := ARC_VARIANT=1
+ARC_SRC_tnk3 := drivers/arcades/snk/snk.c cpu/z80dsp/z80dsp.c sound/ym3812dsp.c
+ARC_DEFS_tnk3 := ARC_VARIANT=2
+ARC_SRC_aso := drivers/arcades/snk/snk.c cpu/z80dsp/z80dsp.c sound/ym3812dsp.c
+ARC_DEFS_aso := ARC_VARIANT=3
+ARC_SRC_actfancr := drivers/arcades/actfancr/actfancr.c cpu/hu6280dsp/hu6280dsp.c cpu/m6502/m65xx.c sound/ym3812dsp.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/okim6295dsp.c video/deco_bac06d.c
 ARC_RAM_bombjack := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_calorie := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_mrdo := z80dsp.c.o mrdo.c.o sn76496.c.o
@@ -331,3 +340,8 @@ ARC_RAM_asteroid := m65xx.c.o asteroid.c.o
 ARC_RAM_baraduke := m6809dsp.c.o hd63701dsp.c.o baraduke.c.o
 ARC_RAM_metrocrs := m6809dsp.c.o hd63701dsp.c.o baraduke.c.o
 ARC_RAM_punchout := z80dsp.c.o m65xx.c.o nes_apu.c.o vlm5030dsp.c.o punchout.c.o
+ARC_RAM_ikari := z80dsp.c.o snk.c.o ym3812dsp.c.o
+ARC_RAM_athena := z80dsp.c.o snk.c.o ym3812dsp.c.o
+ARC_RAM_tnk3 := z80dsp.c.o snk.c.o ym3812dsp.c.o
+ARC_RAM_aso := z80dsp.c.o snk.c.o ym3812dsp.c.o
+ARC_RAM_actfancr := hu6280dsp.c.o m65xx.c.o actfancr.c.o deco_bac06d.c.o ym3812dsp.c.o ym2203dsp.c.o fmopn.c.o okim6295dsp.c.o
