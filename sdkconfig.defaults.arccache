@@ -1,0 +1,2 @@
+# The CYD arcades with a flash cache (ARC_FLASH in main/drivers/arcades/arcades.mk)
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_arccache.csv"

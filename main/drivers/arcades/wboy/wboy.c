@@ -47,14 +47,18 @@ static struct state {
     zd_z80 main, sound;
     sn76496 psg0, psg1;
     z80piod pio;
-    uint8_t mem[0x10000], opcodes[0x8000], bg_ram[0x1000], pal_ram[0x800], mix_collide[0x40], sprite_collide[0x400];
+    const uint8_t *rom, *opcodes, *sound_rom;   // 0000-bfff decrypted, 0000-7fff (blobs: the CYD's in the flash)
+    uint8_t ram[0x2000], bg_ram[0x1000], pal_ram[0x800], mix_collide[0x40], sprite_collide[0x400];   // ram: c000-dfff
     bool mix_collide_summary, sprite_collide_summary;
-    uint8_t sound_rom[0x8000], sound_ram[0x800];
-    uint8_t *chars, *sprite_rom, mix_lookup[0x100];
+    uint8_t sound_ram[0x800];
+    const uint8_t *chars, *sprite_rom;
+    uint8_t mix_lookup[0x100];
     double rw[8], gw[8], bw[8];
     uint16_t palette[0x600];
-    uint16_t tile_layer[2][256 * 256], sprite_layer[256 * 256];
-    uint16_t *fb;
+    // the 256x256 sprite layer: colour | sprite * 16, in two halves of rows
+    // (bits 0-7) and a bit array (bit 8)
+    uint8_t *spr_lo[2], spr_hi[256 * 256 / 8];
+    arc_fb fb;
     int bg_xscroll;
     uint8_t bg_yscroll, sound_latch, videomode, in0, in1, in2, dsw_a, dsw_b;
     int sound_irq_accum;
@@ -73,9 +77,10 @@ static void set_color(int index, uint8_t v)
 static uint8_t read_data(void *u, uint16_t a)
 {
     (void)u;
-    if (a <= 0xd7ff) return S.mem[a];
+    if (a <= 0xbfff) return S.rom[a];
+    if (a <= 0xd7ff) return S.ram[a - 0xc000];
     if (a <= 0xddff) return S.pal_ram[a & 0x7ff];
-    if (a <= 0xdfff) return S.mem[a];
+    if (a <= 0xdfff) return S.ram[a - 0xc000];
     if (a <= 0xefff) return S.bg_ram[a & 0xfff];
     if (a <= 0xf3ff) return (uint8_t)(S.mix_collide[a & 0x3f] | 0x7e | (S.mix_collide_summary ? 0x80 : 0));
     if (a <= 0xf7ff) return 0xff;
@@ -89,7 +94,7 @@ static void write_byte(void *u, uint16_t a, uint8_t v)
 {
     (void)u;
     if (a <= 0xbfff) return;
-    if (a <= 0xd7ff || (a >= 0xde00 && a <= 0xdfff)) S.mem[a] = v;
+    if (a <= 0xd7ff || (a >= 0xde00 && a <= 0xdfff)) S.ram[a - 0xc000] = v;
     else if (a <= 0xddff) {
         const int pos = a & 0x7ff;
         if (S.pal_ram[pos] != v) {
@@ -164,41 +169,44 @@ static void pio_a_out(void *u, uint8_t v) { (void)u; S.sound_latch = v; }
 static void pio_b_out(void *u, uint8_t v) { (void)u; S.videomode = v; }
 static void pio_ready_a(void *u, bool state) { (void)u; if (state) zd_set_nmi(&S.sound, ZD_PULSE); }
 
-static void draw_background(void)
+#define MEM(a) S.ram[(a) - 0xc000]
+
+// a pixel of a tile layer (0 at the back, 1 in front): pen | colour << 3
+static inline uint16_t tile_px(int layer, int x, int y)
 {
-    for (int layer = 0; layer < 2; layer++)
-        for (int offset = 0; offset < 0x400; offset++) {
-            const int source = layer << 11;
-            const uint16_t attr = (uint16_t)(S.bg_ram[offset * 2 + source] | (S.bg_ram[offset * 2 + source + 1] << 8));
-            const int color = ((attr >> 5) & 0xff) << 3;
-            const uint8_t *px = S.chars + (attr & 0x7ff) * 64;
-            const int tx = (offset % 32) * 8, ty = (offset / 32) * 8;
-            for (int y = 0; y < 8; y++) {
-                uint16_t *dst = &S.tile_layer[layer][(ty + y) * 256 + tx];
-                for (int x = 0; x < 8; x++) dst[x] = (uint16_t)(px[y * 8 + x] | color);
-            }
-        }
+    const int offset = (y >> 3) * 32 + (x >> 3), source = (layer << 11) + offset * 2;
+    const uint16_t attr = (uint16_t)(S.bg_ram[source] | (S.bg_ram[source + 1] << 8));
+    return (uint16_t)(S.chars[(attr & 0x7ff) * 64 + (y & 7) * 8 + (x & 7)] | (((attr >> 5) & 0xff) << 3));
+}
+
+static inline uint16_t spr_get(int i)
+{
+    return (uint16_t)(S.spr_lo[i >> 15][i & 0x7fff] | (((S.spr_hi[i >> 3] >> (i & 7)) & 1) << 8));
 }
 
 static void plot_sprite(int f, int destbase, int x, int color)
 {
-    uint16_t *dst = &S.sprite_layer[destbase + x];
-    if (*dst & 0xf) {
-        S.sprite_collide[((*dst >> 4) & 0x1f) + 32 * f] = 1;
+    const int i = destbase + x;
+    const uint16_t old = spr_get(i);
+    if (old & 0xf) {
+        S.sprite_collide[((old >> 4) & 0x1f) + 32 * f] = 1;
         S.sprite_collide_summary = true;
     }
-    *dst = (uint16_t)(color | (f * 0x10));
+    const uint16_t v = (uint16_t)(color | (f * 0x10));
+    S.spr_lo[i >> 15][i & 0x7fff] = (uint8_t)v;
+    if (v & 0x100) S.spr_hi[i >> 3] |= (uint8_t)(1 << (i & 7));
+    else S.spr_hi[i >> 3] &= (uint8_t)~(1 << (i & 7));
 }
 
 static void draw_sprites(void)
 {
     for (int f = 0; f < 32; f++) {
         const int base = 0xd000 + f * 0x10;
-        int srcaddr = S.mem[base + 6] | (S.mem[base + 7] << 8);
-        const int stride = S.mem[base + 4] | (S.mem[base + 5] << 8);
-        int bank = ((S.mem[base + 3] & 0x80) >> 7) | ((S.mem[base + 3] & 0x40) >> 5) | ((S.mem[base + 3] & 0x20) >> 3);
-        const int xstart = ((S.mem[base + 2] | (S.mem[base + 3] << 8)) & 0x1ff) / 2;
-        const int bottom = S.mem[base + 1] + 1, top = S.mem[base] + 1;
+        int srcaddr = MEM(base + 6) | (MEM(base + 7) << 8);
+        const int stride = MEM(base + 4) | (MEM(base + 5) << 8);
+        int bank = ((MEM(base + 3) & 0x80) >> 7) | ((MEM(base + 3) & 0x40) >> 5) | ((MEM(base + 3) & 0x20) >> 3);
+        const int xstart = ((MEM(base + 2) | (MEM(base + 3) << 8)) & 0x1ff) / 2;
+        const int bottom = MEM(base + 1) + 1, top = MEM(base) + 1;
         bank %= SPRITE_BANKS;
         const size_t bank_base = (size_t)bank * 0x8000;
         for (int y = top; y < bottom; y++) {
@@ -225,16 +233,19 @@ static void draw_sprites(void)
 static void render_frame(void)
 {
     if (S.videomode & 0x10) {
-        memset(S.fb, 0, W * H * 2);
+        for (int y = 0; y < H; y++) memset(arc_fb_row(&S.fb, y), 0, W * 2);
         return;
     }
-    memset(S.sprite_layer, 0, sizeof S.sprite_layer);
-    if (S.mem[0xd000] != 0xff) draw_sprites();
+    memset(S.spr_lo[0], 0, 0x8000);
+    memset(S.spr_lo[1], 0, 0x8000);
+    memset(S.spr_hi, 0, sizeof S.spr_hi);
+    if (MEM(0xd000) != 0xff) draw_sprites();
     for (int y = 0; y < H; y++) {
         const int bgy = (y + S.bg_yscroll) & 0xff;
+        uint16_t *out = arc_fb_row(&S.fb, y);
         for (int x = 0; x < W; x++) {
-            const uint16_t fg = S.tile_layer[1][y * 256 + x], bg = S.tile_layer[0][bgy * 256 + ((x - S.bg_xscroll) & 0xff)];
-            const uint16_t spr = S.sprite_layer[y * 256 + x];
+            const uint16_t fg = tile_px(1, x, y), bg = tile_px(0, (x - S.bg_xscroll) & 0xff, bgy);
+            const uint16_t spr = spr_get(y * 256 + x);
             const int idx = ((spr & 0xf) == 0 ? 1 : 0) | ((fg & 7) == 0 ? 2 : 0) | (((fg >> 9) & 3) << 2) |
                             ((bg & 7) == 0 ? 16 : 0) | (((bg >> 9) & 3) << 5);
             uint8_t lv = S.mix_lookup[idx & 0xff];
@@ -243,32 +254,45 @@ static void render_frame(void)
                 S.mix_collide_summary = true;
             }
             lv &= 3;
-            S.fb[y * W + x] = lv == 0 ? S.palette[spr & 0x1ff] : lv == 1 ? S.palette[0x200 | (fg & 0x1ff)] : S.palette[0x400 | (bg & 0x1ff)];
+            out[x] = lv == 0 ? S.palette[spr & 0x1ff] : lv == 1 ? S.palette[0x200 | (fg & 0x1ff)] : S.palette[0x400 | (bg & 0x1ff)];
         }
     }
 }
 
+static const uint16_t *frame_row(int y) { return arc_fb_row(&S.fb, y); }
+
 bool arc_init(void)
 {
     if (!(S_ = (struct state *)calloc(1, sizeof(struct state)))) return false;
-    S.fb = (uint16_t *)calloc(W * H, 2);
-    S.sprite_rom = (uint8_t *)calloc(1, 0x10000);
-    uint8_t *rom = (uint8_t *)calloc(1, 0xc000);
-    if (!S.fb || !S.sprite_rom || !rom || !ARC_LOAD(kMain, rom, 0xc000)) return false;
-    // the 315-5177: the whole 0xc000 decrypted (the opcodes view up to 7fff)
-    uint8_t *data = (uint8_t *)malloc(0xc000), *ops = (uint8_t *)malloc(0xc000);
-    if (!data || !ops) return false;
-    sega_decrypt_type2(rom, 0xc000, SEGA2_315_5177, 0, data, ops);
-    memcpy(S.mem, data, 0xc000);
-    memcpy(S.opcodes, ops, 0x8000);
+    if (!arc_fb_init(&S.fb, W, H) || !(S.spr_lo[0] = (uint8_t *)calloc(1, 0x8000)) || !(S.spr_lo[1] = (uint8_t *)calloc(1, 0x8000)))
+        return false;
+    arc_frame_row_hook = frame_row;
+    // the 315-5177: the whole 0xc000 decrypted (the opcodes view up to
+    // 7fff), a KB at a time
+    const uint8_t *raw = ARC_ROM_BLOB("main.raw", kMain, 0xc000);
+    uint8_t *data = (uint8_t *)malloc(0x400), *ops = (uint8_t *)malloc(0x400);
+    if (!raw || !data || !ops) return false;
+    arc_blob b;
+    if (arc_blob_begin(&b, "main", 0xc000, ARC_ROM_KEY(kMain, 1)))
+        for (uint32_t a = 0; a < 0xc000; a += 0x400) {
+            sega_decrypt_type2_part(raw + a, 0x400, a, SEGA2_315_5177, 0, data, ops);
+            arc_blob_write(&b, a, data, 0x400);
+        }
+    if (!(S.rom = arc_blob_end(&b))) return false;
+    if (arc_blob_begin(&b, "opcodes", 0x8000, ARC_ROM_KEY(kMain, 2)))
+        for (uint32_t a = 0; a < 0x8000; a += 0x400) {
+            sega_decrypt_type2_part(raw + a, 0x400, a, SEGA2_315_5177, 0, data, ops);
+            arc_blob_write(&b, a, ops, 0x400);
+        }
     free(data);
     free(ops);
-    memset(rom, 0, 0xc000);
+    arc_blob_free(raw);
+    if (!(S.opcodes = arc_blob_end(&b)) || !(raw = ARC_ROM_BLOB("chars.raw", kChars, 0xc000))) return false;
     arc_layout cl = { 8, 8, 2048, 3, 64, false, false, false, {0, 0x4000 * 8, 0x8000 * 8}, kX8, kY8 };
-    if (!ARC_LOAD(kChars, rom, 0xc000) || !(S.chars = arc_gfx_decode(&cl, rom, 0xc000))) return false;
-    free(rom);
-    if (!ARC_LOAD(kSprites, S.sprite_rom, 0x10000) || !ARC_LOAD(kSound, S.sound_rom, 0x2000) ||
-        !ARC_LOAD(kVideoProm, S.mix_lookup, 0x100))
+    if (arc_blob_begin(&b, "chars", 2048 * 64, ARC_ROM_KEY(kChars, 1))) arc_blob_gfx(&b, &cl, raw, 0xc000, 0);
+    arc_blob_free(raw);
+    if (!(S.chars = arc_blob_end(&b)) || !(S.sprite_rom = ARC_ROM_BLOB("sprites", kSprites, 0x10000)) ||
+        !(S.sound_rom = ARC_ROM_BLOB("sound", kSound, 0x8000)) || !ARC_LOAD(kVideoProm, S.mix_lookup, 0x100))
         return false;
     static const arc_resnet nets[3] = {{3, {995, 495, 250}, 0, 0}, {3, {995, 495, 250}, 0, 0}, {2, {495, 250}, 0, 0}};
     double w[3][8];
@@ -312,8 +336,6 @@ void arc_reset(void)
     memset(S.mix_collide, 0, sizeof S.mix_collide);
     memset(S.sprite_collide, 0, sizeof S.sprite_collide);
     S.mix_collide_summary = S.sprite_collide_summary = false;
-    memset(S.tile_layer, 0, sizeof S.tile_layer);
-    memset(S.sprite_layer, 0, sizeof S.sprite_layer);
     S.in0 = S.in1 = S.in2 = 0xff;
     S.sound_latch = S.videomode = 0;
     S.bg_xscroll = 0;
@@ -321,7 +343,7 @@ void arc_reset(void)
     S.audio_acc = 0;
     S.sound_irq_accum = 0;
     for (int i = 0; i < 0x600; i++) S.palette[i] = 0;
-    memset(S.fb, 0, W * H * 2);
+    for (int y = 0; y < H; y++) memset(arc_fb_row(&S.fb, y), 0, W * 2);
 }
 
 int arc_run_frame(const int16_t **audio)
@@ -331,7 +353,6 @@ int arc_run_frame(const int16_t **audio)
     for (int line = 0; line < SCANLINES; line++) {
         if (line == IRQ_LINE) {
             zd_set_irq(&S.main, ZD_HOLD, 0xff);
-            draw_background();
             S.bg_xscroll = (int)(uint16_t)(S.bg_ram[0xffc] | (S.bg_ram[0xffd] << 8)) / 2 + 14;
             S.bg_yscroll = S.bg_ram[0xfbd];
             render_frame();
@@ -347,7 +368,7 @@ int arc_run_frame(const int16_t **audio)
     return S.naudio;
 }
 
-const uint16_t *arc_frame(void) { return S.fb; }
+const uint16_t *arc_frame(void) { return arc_fb_whole(&S.fb); }
 
 static uint8_t pad(unsigned p)
 {

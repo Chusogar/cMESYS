@@ -1,0 +1,7 @@
+# Name,   Type, SubType, Offset,   Size
+# The CYD's arcades with their ROMs and graphics in the flash: the app in the
+# first 2 MB, the arccache (built from the microSD on the first boot) after it
+nvs,      data, nvs,     0x9000,   0x6000
+phy_init, data, phy,     0xf000,   0x1000
+factory,  app,  factory, 0x10000,  0x1F0000
+arccache, data, 0x40,    0x200000, 0x200000

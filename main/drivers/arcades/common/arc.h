@@ -87,6 +87,53 @@ void arc_resistor_weights(double min_v, double max_v, double scaler, const arc_r
                           double out[][8]);
 int arc_combine(const double *w, int n, unsigned bits);
 
+// Read-only data built once (ROMs, decoded graphics): in RAM, or on the ESP32
+// without PSRAM (the CYD) in the flash, the "arccache" partition, where it
+// stays across boots (rebuilt when its key changes) and is read memory-mapped.
+// Its writes go forward: each one at or past the 4 KB sector of the last.
+typedef struct {
+    uint8_t *ram;                   // RAM: the data; flash: the sector being written
+    uint32_t off, size;             // flash: where it is in the partition
+    int index, cur;                 // flash: its entry, the sector in `ram`
+    bool cached, err;
+} arc_blob;
+// true: fill it (arc_blob_write / _load / _gfx) before arc_blob_end; false:
+// already there (or no memory: arc_blob_end says)
+bool arc_blob_begin(arc_blob *b, const char *name, uint32_t size, uint32_t key);
+void arc_blob_write(arc_blob *b, uint32_t off, const void *src, uint32_t n);
+// the ROMs of a list at their offsets (a file at a time through RAM)
+bool arc_blob_load(arc_blob *b, const arc_rom *roms, int n);
+#define ARC_BLOB_LOAD(b, list) arc_blob_load(b, list, (int)(sizeof list / sizeof list[0]))
+// decoded elements, from element `first` on
+void arc_blob_gfx(arc_blob *b, const arc_layout *l, const uint8_t *rom, size_t rom_len, int first);
+// NULL: no memory, or the flash failed
+const uint8_t *arc_blob_end(arc_blob *b);
+// done with a blob that was only a step (raw ROMs decoded into another)
+void arc_blob_free(const uint8_t *p);
+// a key for a ROM list (its CRCs, sizes and offsets): the blob is rebuilt when they change
+uint32_t arc_rom_key(const arc_rom *roms, int n, uint32_t seed);
+#define ARC_ROM_KEY(list, seed) arc_rom_key(list, (int)(sizeof list / sizeof list[0]), seed)
+// A ROM list as a blob (ROMs of `size` bytes): NULL when missing
+const uint8_t *arc_rom_blob(const char *name, const arc_rom *roms, int n, uint32_t size);
+#define ARC_ROM_BLOB(name, list, size) arc_rom_blob(name, list, (int)(sizeof list / sizeof list[0]), size)
+
+// The picture in one block, or two when no piece of RAM is that large (the
+// CYD): rows [0, split) in part[0], the rest in part[1]. A core with one sets
+// arc_frame_row_hook so the frontends read it a row at a time.
+typedef struct { uint16_t *part[2]; int split, w, h; } arc_fb;
+bool arc_fb_init(arc_fb *f, int w, int h);
+static inline uint16_t *arc_fb_row(const arc_fb *f, int y)
+{
+    return y < f->split ? f->part[0] + (size_t)y * f->w : f->part[1] + (size_t)(y - f->split) * f->w;
+}
+static inline const uint16_t *arc_fb_whole(const arc_fb *f) { return f->split >= f->h ? f->part[0] : NULL; }
+extern const uint16_t *(*arc_frame_row_hook)(int y);
+// a row of the last frame (the frontends)
+static inline const uint16_t *arc_frame_row(int y)
+{
+    return arc_frame_row_hook ? arc_frame_row_hook(y) : arc_frame() + (size_t)y * arc_game.w;
+}
+
 static inline uint16_t arc_rgb565(uint32_t argb)
 {
     return (uint16_t)(((argb >> 8) & 0xF800) | ((argb >> 5) & 0x07E0) | ((argb >> 3) & 0x001F));

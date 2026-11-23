@@ -66,12 +66,12 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Pirates (NIX, 1994) | `pirates` | 68000 | OKI M6295 | dsp-cpp `pirates.cpp` (el 68000 con Musashi; solo escritorio, web y Android) |
 | Block Out (Technos Japan, 1989) | `blockout` | 68000 + Z80 | YM2151 + OKI M6295 | dsp-cpp `blockout.cpp` (el 68000 con Musashi) |
 | Bubble Bobble (Taito, 1986) | `bublbobl` | 3 x Z80 + HD63701 | YM2203 + YM3526 | dsp-cpp `bublbobl.cpp` (su 63701: `cpu/hd63701dsp`; su YM3812: `sound/ym3812dsp`) |
-| Renegade (Technos Japan, 1986) | `renegade` | 6502 + 6809 + 68705 | YM3526 + MSM5205 | dsp-cpp `renegade.cpp` |
+| Renegade (Technos Japan, 1986) | `renegade` | 6502 + 6809 + 68705 | YM3526 + MSM5205 | dsp-cpp `renegade.cpp` (ADPCM como en MAME) |
 | Bank Panic (Sanritsu / Sega, 1984) | `bankp` | Z80 | 3 x SN76496 | dsp-cpp `bankpanic_hw.cpp` |
 | City Connection (Jaleco, 1985) | `citycon` | 6809 + 6809 | AY-3-8910 + YM2203 | dsp-cpp `citycon.cpp` |
 | Break Thru (Data East, 1986) | `brkthru` | 6809 + 6809 | YM2203 + YM3526 | dsp-cpp `brkthru.cpp` |
-| Appoooh (Sanritsu / Sega, 1984) | `appoooh` | Z80 | 3 x SN76496 + MSM5205 | dsp-cpp `appoooh.cpp` (su MSM5205: `sound/msm5205dsp`) |
-| Tehkan World Cup (Tehkan, 1985) | `tehkanwc` | 3 x Z80 | 2 x AY-3-8910 + MSM5205 | dsp-cpp `tehkanwc.cpp` |
+| Appoooh (Sanritsu / Sega, 1984) | `appoooh` | Z80 | 3 x SN76496 + MSM5205 | dsp-cpp `appoooh.cpp` (su MSM5205: `sound/msm5205dsp`; ADPCM como en MAME) |
+| Tehkan World Cup (Tehkan, 1985) | `tehkanwc` | 3 x Z80 | 2 x AY-3-8910 + MSM5205 | dsp-cpp `tehkanwc.cpp` (ADPCM como en MAME) |
 | Tiger Heli (Toaplan / Taito, 1985) | `tigerh` | Z80 + Z80 + 68705 | 2 x AY-3-8910 | dsp-cpp `slapfight.cpp` con el mapa de ROMs de MAME (`slapfght.cpp`): la variante de dsp-cpp carga las ROMs de Slap Fight |
 | Wonder Boy (Sega / Westone, 1986) | `wboy` | Z80 (315-5177) + Z80 + Z80 PIO | 2 x SN76496 | dsp-cpp `sega_system1.cpp` (su PIO: `machine/z80piodsp`) |
 

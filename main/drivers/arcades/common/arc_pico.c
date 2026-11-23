@@ -24,11 +24,10 @@ static void __not_in_flash_func(render)(void *user, int y, int n, uint16_t *out)
     const int xs = w > 360 ? 2 : 1;
     const int sw = w / xs, ox = (PICO_W - sw) / 2;  // negative: cropped
     const int oy = (PICO_H - h) / 2;                // negative: cropped
-    const uint16_t *fb = ready ? arc_frame() : NULL;
     for (int i = 0; i < n; i++, out += PICO_W) {
         const int sy = y + i - oy;
-        if (!fb || sy < 0 || sy >= h) { pico_fill(out, PICO_W, 0); continue; }
-        const uint16_t *src = fb + sy * w + (ox < 0 ? -ox * xs : 0);
+        if (!ready || sy < 0 || sy >= h) { pico_fill(out, PICO_W, 0); continue; }
+        const uint16_t *src = arc_frame_row(sy) + (ox < 0 ? -ox * xs : 0);
         const int cw = sw < PICO_W ? sw : PICO_W;
         if (ox > 0) {
             pico_fill(out, ox, 0);

@@ -10,6 +10,9 @@
 # ARC_BIG: those that need more than the 4-8 MB of the VGA32 / RP2350 (desktop,
 # web and Android only)
 ARC_BIG := pirates
+# the CYD builds of these keep their ROMs and graphics in the flash (the arccache
+# partition, filled from the microSD on the first boot: partitions_arccache.csv)
+ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy
 ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -38,7 +41,7 @@ ARC_DEFS_pirates := M68K_FLASH_TABLES
 ARC_SRC_blockout := drivers/arcades/blockout/blockout.c drivers/arcades/common/m68k_tables.c cpu/m68k/m68kcpu.c cpu/m68k/m68kops.c cpu/m68k/m68kopac.c cpu/m68k/m68kopdm.c cpu/m68k/m68kopnz.c cpu/z80dsp/z80dsp.c sound/ym2151.c sound/okim6295dsp.c
 ARC_DEFS_blockout := M68K_FLASH_TABLES
 ARC_SRC_bublbobl := drivers/arcades/bublbobl/bublbobl.c cpu/z80dsp/z80dsp.c cpu/hd63701dsp/hd63701dsp.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/ym3812dsp.c
-ARC_SRC_renegade := drivers/arcades/renegade/renegade.c cpu/m6502/m65xx.c cpu/m6809dsp/m6809dsp.c cpu/m6805dsp/m6805dsp.c machine/taito68705dsp.c sound/ym3812dsp.c
+ARC_SRC_renegade := drivers/arcades/renegade/renegade.c cpu/m6502/m65xx.c cpu/m6809dsp/m6809dsp.c cpu/m6805dsp/m6805dsp.c machine/taito68705dsp.c sound/ym3812dsp.c sound/msm5205dsp.c
 ARC_SRC_bankp := drivers/arcades/bankp/bankp.c cpu/z80dsp/z80dsp.c sound/sn76496.c
 ARC_SRC_citycon := drivers/arcades/citycon/citycon.c cpu/m6809dsp/m6809dsp.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c
 ARC_SRC_brkthru := drivers/arcades/brkthru/brkthru.c cpu/m6809dsp/m6809dsp.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/ym3812dsp.c

@@ -39,12 +39,11 @@ static const int kY8[8] = {0, 8, 16, 24, 32, 40, 48, 56};
 static struct state {
     zd_z80 cpu;
     sn76496 sn[3];
-    uint8_t mem[0x10000];
-    uint8_t *chars, *tiles;
+    const uint8_t *rom, *chars, *tiles;  // blobs (the CYD: in the flash)
+    uint8_t ram[0x2000];                // e000-ffff
     uint16_t palette[32];
     uint8_t lut[512];
-    uint8_t fg[256 * 256], bg[256 * 256];   // pen index + 1, 0 transparent
-    uint16_t *fb;
+    arc_fb fb;
     uint8_t in0, in1, in2, dsw, color_hi, scroll_x;
     bool priority, display_on, nmi_vblank;
     int64_t audio_acc;
@@ -53,8 +52,9 @@ static struct state {
 } *K_;
 #define K (*K_)
 
-static uint8_t rd(void *u, uint16_t a) { (void)u; return K.mem[a]; }
-static void wr(void *u, uint16_t a, uint8_t v) { (void)u; if (a >= 0xe000) K.mem[a] = v; }
+static uint8_t rd(void *u, uint16_t a) { (void)u; return a < 0xe000 ? K.rom[a] : K.ram[a & 0x1fff]; }
+static void wr(void *u, uint16_t a, uint8_t v) { (void)u; if (a >= 0xe000) K.ram[a & 0x1fff] = v; }
+#define VRAM(a) K.ram[(a) & 0x1fff]
 
 static uint8_t port_in(void *u, uint16_t p)
 {
@@ -95,62 +95,65 @@ static void cycles(void *u, int c)
     }
 }
 
-static void blit_tile(uint8_t *dst, const uint8_t *px, int x, int y, int base, bool fx, bool masked, uint8_t mask)
+// a pixel of a layer (pen index + 1, 0 transparent), straight from the tile RAM
+static inline uint8_t fg_pixel(int x, int y, bool masked)
 {
-    for (int r = 0; r < 8; r++)
-        for (int c = 0; c < 8; c++) {
-            const uint8_t punto = K.lut[(base + px[r * 8 + (fx ? 7 - c : c)]) & 0x1ff];
-            dst[(y + r) * 256 + x + c] = (masked && !(punto & mask)) ? 0 : (uint8_t)((punto & 0x1f) + 1);
-        }
+    const int f = (y >> 3) * 32 + (x >> 3);
+    const uint8_t attr = VRAM(0xf400 + f);
+    const int base = ((attr >> 3) | (K.color_hi << 5)) << 2;
+    const uint8_t *px = K.chars + (VRAM(0xf000 + f) + ((attr & 3) << 8)) * 64;
+    const uint8_t punto = K.lut[(base + px[(y & 7) * 8 + ((attr & 4) ? 7 - (x & 7) : x & 7)]) & 0x1ff];
+    return (masked && !(punto & 0x1f)) ? 0 : (uint8_t)((punto & 0x1f) + 1);
 }
 
-static void draw_layers(void)
+static inline uint8_t bg_pixel(int x, int y, bool masked)
 {
-    const bool fg_masked = !K.priority, bg_masked = K.priority;
-    for (int f = 0; f < 0x400; f++) {
-        const int x = (f & 0x1f) * 8, y = (f >> 5) * 8;
-        uint8_t attr = K.mem[0xf400 + f];
-        int color = (attr >> 3) | (K.color_hi << 5);
-        blit_tile(K.fg, K.chars + (K.mem[0xf000 + f] + ((attr & 3) << 8)) * 64, x, y, color << 2, (attr & 4) != 0, fg_masked, 0x1f);
-        attr = K.mem[0xfc00 + f];
-        color = (attr >> 4) | (K.color_hi << 4);
-        blit_tile(K.bg, K.tiles + (K.mem[0xf800 + f] + ((attr & 7) << 8)) * 64, x, y, (color << 3) + 256, (attr & 8) != 0,
-                  bg_masked, 0x0f);
-    }
+    const int f = (y >> 3) * 32 + (x >> 3);
+    const uint8_t attr = VRAM(0xfc00 + f);
+    const int base = (((attr >> 4) | (K.color_hi << 4)) << 3) + 256;
+    const uint8_t *px = K.tiles + (VRAM(0xf800 + f) + ((attr & 7) << 8)) * 64;
+    const uint8_t punto = K.lut[(base + px[(y & 7) * 8 + ((attr & 8) ? 7 - (x & 7) : x & 7)]) & 0x1ff];
+    return (masked && !(punto & 0x0f)) ? 0 : (uint8_t)((punto & 0x1f) + 1);
 }
 
 static void update_video(void)
 {
     if (!K.display_on) {
-        memset(K.fb, 0, W * H * 2);
+        for (int y = 0; y < H; y++) memset(arc_fb_row(&K.fb, y), 0, W * 2);
         return;
     }
-    draw_layers();
-    // the work area: BG then the scrolled FG on top, or the other way round
+    // BG then the scrolled FG on top, or the other way round
     for (int y = 0; y < H; y++) {
         const int wy = y + 16;
+        uint16_t *out = arc_fb_row(&K.fb, y);
         for (int x = 0; x < W; x++) {
             const int wx = x + 24;
-            const uint8_t b = K.bg[wy * 256 + wx], f = K.fg[wy * 256 + ((wx + K.scroll_x) & 0xff)];
+            const uint8_t b = bg_pixel(wx, wy, K.priority), f = fg_pixel((wx + K.scroll_x) & 0xff, wy, !K.priority);
             uint8_t p = 0;
             if (!K.priority) { if (b) p = b; if (f) p = f; }
             else { if (f) p = f; if (b) p = b; }
-            K.fb[y * W + x] = p ? K.palette[p - 1] : 0;
+            out[x] = p ? K.palette[p - 1] : 0;
         }
     }
 }
 
+static const uint16_t *frame_row(int y) { return arc_fb_row(&K.fb, y); }
+
 bool arc_init(void)
 {
     if (!(K_ = (struct state *)calloc(1, sizeof(struct state)))) return false;
-    K.fb = (uint16_t *)calloc(W * H, 2);
-    uint8_t *g = (uint8_t *)calloc(1, 0xc000), prom[0x220];
-    if (!K.fb || !g || !ARC_LOAD(kRom, K.mem, 0x10000) || !ARC_LOAD(kProm, prom, sizeof prom)) return false;
+    uint8_t prom[0x220];
+    if (!(K.rom = ARC_ROM_BLOB("rom", kRom, 0xe000)) || !ARC_LOAD(kProm, prom, sizeof prom)) return false;
+    arc_blob b;
+    const uint8_t *raw = ARC_ROM_BLOB("chars.raw", kChars, 0x4000);
+    if (!raw) return false;
     arc_layout cl = { 8, 8, 0x400, 2, 128, false, false, false, {0, 4}, kCharX, kY8 };
-    if (!ARC_LOAD(kChars, g, 0x4000) || !(K.chars = arc_gfx_decode(&cl, g, 0x4000))) return false;
+    if (arc_blob_begin(&b, "chars", 0x400 * 64, ARC_ROM_KEY(kChars, 1))) arc_blob_gfx(&b, &cl, raw, 0x4000, 0);
+    if (!(K.chars = arc_blob_end(&b)) || !(raw = ARC_ROM_BLOB("tiles.raw", kBg, 0xc000))) return false;
     arc_layout tl = { 8, 8, 0x800, 3, 64, false, false, false, {0, 2048 * 64, 2048 * 128}, kX8, kY8 };
-    if (!ARC_LOAD(kBg, g, 0xc000) || !(K.tiles = arc_gfx_decode(&tl, g, 0xc000))) return false;
-    free(g);
+    if (arc_blob_begin(&b, "tiles", 0x800 * 64, ARC_ROM_KEY(kBg, 1))) arc_blob_gfx(&b, &tl, raw, 0xc000, 0);
+    if (!(K.tiles = arc_blob_end(&b)) || !arc_fb_init(&K.fb, W, H)) return false;
+    arc_frame_row_hook = frame_row;
     for (int f = 0; f < 0x20; f++) {
         const uint8_t v = prom[f];
         const int r = 0x21 * (v & 1) + 0x47 * ((v >> 1) & 1) + 0x97 * ((v >> 2) & 1);
@@ -203,7 +206,7 @@ int arc_run_frame(const int16_t **audio)
     return K.naudio;
 }
 
-const uint16_t *arc_frame(void) { return K.fb; }
+const uint16_t *arc_frame(void) { return arc_fb_whole(&K.fb); }
 
 void arc_input(const arc_in *in)
 {
