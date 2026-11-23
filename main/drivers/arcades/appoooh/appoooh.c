@@ -268,16 +268,18 @@ bool arc_init(void)
     {   // (Robo Wres: then the decrypted opcodes of 0000-7fff)
         arc_blob b;
         if (arc_blob_begin(&b, "program", 0x1a000, ARC_ROM_KEY(kMain, 0))) {
-            uint8_t *raw = (uint8_t *)malloc(0x18000), data[0x400], ops[0x400];
-            if (!raw || !ARC_LOAD(kMain, raw, 0x18000)) return false;
+            // (the blob is written in order: the opcodes kept until the end)
+            uint8_t *raw = (uint8_t *)malloc(0x18000), *ops = (uint8_t *)malloc(0x8000), data[0x400];
+            if (!raw || !ops || !ARC_LOAD(kMain, raw, 0x18000)) return false;
             for (uint32_t a = 0; a < 0x8000; a += 0x400) {
-                sega_decrypt_type2_part(raw + a, 0x400, a, SEGA2_315_5179, 0, data, ops);
+                sega_decrypt_type2_part(raw + a, 0x400, a, SEGA2_315_5179, 0, data, ops + a);
                 arc_blob_write(&b, a, data, 0x400);
-                arc_blob_write(&b, 0x12000 + a, ops, 0x400);
             }
             arc_blob_write(&b, 0x8000, raw + 0x8000, 0x2000);
             arc_blob_write(&b, 0xa000, raw + 0xa000, 0x4000);
             arc_blob_write(&b, 0xe000, raw + 0x12000, 0x4000);
+            arc_blob_write(&b, 0x12000, ops, 0x8000);
+            free(ops);
             free(raw);
         }
         if (!(A.rom = arc_blob_end(&b))) return false;

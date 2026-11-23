@@ -75,7 +75,7 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Bubble Bobble (Taito, 1986) | `bublbobl` | 3 x Z80 + HD63701 | YM2203 + YM3526 | dsp-cpp `bublbobl.cpp` (su 63701: `cpu/hd63701dsp`; su YM3812: `sound/ym3812dsp`) |
 | Renegade (Technos Japan, 1986) | `renegade` | 6502 + 6809 + 68705 | YM3526 + MSM5205 | dsp-cpp `renegade.cpp` (ADPCM como en MAME) |
 | Bank Panic (Sanritsu / Sega, 1984) | `bankp` | Z80 | 3 x SN76496 | dsp-cpp `bankpanic_hw.cpp` |
-| Combat Hawk (Sanritsu / Sega, 1987) | `combh` | Z80 | 3 x SN76496 | dsp-cpp `bankpanic_hw.cpp` |
+| Combat Hawk (Sanritsu / Sega, 1987) | `combh` | Z80 | 3 x SN76496 | dsp-cpp `bankpanic_hw.cpp` (aquí con el monitor girado, ROT270; dsp-cpp solo le da la vuelta) |
 | City Connection (Jaleco, 1985) | `citycon` | 6809 + 6809 | AY-3-8910 + YM2203 | dsp-cpp `citycon.cpp` |
 | Break Thru (Data East, 1986) | `brkthru` | 6809 + 6809 | YM2203 + YM3526 | dsp-cpp `brkthru.cpp` |
 | Darwin 4078 (Data East, 1986) | `darwin` | 6809 + 6809 | YM2203 + YM3526 | dsp-cpp `brkthru.cpp` |

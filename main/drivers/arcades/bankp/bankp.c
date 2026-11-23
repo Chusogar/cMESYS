@@ -148,10 +148,20 @@ static void update_video(void)
     }
     // BG then the scrolled FG on top, or the other way round
     for (int y = 0; y < H; y++) {
-        const int wy = COMBH ? 16 + (H - 1 - y) : y + 16;   // (Combat Hawk: upside down, as dsp-cpp)
+#if COMBH && !defined(BANKP_NO_ROTATE)
+        // Combat Hawk's monitor is turned (ROT270); dsp-cpp shows it only upside
+        // down, as built with BANKP_NO_ROTATE
+#define TURNED 1
+#endif
         uint16_t *out = arc_fb_row(&K.fb, y);
         for (int x = 0; x < W; x++) {
-            const int wx = x + 24;
+#ifdef TURNED
+            const int wx = 24 + (W - 1 - y), wy = 16 + x;
+#elif COMBH
+            const int wx = x + 24, wy = 16 + (H - 1 - y);
+#else
+            const int wx = x + 24, wy = y + 16;
+#endif
             const uint8_t b = bg_pixel(wx, wy, K.priority), f = fg_pixel((wx + K.scroll_x) & 0xff, wy, !K.priority);
             uint8_t p = 0;
             if (!K.priority) { if (b) p = b; if (f) p = f; }
