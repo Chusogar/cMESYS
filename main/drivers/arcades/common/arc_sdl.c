@@ -65,6 +65,7 @@ int main(int argc, char **argv)
         if (k & SP_B1) in.p[0] |= AP_B1;
         if (k & SP_B2) in.p[0] |= AP_B2;
         if (k & SP_B3) in.p[0] |= AP_B3;
+        if (k & SP_B4) in.p[0] |= AP_B4;
         if (k & SP_START1) in.p[0] |= AP_START;
         if (k & SP_START2) in.p[1] |= AP_START;
         run_script(frame++, &in);

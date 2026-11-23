@@ -783,6 +783,7 @@ uint32_t pico_port_pad(void)
         if (d->b[1]) k |= SP_B1;
         if (d->b[2]) k |= SP_B2;
         if (d->b[3]) k |= SP_B3;
+        if (d->buttons > 4 && d->b[4]) k |= SP_B4;
         if (d->b[d->buttons >= 10 ? 9 : 7]) k |= SP_COIN1;
         if (d->b[d->buttons >= 10 ? 10 : 8]) k |= SP_START1;
     }
@@ -804,6 +805,7 @@ uint32_t pico_port_keys(void)
     if (KB(0x1d) || KB(0xe0)) k |= SP_B1;           // Z, left Ctrl
     if (KB(0x1b) || KB(0xe2)) k |= SP_B2;           // X, left Alt
     if (KB(0x06) || KB(0x2c)) k |= SP_B3;           // C, space
+    if (KB(0x19) || KB(0xe1)) k |= SP_B4;           // V, left Shift
 #undef KB
     for (int i = 0; i < CFG_TUH_HID; i++) {
         const hid_dev *d = &devs[i];
@@ -815,6 +817,7 @@ uint32_t pico_port_keys(void)
         if (d->b[1]) k |= SP_B1;
         if (d->b[2]) k |= SP_B2;
         if (d->b[3]) k |= SP_B3;
+        if (d->buttons > 4 && d->b[4]) k |= SP_B4;
         if (d->b[d->buttons >= 10 ? 9 : 7]) k |= SP_COIN1;
         if (d->b[d->buttons >= 10 ? 10 : 8]) k |= SP_START1;
     }

@@ -33,7 +33,7 @@ final class Game {
         this.color = color;
     }
 
-    private static final int B1 = Native.B1, B2 = Native.B2, B3 = Native.B3;
+    private static final int B1 = Native.B1, B2 = Native.B2, B3 = Native.B3, B4 = Native.B4;
 
     static final Game[] ALL = {
         // the arcades on the common frontend (main/drivers/arcades/arcades.mk)

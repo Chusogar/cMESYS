@@ -141,6 +141,7 @@ static uint32_t key_bit(SDL_Scancode sc)
     case SDL_SCANCODE_Z: case SDL_SCANCODE_LCTRL: return SP_B1;
     case SDL_SCANCODE_X: case SDL_SCANCODE_LALT: return SP_B2;
     case SDL_SCANCODE_C: case SDL_SCANCODE_SPACE: return SP_B3;
+    case SDL_SCANCODE_V: case SDL_SCANCODE_LSHIFT: return SP_B4;
     default: return 0;
     }
 }

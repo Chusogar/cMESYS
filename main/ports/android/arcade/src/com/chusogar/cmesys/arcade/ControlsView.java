@@ -157,13 +157,14 @@ final class ControlsView extends View {
                 coinRect.top + coinRect.height() * 0.16f + sh);
     }
 
-    /** n buttons around (cx, cy): one, a pair on a slant, or three in an arc (as a cabinet's). */
+    /** n buttons around (cx, cy): one, a pair on a slant, three in an arc (as a cabinet's) or four in a diamond. */
     private void placeButtons(int n, float cx, float cy, float spread) {
         float[][] at;
         switch (n) {
             case 1: at = new float[][] {{0, 0}}; break;
             case 2: at = new float[][] {{-0.42f, 0.22f}, {0.42f, -0.22f}}; break;
-            default: at = new float[][] {{-0.62f, 0.26f}, {0, -0.12f}, {0.62f, 0.26f}}; break;
+            case 3: at = new float[][] {{-0.62f, 0.26f}, {0, -0.12f}, {0.62f, 0.26f}}; break;
+            default: at = new float[][] {{-0.62f, 0.12f}, {0, -0.48f}, {0.62f, 0.12f}, {0, 0.72f}}; break;
         }
         for (int i = 0; i < n && i < at.length; i++) {
             float x = cx + at[i][0] * spread, y = cy + at[i][1] * spread;
