@@ -388,6 +388,7 @@ void ym2151_write_reg(ym2151 *c, uint8_t r, uint8_t v)
         case 0x1b:
             c->ct = (uint8_t)(v >> 6);
             c->lfo_wsel = (uint8_t)(v & 3);
+            if (c->port_handler) c->port_handler(c->user, c->ct);
             break;
         default: break;
         }

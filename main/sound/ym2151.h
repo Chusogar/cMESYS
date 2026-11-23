@@ -63,6 +63,7 @@ typedef struct ym2151 {
     uint32_t pm_inc[8][4];
 
     void (*irq_handler)(void *user, bool on);
+    void (*port_handler)(void *user, uint8_t ct);   // CT1 / CT2 (register 0x1b), optional
     void *user;
 } ym2151;
 

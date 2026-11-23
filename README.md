@@ -91,6 +91,15 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Terra Force (Nichibutsu, 1987) | `terraf` | 68000 + Z80 + NB1414M4 | YM3526 + 2 DAC | dsp-cpp `armedf_hw.cpp` |
 | Crazy Climber 2 (Nichibutsu, 1988) | `cclimbr2` | 68000 + Z80 + NB1414M4 | YM3526 + 2 DAC | dsp-cpp `armedf_hw.cpp` |
 | Legion (Nichibutsu, 1987) | `legion` | 68000 + Z80 + NB1414M4 | YM3526 + 2 DAC | dsp-cpp `armedf_hw.cpp` (protección parcheada, como dsp-cpp) |
+| Kung-Fu Master (Irem, 1984) | `kungfum` | Z80 + M6803 | 2 x AY-3-8910 + 2 x MSM5205 | dsp-cpp `m62.cpp` |
+| Spelunker (Irem, 1985) | `spelunkr` | Z80 + M6803 | 2 x AY-3-8910 + 2 x MSM5205 | dsp-cpp `m62.cpp` |
+| Spelunker II: 23 no Kagi (Irem, 1986) | `spelunk2` | Z80 + M6803 | 2 x AY-3-8910 + 2 x MSM5205 | dsp-cpp `m62.cpp` |
+| Lode Runner (Irem, 1984) | `ldrun` | Z80 + M6803 | 2 x AY-3-8910 + 2 x MSM5205 | dsp-cpp `m62.cpp` |
+| Lode Runner II: The Bungeling Strikes Back (Irem, 1984) | `ldrun2` | Z80 + M6803 | 2 x AY-3-8910 + 2 x MSM5205 | dsp-cpp `m62.cpp` |
+| R-Type (Irem, 1987) | `rtype` | NEC V30 + Z80 | YM2151 | dsp-cpp `m72.cpp` |
+| Hammerin' Harry (Irem, 1990) | `hharry` | NEC V30 + Z80 | YM2151 + DAC | dsp-cpp `m72.cpp` |
+| R-Type II (Irem, 1989) | `rtype2` | NEC V30 + Z80 | YM2151 + DAC | dsp-cpp `m72.cpp` |
+| Operation Wolf (Taito, 1987) | `opwolf` | 68000 + Z80 + C-Chip (simulado, como dsp-cpp) | YM2151 + 2 x MSM5205 | dsp-cpp `opwolf.cpp` (la mira se mueve con el joystick) |
 
 Las treinta y una últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
@@ -548,7 +557,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |
