@@ -70,4 +70,12 @@ typedef void (*atari_mo_draw_tile_clip)(void *user, int code, int color, bool hf
 void atari_mo_draw_slip(atari_mo *m, const uint16_t *sprite_ram, const uint16_t *slip_ram,
                         int xscroll, int yscroll, int y0, int y1,
                         const atari_mo_lookup *lk, atari_mo_draw_tile_clip draw_tile, void *user);
+// One SLIP band (atari_mo_band_for_line), unclipped: dsp-cpp's draw_band
+void atari_mo_draw_band(atari_mo *m, const uint16_t *sprite_ram, const uint16_t *slip_ram, int band,
+                        int xscroll, int yscroll, int prio,
+                        const atari_mo_lookup *lk, atari_mo_draw_tile draw_tile, void *user);
+static inline int atari_mo_band_for_line(const atari_mo *m, int line, int yscroll)
+{
+    return m->slipshift ? ((line + yscroll) & m->bitmapymask) >> m->slipshift : 0;
+}
 #endif

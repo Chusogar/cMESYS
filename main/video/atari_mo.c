@@ -300,3 +300,32 @@ void atari_mo_draw_slip(atari_mo *m, const uint16_t *sprite_ram, const uint16_t 
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// One SLIP band, unclipped (dsp-cpp's AtariMotionObjects::draw_band, which
+// the drivers that render a band every 8 lines use)
+// ---------------------------------------------------------------------------
+void atari_mo_draw_band(atari_mo *m, const uint16_t *sprite_ram, const uint16_t *slip_ram, int band,
+                        int xscroll, int yscroll, int prio,
+                        const atari_mo_lookup *lk, atari_mo_draw_tile draw_tile, void *user)
+{
+    uint16_t link = 0;
+    if (m->slipshift) {
+        const int sliprammask = (m->bitmapheight >> m->slipshift) - 1;
+        link = (uint16_t)((slip_ram[band & sliprammask] >> m->linkmask.shift) & m->linkmask.mask);
+    }
+    build_active_list(m, sprite_ram, link);
+    m->next_xpos = NO_HOLD;
+    if (m->active_last < 4) return;
+    if (m->cfg.reverse) {
+        for (int cur = m->active_last - 4;; cur -= 4) {
+            render_object(m, &m->list[cur], xscroll, yscroll, prio, lk, draw_tile, user);
+            if (cur == 0) break;
+        }
+    } else {
+        for (int cur = 0;; cur += 4) {
+            render_object(m, &m->list[cur], xscroll, yscroll, prio, lk, draw_tile, user);
+            if (cur + 4 >= m->active_last) break;
+        }
+    }
+}
