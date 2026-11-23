@@ -13,7 +13,7 @@ ARC_BIG := pirates
 # the CYD builds of these keep their ROMs and graphics in the flash (the arccache
 # partition, filled from the microSD on the first boot: partitions_arccache.csv)
 ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght chinagat ddragon ddragon2 kungfum darwin combh robowres
-ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek
+ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
 ARC_SRC_calorie := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -149,6 +149,20 @@ ARC_DEFS_stargate := ARC_VARIANT=5
 ARC_SRC_elevator := drivers/arcades/taitosj/taitosj.c cpu/z80dsp/z80dsp.c cpu/m6805dsp/m6805dsp.c sound/ay8910.c
 ARC_SRC_junglek := drivers/arcades/taitosj/taitosj.c cpu/z80dsp/z80dsp.c cpu/m6805dsp/m6805dsp.c sound/ay8910.c
 ARC_DEFS_junglek := ARC_VARIANT=1
+ARC_SRC_tapper := drivers/arcades/mcr/mcr.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_tapper := ARC_VARIANT=0
+ARC_SRC_tron := drivers/arcades/mcr/mcr.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_tron := ARC_VARIANT=1
+ARC_SRC_shollow := drivers/arcades/mcr/mcr.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_shollow := ARC_VARIANT=2
+ARC_SRC_domino := drivers/arcades/mcr/mcr.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_domino := ARC_VARIANT=3
+ARC_SRC_wacko := drivers/arcades/mcr/mcr.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_wacko := ARC_VARIANT=4
+ARC_SRC_dotron := drivers/arcades/mcr/mcr.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_dotron := ARC_VARIANT=5
+ARC_SRC_timber := drivers/arcades/mcr/mcr.c cpu/z80dsp/z80dsp.c sound/ay8910.c
+ARC_DEFS_timber := ARC_VARIANT=6
 ARC_RAM_bombjack := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_calorie := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_mrdo := z80dsp.c.o mrdo.c.o sn76496.c.o
@@ -232,3 +246,10 @@ ARC_RAM_robotron := m6809dsp.c.o williams.c.o hd63701dsp.c.o
 ARC_RAM_stargate := m6809dsp.c.o williams.c.o hd63701dsp.c.o
 ARC_RAM_elevator := z80dsp.c.o taitosj.c.o m6805dsp.c.o ay8910.c.o
 ARC_RAM_junglek := z80dsp.c.o taitosj.c.o m6805dsp.c.o ay8910.c.o
+ARC_RAM_tapper := z80dsp.c.o mcr.c.o ay8910.c.o
+ARC_RAM_tron := z80dsp.c.o mcr.c.o ay8910.c.o
+ARC_RAM_shollow := z80dsp.c.o mcr.c.o ay8910.c.o
+ARC_RAM_domino := z80dsp.c.o mcr.c.o ay8910.c.o
+ARC_RAM_wacko := z80dsp.c.o mcr.c.o ay8910.c.o
+ARC_RAM_dotron := z80dsp.c.o mcr.c.o ay8910.c.o
+ARC_RAM_timber := z80dsp.c.o mcr.c.o ay8910.c.o
