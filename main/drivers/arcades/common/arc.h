@@ -81,6 +81,20 @@ uint8_t *arc_gfx_decode(const arc_layout *l, const uint8_t *rom, size_t rom_len)
 // into an existing set from element `first` on
 void arc_gfx_decode_into(const arc_layout *l, const uint8_t *rom, size_t rom_len, uint8_t *set, int first);
 
+// One pixel of element `code` (modulo the set's total, as dsp-cpp's GfxSet),
+// straight from the ROM (no decoded copy: the big sets; no rotation)
+static inline unsigned arc_gfx_px(const arc_layout *l, const uint8_t *rom, size_t rom_len, int code, int x, int y)
+{
+    const int base = (code % l->total) * l->char_increment + l->y_offsets[y] + l->x_offsets[x];
+    unsigned v = 0;
+    for (int p = 0; p < l->planes; p++) {
+        const size_t b = (size_t)(l->plane_offsets[p] + base);
+        const unsigned bit = (b >> 3) < rom_len ? (rom[b >> 3] >> (7 - (b & 7))) & 1 : 0;
+        v |= bit << (l->lsb_first ? p : l->planes - 1 - p);
+    }
+    return v;
+}
+
 // dsp-cpp's compute_resistor_weights / combine_weights
 typedef struct { int n; int r[8]; int pulldown, pullup; } arc_resnet;
 void arc_resistor_weights(double min_v, double max_v, double scaler, const arc_resnet *nets, int nnets,

@@ -82,6 +82,15 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Up'n Down (Sega, 1983) | `upndown` | Z80 (cifrado) + Z80 + 8255 | 2 x SN76496 | dsp-cpp `sega_system1.cpp` |
 | Flicky (Sega, 1984) | `flicky` | Z80 (cifrado) + Z80 + Z80 PIO | 2 x SN76496 | dsp-cpp `sega_system1.cpp` |
 | Gardia (Sega / Coreland, 1986) | `gardia` | Z80 (317-0006) + Z80 + Z80 PIO | 2 x SN76496 | dsp-cpp `sega_system1.cpp` (System 2) |
+| WWF Superstars (Technos Japan, 1989) | `wwfsstar` | 68000 + Z80 | YM2151 + OKI M6295 | dsp-cpp `wwfsstar.cpp` |
+| Shadow Warriors (Tecmo, 1988) | `shadoww` | 68000 + Z80 | 2 x YM2203 + OKI M6295 | dsp-cpp `shadow_warriors_hw.cpp` |
+| China Gate (Technos Japan / Taito, 1988) | `chinagat` | 2 x HD6309 + Z80 | YM2151 + OKI M6295 | dsp-cpp `chinagate.cpp` |
+| Double Dragon (Technos Japan, 1987) | `ddragon` | HD6309 + HD63701 + 6809 | YM2151 + 2 x MSM5205 | dsp-cpp `doubledragon.cpp` |
+| Double Dragon II: The Revenge (Technos Japan, 1988) | `ddragon2` | HD6309 + Z80 + Z80 | YM2151 + OKI M6295 | dsp-cpp `doubledragon.cpp` |
+| Armed Formation (Nichibutsu, 1988) | `armedf` | 68000 + Z80 | YM3812 + 2 DAC | dsp-cpp `armedf_hw.cpp` |
+| Terra Force (Nichibutsu, 1987) | `terraf` | 68000 + Z80 + NB1414M4 | YM3526 + 2 DAC | dsp-cpp `armedf_hw.cpp` |
+| Crazy Climber 2 (Nichibutsu, 1988) | `cclimbr2` | 68000 + Z80 + NB1414M4 | YM3526 + 2 DAC | dsp-cpp `armedf_hw.cpp` |
+| Legion (Nichibutsu, 1987) | `legion` | 68000 + Z80 + NB1414M4 | YM3526 + 2 DAC | dsp-cpp `armedf_hw.cpp` (protección parcheada, como dsp-cpp) |
 
 Las treinta y una últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
@@ -539,7 +548,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |
