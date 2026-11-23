@@ -1,23 +1,23 @@
 // renegade.c - Renegade (Technos Japan / Taito America, 1986) for the common
 // arcade frontends (arc.h): C port of dsp-cpp's drivers/arcade/renegade (from
 // dsp-emulator's renegade_hw.pas). A 6502 at 1.5 MHz, a 6809 with a YM3526
-// and an MSM5205 playing the ADPCM samples, and a 68705 protection MCU. A
+// and an MSM5205 playing the ADPCM samples (MAME's hookup), and a 68705 protection MCU. A
 // 1024-wide scrolling background of 16x16 tiles, 8x8 text and 16x16 / 16x32
 // sprites, all 3 bits per pixel.
 #include <stdlib.h>
-#include <math.h>
 #include <string.h>
 #include "../common/arc.h"
 #include "../../../cpu/m6502/m65xx.h"
 #include "../../../cpu/m6809dsp/m6809dsp.h"
 #include "../../../machine/taito68705dsp.h"
 #include "../../../sound/ym3812dsp.h"
+#include "../../../sound/msm5205dsp.h"
 
 #define MAIN_CLOCK 1500000
 #define SOUND_CLOCK 1500000
 #define MCU_CLOCK 3000000
 #define YM_CLOCK 3000000
-#define MSM_RATE (12000000 / 32 / 48)   // the MSM5205's VCLK, prescaler 48
+#define MSM_CLOCK (12000000 / 32)       // the MSM5205, prescaler 48
 #define SCANLINES 272
 #define FPS 57.444853
 #define RATE 44100
@@ -52,20 +52,15 @@ static const int kY8[8] = {0, 8, 16, 24, 32, 40, 48, 56};
 static const int kX16[16] = {3, 2, 1, 0, 131, 130, 129, 128, 259, 258, 257, 256, 387, 386, 385, 384};
 static const int kY16[16] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120};
 
-// the MSM5205 (dsp-cpp's model, the samples read from its ROM)
-typedef struct {
-    uint32_t position, end;
-    int data_value, signal, step;
-    bool reset, idle;
-} msm5205;
-
 // the machine on the heap
 static struct state {
     m65xx main;
     m6809d sound;
     t68705d mcu;
     ym3812d ym;
-    msm5205 msm;
+    msm5205d msm;
+    uint32_t adpcm_pos, adpcm_end;      // in nibbles
+    bool adpcm_playing;
     uint8_t mem[0x10000], bank_rom[2][0x4000], sound_mem[0x10000], pal_ram[0x200];
     uint8_t *chars, *tiles, *sprites, *adpcm;
     uint16_t palette[256];
@@ -79,56 +74,20 @@ static struct state {
 } *R_;
 #define R (*R_)
 
-static int msm_diff[49 * 16];
-static const int kIndexShift[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
-
-static void msm_build(void)
+// each VCLK the next nibble of the sample, the high one first; at its end
+// the MSM held in reset and an NMI to the sound CPU (MAME's renegade)
+static void adpcm_vclk(void *u)
 {
-    static const int nib[16][4] = {
-        {1, 0, 0, 0}, {1, 0, 0, 1}, {1, 0, 1, 0}, {1, 0, 1, 1}, {1, 1, 0, 0}, {1, 1, 0, 1}, {1, 1, 1, 0}, {1, 1, 1, 1},
-        {-1, 0, 0, 0}, {-1, 0, 0, 1}, {-1, 0, 1, 0}, {-1, 0, 1, 1}, {-1, 1, 0, 0}, {-1, 1, 0, 1}, {-1, 1, 1, 0}, {-1, 1, 1, 1}};
-    for (int step = 0; step <= 48; step++) {
-        const int sv = (int)floor(16.0 * pow(11.0 / 10.0, step));
-        for (int n = 0; n < 16; n++)
-            msm_diff[step * 16 + n] = nib[n][0] * (sv * nib[n][1] + (sv >> 1) * nib[n][2] + (sv >> 2) * nib[n][3] + (sv >> 3));
-    }
-}
-
-static void msm_set_reset(bool state)
-{
-    R.msm.reset = R.msm.idle = state;
-    if (state) {
-        R.msm.signal = R.msm.step = 0;
-        R.msm.data_value = -1;
-    }
-}
-
-static void msm_decode(uint8_t nibble)
-{
-    if (R.msm.reset) {
-        R.msm.signal = R.msm.step = 0;
-        R.msm.data_value = -1;
-        return;
-    }
-    R.msm.signal += msm_diff[R.msm.step * 16 + (nibble & 0x0f)];
-    if (R.msm.signal > 2047) R.msm.signal = 2047;
-    else if (R.msm.signal < -2048) R.msm.signal = -2048;
-    R.msm.step += kIndexShift[nibble & 7];
-    if (R.msm.step > 48) R.msm.step = 48;
-    else if (R.msm.step < 0) R.msm.step = 0;
-}
-
-static void msm_vclk(void)
-{
-    if (R.msm.idle) return;
-    if (R.msm.data_value != -1) {
-        msm_decode((uint8_t)(R.msm.data_value & 0x0f));
-        R.msm.data_value = -1;
-        R.msm.position++;
-        if (R.msm.position >= R.msm.end || R.msm.position >= 0x18000) msm_set_reset(true);
+    (void)u;
+    if (!R.adpcm_playing) return;
+    if (R.adpcm_pos >= R.adpcm_end) {
+        msm5205d_set_reset(&R.msm, true);
+        R.adpcm_playing = false;
+        m6809d_set_nmi(&R.sound, M6809D_PULSE);
     } else {
-        R.msm.data_value = R.msm.position < 0x18000 ? R.adpcm[R.msm.position] : 0;
-        msm_decode((uint8_t)(R.msm.data_value >> 4));
+        const uint8_t d = R.adpcm[(R.adpcm_pos / 2) % 0x18000];
+        msm5205d_data_w(&R.msm, (R.adpcm_pos & 1) ? d & 0x0f : d >> 4);
+        R.adpcm_pos++;
     }
 }
 
@@ -200,39 +159,41 @@ static void sound_write(void *u, uint16_t a, uint8_t v)
 {
     (void)u;
     if (a <= 0x0fff) R.sound_mem[a] = v;
-    else if (a == 0x1800) msm_set_reset(false);          // start
-    else if (a == 0x2000) {
+    else if (a == 0x1800) {                                // start
+        msm5205d_set_reset(&R.msm, false);
+        R.adpcm_playing = true;
+    } else if (a == 0x2000) {
         uint32_t pos;
         switch (v & 0x1c) {
         case 0x0c: pos = 2 * 0x8000; break;              // ic31
         case 0x14: pos = 1 * 0x8000; break;              // ic32
         case 0x18: pos = 0; break;                       // ic33
-        default: R.msm.position = R.msm.end = 0; return;
+        default: R.adpcm_pos = R.adpcm_end = 0; return;
         }
         pos |= (uint32_t)(v & 3) * 0x2000;
-        R.msm.position = pos;
-        R.msm.end = pos + 0x2000;
+        R.adpcm_pos = pos * 2;
+        R.adpcm_end = (pos + 0x2000) * 2;
     } else if (a == 0x2800) ym3812d_control(&R.ym, v);
     else if (a == 0x2801) ym3812d_write(&R.ym, v);
-    else if (a == 0x3000) msm_set_reset(true);           // stop
+    else if (a == 0x3000) {                              // stop
+        msm5205d_set_reset(&R.msm, true);
+        R.adpcm_playing = false;
+    }
 }
 
 static void ym_irq(void *u, bool on) { (void)u; m6809d_set_firq(&R.sound, on ? M6809D_ASSERT : M6809D_CLEAR); }
 
 static void sound_cycles(int c)
 {
-    if (!R.msm.idle) {
-        R.msm_acc += (int64_t)c * MSM_RATE;
-        while (R.msm_acc >= SOUND_CLOCK) {
-            R.msm_acc -= SOUND_CLOCK;
-            msm_vclk();
-            if (R.msm.idle) m6809d_set_nmi(&R.sound, M6809D_PULSE);
-        }
+    R.msm_acc += (int64_t)c * msm5205d_sample_frequency(&R.msm);
+    while (R.msm_acc >= SOUND_CLOCK) {
+        R.msm_acc -= SOUND_CLOCK;
+        msm5205d_vclk(&R.msm);
     }
     R.audio_acc += (int64_t)c * RATE;
     while (R.audio_acc >= SOUND_CLOCK) {
         R.audio_acc -= SOUND_CLOCK;
-        const int32_t s = ym3812d_update(&R.ym) + R.msm.signal * 16;
+        const int32_t s = ym3812d_update(&R.ym) + msm5205d_output(&R.msm);
         if (R.naudio < 1024) R.audio[R.naudio++] = arc_clamp16(s);
     }
 }
@@ -338,7 +299,8 @@ bool arc_init(void)
     if (!ARC_LOAD(kSprites, rom, 0x60000) || !decode16(R.sprites, rom, 4)) return false;
     free(rom);
     if (!ARC_LOAD(kAdpcm, R.adpcm, 0x18000)) return false;
-    msm_build();
+    msm5205d_init(&R.msm, MSM_CLOCK, 48, 4);
+    R.msm.vclk_handler = adpcm_vclk;
     R.main.read = main_read;
     R.main.write = main_write;
     R.sound.read = sound_read;
@@ -357,9 +319,10 @@ void arc_reset(void)
     m6809d_reset(&R.sound);
     t68705d_reset(&R.mcu);
     ym3812d_reset(&R.ym);
-    memset(&R.msm, 0, sizeof R.msm);
-    R.msm.data_value = -1;
-    msm_set_reset(true);
+    msm5205d_reset(&R.msm);
+    R.adpcm_pos = R.adpcm_end = 0;
+    R.adpcm_playing = false;
+    R.msm_acc = 0;
     R.in0 = R.in1 = 0xff;
     R.bank = R.sound_latch = 0;
     R.scroll_x = 0;

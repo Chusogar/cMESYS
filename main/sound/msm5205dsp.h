@@ -1,7 +1,8 @@
 // msm5205dsp.h - OKI MSM5205 ADPCM: C port of dsp-cpp's sound/msm5205 (from
 // dsp-emulator's msm5205.pas), for the arcades ported from dsp-cpp. Either
-// it reads its samples from a ROM (start / end) or the board streams
-// nibbles with msm5205d_data_w() from its VCLK callback.
+// it reads its samples from a ROM (start / end: dsp-cpp's model) or the
+// board streams nibbles with msm5205d_data_w() from its VCLK callback, called
+// before each nibble is clocked in (MAME's model: what the drivers use).
 #ifndef MSM5205DSP_H
 #define MSM5205DSP_H
 #include <stdbool.h>
