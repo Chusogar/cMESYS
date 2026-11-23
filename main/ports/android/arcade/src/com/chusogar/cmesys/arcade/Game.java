@@ -130,7 +130,7 @@ final class Game {
                 new String[] {"DISPARO", "BOMBA"}, new int[] {B1, B2}, 0xff2a6a5a),
         new Game("terraf", "Terra Force", "Nichibutsu", 1987, JOY_8WAY,
                 new String[] {"DISPARO", "BOMBA"}, new int[] {B1, B2}, 0xff5a5a2a),
-        new Game("cclimbr2", "Crazy Climber 2", "Nichibutsu", 1988, JOY_4WAY,
+        new Game("cclimbr2", "Crazy Climber 2", "Nichibutsu", 1988, JOY_8WAY,
                 new String[] {}, new int[] {}, 0xff2a7a7a),
         new Game("legion", "Legion", "Nichibutsu", 1987, JOY_8WAY,
                 new String[] {"DISPARO", "BOMBA"}, new int[] {B1, B2}, 0xff6a2a4a),
