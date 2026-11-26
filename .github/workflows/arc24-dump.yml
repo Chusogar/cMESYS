@@ -1,0 +1,22 @@
+# Temporary: the twenty-fourth batch of common arcades for web (no ROMs),
+# printed into the logs (base64 of a tar.xz).
+name: arc24-dump
+on:
+  push:
+    branches: [arc24-dump]
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    container: emscripten/emsdk:3.1.74
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          for g in astorm bloxeed cltchitr ddcrew desertbr hamaway lghost mwalk shdancer wwallyj aburner2 aburner; do
+            make -C main/ports/web GAME=$g ROMS=external > /tmp/log.txt 2>&1 || { tail -60 /tmp/log.txt; exit 1; }
+          done
+          cp main/ports/web/index.html build/web-noroms/
+          ls -la build/web-noroms
+          tar -C build/web-noroms -cJf /tmp/out.tar.xz .
+          sha256sum /tmp/out.tar.xz
+          echo "BEGIN-B64"; base64 -w 1000 /tmp/out.tar.xz | sed 's/^/B64:/'; echo "END-B64"
