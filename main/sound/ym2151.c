@@ -764,7 +764,7 @@ int32_t YM_HOT ym2151_update(ym2151 *c)
     c->out_left = outl;
     c->out_right = outr;
     advance(c);
-    int32_t mono = outl + outr;
+    int32_t mono = c->amplitude == 0.0f || c->amplitude == 1.0f ? (int32_t)(outl + outr) : (int32_t)((outl + outr) * c->amplitude);
     if (mono < -32767) mono = -32767; else if (mono > 32767) mono = 32767;
     return mono;
 }

@@ -29,6 +29,7 @@ typedef struct {
 
 typedef struct ym2151 {
     uint32_t clock, sample_rate;
+    float amplitude;                 // (0 or 1: the sum as is, as dsp-cpp)
 
     ym2151_op oper[32];
     int32_t chanout[8];
