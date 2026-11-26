@@ -6,10 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
-#include "../../../cpu/m68k/m68k.h"
+#include "../../../cpu/m68kdsp/m68kdsp.h"
 #include "../../../cpu/z80dsp/z80dsp.h"
 #include "../../../sound/ym2151.h"
 #include "../../../sound/okim6295dsp.h"
+
+static m68kd cpu;
 
 #define MAIN_CLOCK 10000000
 #define SOUND_CLOCK 3579545
@@ -53,14 +55,10 @@ static struct state {
 
 static void update_irq(void)
 {
-    m68k_set_irq((B.irq_pending & 0x40) ? 6 : (B.irq_pending & 0x20) ? 5 : 0);
+    m68kd_set_irq(&cpu, 6, (B.irq_pending & 0x40) ? M68_ASSERT : M68_CLEAR);
+    m68kd_set_irq(&cpu, 5, (B.irq_pending & 0x20) ? M68_ASSERT : M68_CLEAR);
 }
 
-// Musashi callbacks (m68kconf.h)
-void cpu_pulse_reset(void) {}
-void cpu_instr_callback(unsigned int pc) { (void)pc; }
-void cpu_set_fc(int fc) { (void)fc; }
-int cpu_irq_ack(int level) { (void)level; return M68K_INT_ACK_AUTOVECTOR; }   // asserted lines
 
 static uint8_t gun(unsigned n) { return (uint8_t)(0x0e * (n & 1) + 0x1f * (n >> 1 & 1) + 0x43 * (n >> 2 & 1) + 0x8f * (n >> 3 & 1)); }
 static void set_color(int i, uint16_t raw)     // xBGR 444
@@ -127,19 +125,14 @@ static void write8(uint32_t a, uint8_t v)
     }
 }
 
-unsigned int m68k_read_memory_8(unsigned int a) { return read8(a); }
-unsigned int m68k_read_memory_16(unsigned int a) { return (unsigned)(read8(a) << 8 | read8(a + 1)); }
-unsigned int m68k_read_memory_32(unsigned int a) { return m68k_read_memory_16(a) << 16 | m68k_read_memory_16(a + 2); }
-void m68k_write_memory_8(unsigned int a, unsigned int v) { write8(a, (uint8_t)v); }
-void m68k_write_memory_16(unsigned int a, unsigned int v)
+static uint8_t cpu_rd8(void *u_, uint32_t a) { (void)u_; return read8(a); }
+static uint16_t cpu_rd(void *u_, uint32_t a) { (void)u_; return (unsigned)(read8(a) << 8 | read8(a + 1)); }
+static void cpu_wr8(void *u_, uint32_t a, uint8_t v) { (void)u_; write8(a, (uint8_t)v); }
+static void cpu_wr(void *u_, uint32_t a, uint16_t v)
 {
+    (void)u_;
     write8(a, (uint8_t)(v >> 8));
     write8(a + 1, (uint8_t)v);
-}
-void m68k_write_memory_32(unsigned int a, unsigned int v)
-{
-    m68k_write_memory_16(a, v >> 16);
-    m68k_write_memory_16(a + 2, v & 0xffff);
 }
 
 static uint8_t sound_read(void *u, uint16_t a)
@@ -224,8 +217,11 @@ bool arc_init(void)
     ym2151_init(&B.ym, SOUND_CLOCK, RATE);
     B.ym.irq_handler = ym_irq;
     okid_init(&B.oki, OKI_CLOCK, true, B.oki_rom, 0x40000);
-    m68k_init();
-    m68k_set_cpu_type(M68K_CPU_TYPE_68000);
+    m68kd_init(&cpu, MAIN_CLOCK, M68K_T_68000);
+    cpu.read_word = cpu_rd;
+    cpu.write_word = cpu_wr;
+    cpu.read_byte = cpu_rd8;
+    cpu.write_byte = cpu_wr8;
     B.p1 = B.p2 = B.system = 0xff;
     B.dsw1 = B.dsw2 = 0xff;
     B.buttons_a = 0xc0;
@@ -250,8 +246,7 @@ void arc_reset(void)
     B.main_debt = B.sound_debt = 0;
     B.audio_acc = B.oki_acc = 0;
     B.last_oki = 0;
-    m68k_pulse_reset();
-    m68k_set_irq(0);
+    m68kd_reset(&cpu);
     zd_reset(&B.sound);
     ym2151_reset(&B.ym);
     okid_reset(&B.oki);
@@ -269,7 +264,7 @@ int arc_run_frame(const int16_t **audio)
             update_video();
         }
         B.main_debt += main_cycles;
-        if ((int)B.main_debt > 0) B.main_debt -= m68k_execute((int)B.main_debt);
+        if ((int)B.main_debt > 0) B.main_debt -= m68kd_run(&cpu, (int)B.main_debt);
         B.sound_debt += sound_cycles_;
         B.sound_debt -= zd_run(&B.sound, (int)B.sound_debt);
     }

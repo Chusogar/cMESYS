@@ -9,8 +9,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
-#include "../../../cpu/m68k/m68k.h"
+#include "../../../cpu/m68kdsp/m68kdsp.h"
 #include "seibu_snd.h"
+
+static m68kd cpu;
 
 #ifndef ARC_VARIANT
 #define ARC_VARIANT 0
@@ -77,10 +79,6 @@ static struct state {
 // ---------------------------------------------------------------------------
 // The 68000
 
-void cpu_pulse_reset(void) {}
-void cpu_instr_callback(unsigned int pc) { (void)pc; }
-void cpu_set_fc(int fc) { (void)fc; }
-int cpu_irq_ack(int level) { (void)level; m68k_set_irq(0); return M68K_INT_ACK_AUTOVECTOR; }   // (held)
 
 
 
@@ -135,24 +133,8 @@ static void write16(uint32_t a, uint16_t v)
     }
 }
 
-unsigned int m68k_read_memory_8(unsigned int a)
-{
-    const uint16_t w = read16(a & ~1u);
-    return (a & 1) ? w & 0xff : w >> 8;
-}
-unsigned int m68k_read_memory_16(unsigned int a) { return read16(a); }
-unsigned int m68k_read_memory_32(unsigned int a) { return (unsigned)read16(a) << 16 | read16(a + 2); }
-void m68k_write_memory_8(unsigned int a, unsigned int v)
-{
-    const uint16_t w = read16(a & ~1u);
-    write16(a & ~1u, (a & 1) ? (uint16_t)((w & 0xff00) | (v & 0xff)) : (uint16_t)((w & 0xff) | (v & 0xff) << 8));
-}
-void m68k_write_memory_16(unsigned int a, unsigned int v) { write16(a, (uint16_t)v); }
-void m68k_write_memory_32(unsigned int a, unsigned int v)
-{
-    write16(a, (uint16_t)(v >> 16));
-    write16(a + 2, (uint16_t)v);
-}
+static uint16_t cpu_rd(void *u_, uint32_t a) { (void)u_; return read16(a); }
+static void cpu_wr(void *u_, uint32_t a, uint16_t v) { (void)u_; write16(a, (uint16_t)v); }
 
 
 // ---------------------------------------------------------------------------
@@ -287,8 +269,9 @@ bool arc_init(void)
     if (!(C.sound = arc_blob_end(&b))) return false;
     seibu_init(&C.snd, SOUND_CLOCK, C.sound, C.sound + 0x2000, C.sound + 0x4000);
     okid_init(&C.snd.oki, OKI_CLOCK, true, C.oki, 0x40000);
-    m68k_init();
-    m68k_set_cpu_type(M68K_CPU_TYPE_68000);
+    m68kd_init(&cpu, MAIN_CLOCK, M68K_T_68000);
+    cpu.read_word = cpu_rd;
+    cpu.write_word = cpu_wr;
     C.dsw = 0xffff;
     C.palette[0x800] = 0;
     arc_reset();
@@ -303,8 +286,7 @@ void arc_reset(void)
     memset(C.palette, 0, sizeof C.palette);
     C.in0 = C.in1 = 0xffff;
     C.main_debt = C.sound_debt = 0;
-    m68k_pulse_reset();
-    m68k_set_irq(0);
+    m68kd_reset(&cpu);
     seibu_reset(&C.snd);
     C.snd.coins = 0;
 }
@@ -315,11 +297,11 @@ int arc_run_frame(const int16_t **audio)
     C.snd.naudio = 0;
     for (int line = 0; line < SCANLINES; line++) {
         if (line == 240) {
-            m68k_set_irq(IRQ_LEVEL);
+            m68kd_set_irq(&cpu, IRQ_LEVEL, M68_HOLD);
             update_video();
         }
         C.main_debt += mc;
-        C.main_debt -= m68k_execute((int)C.main_debt);
+        C.main_debt -= m68kd_run(&cpu, (int)C.main_debt);
         C.sound_debt += sc;
         C.sound_debt -= seibu_run(&C.snd, (int)C.sound_debt);
     }
