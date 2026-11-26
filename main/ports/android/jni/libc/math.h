@@ -22,4 +22,15 @@ float powf(float, float); float expf(float); float exp2f(float); float logf(floa
 float log2f(float); float sqrtf(float); float floorf(float); float ceilf(float); float fabsf(float);
 float fmodf(float, float); float roundf(float); float truncf(float); float tanhf(float); float ldexpf(float, int);
 long lroundf(float); long lrintf(float);
+#define FP_NAN 0
+#define FP_INFINITE 1
+#define FP_ZERO 2
+#define FP_SUBNORMAL 3
+#define FP_NORMAL 4
+#define fpclassify(x) __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, x)
+#define isnan(x) __builtin_isnan(x)
+#define isinf(x) __builtin_isinf(x)
+#define isfinite(x) __builtin_isfinite(x)
+#define signbit(x) __builtin_signbit(x)
+double fma(double, double, double); double nearbyint(double); int ilogbf(float);
 #endif

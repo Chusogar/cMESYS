@@ -42,7 +42,7 @@ M68K="$M/cpu/m68k/m68kcpu.c $M/cpu/m68k/m68kops.c $M/cpu/m68k/m68kopac.c $M/cpu/
 # Android's libm (the rest of the symbols are libc's)
 LIBM="acos asin atan atan2 atan2f atanf ceil ceilf cos cosf cosh exp exp2 exp2f expf fabs fabsf floor floorf fmod
       fmodf frexp hypot ldexp ldexpf llround log log10 log10f log2 log2f logf lrint lrintf lround lroundf modf pow
-      powf rint round roundf sin sinf sinh sqrt sqrtf tan tanf tanh tanhf trunc truncf"
+      powf rint round roundf sin sinf sinh sqrt sqrtf tan tanf tanh tanhf trunc truncf fma nearbyint ilogbf"
 
 mkdir -p "$OUT" "$ROOT/dist"
 rm -rf "$OUT/lib" "$OUT/apk" "$OUT/classes" "$OUT/gen"
