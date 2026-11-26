@@ -348,7 +348,7 @@ final class Game {
                 new String[] {"DISPARO", "SALTO"}, new int[] {B1, B2}, 0xff2a4a7a),
         new Game("secretag", "Secret Agent", "Data East", 1989, JOY_8WAY,
                 new String[] {"DISPARO", "SALTO"}, new int[] {B1, B2}, 0xff2a4a7a),
-        new Game("bouldash", "Boulder Dash / Boulder Dash Part 2", "Data East", 1990, JOY_4WAY,
+        new Game("bouldash", "Boulder Dash / Boulder Dash Part 2", "Data East", 1990, JOY_8WAY,
                 new String[] {"EMPUJAR"}, new int[] {B1}, 0xff6a4a2a),
         new Game("esb", "starwars", new String[] {"esb"}, "The Empire Strikes Back", "Atari", 1985, JOY_YOKE,
                 new String[] {"GATILLO", "PULGAR"}, new int[] {B1, B2}, 0xff3a5a9a),
