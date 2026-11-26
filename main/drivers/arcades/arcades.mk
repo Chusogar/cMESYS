@@ -9,11 +9,11 @@
 # <set>.zip), not built in.
 # ARC_BIG: those that need more than the 4-8 MB of the VGA32 / RP2350 (desktop,
 # web and Android only)
-ARC_BIG := pirates simpsons baddudes hippodrm slyspy bouldash drgninja secretag cninja boogwing robocop2 paperboy ssprint apb 720
+ARC_BIG := pirates simpsons baddudes hippodrm slyspy bouldash drgninja secretag cninja boogwing robocop2 paperboy ssprint apb 720 hangon enduror sharrier
 # the CYD builds of these keep their ROMs and graphics in the flash (the arccache
 # partition, filled from the microSD on the first boot: partitions_arccache.csv)
 ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght chinagat ddragon ddragon2 kungfum darwin combh robowres
-ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber depthch safari frogs sspaceat sspacaho headon headon2 headon2s invho2 nsub samurai invinco invds tranqgun spacetrk carnival brdrline digger pulsar heiankyo alphaho asteroid baraduke metrocrs punchout shuuz skullxbo ikari athena tnk3 aso actfancr sentetst cshift hattrick gghost otwalls snakepit triviag1 snakjack stocker triviabb triviag2 triviayp triviasp gimeabrk minigolf teamht grudge triviaes toggle nstocker sfootbal spiker stompin nametune rescraid aliens ajax simpsons baddudes hippodrm slyspy bouldash drgninja secretag cninja boogwing robocop2 paperboy ssprint apb 720
+ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber depthch safari frogs sspaceat sspacaho headon headon2 headon2s invho2 nsub samurai invinco invds tranqgun spacetrk carnival brdrline digger pulsar heiankyo alphaho asteroid baraduke metrocrs punchout shuuz skullxbo ikari athena tnk3 aso actfancr sentetst cshift hattrick gghost otwalls snakepit triviag1 snakjack stocker triviabb triviag2 triviayp triviasp gimeabrk minigolf teamht grudge triviaes toggle nstocker sfootbal spiker stompin nametune rescraid aliens ajax simpsons baddudes hippodrm slyspy bouldash drgninja secretag cninja boogwing robocop2 paperboy ssprint apb 720 hangon enduror sharrier
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
 ARC_SRC_calorie := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -291,6 +291,12 @@ ARC_SRC_apb := drivers/arcades/atarisy2/atarisy2.c cpu/t11dsp/t11dsp.c cpu/m6502
 ARC_DEFS_apb := ARC_VARIANT=2
 ARC_SRC_720 := drivers/arcades/atarisy2/atarisy2.c cpu/t11dsp/t11dsp.c cpu/m6502/m65xx.c machine/slapstic.c sound/ym2151.c sound/pokey.c sound/tms5220.c video/atari_mo.c
 ARC_DEFS_720 := ARC_VARIANT=3
+ARC_SRC_hangon := drivers/arcades/hangon/hangon.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/i8255dsp.c machine/fd1089d.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/ym2151.c sound/segapcmd.c video/sega16d.c
+ARC_DEFS_hangon := ARC_VARIANT=0
+ARC_SRC_enduror := drivers/arcades/hangon/hangon.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/i8255dsp.c machine/fd1089d.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/ym2151.c sound/segapcmd.c video/sega16d.c
+ARC_DEFS_enduror := ARC_VARIANT=1
+ARC_SRC_sharrier := drivers/arcades/hangon/hangon.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/i8255dsp.c machine/fd1089d.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/ym2151.c sound/segapcmd.c video/sega16d.c
+ARC_DEFS_sharrier := ARC_VARIANT=2
 ARC_RAM_bombjack := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_calorie := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_mrdo := z80dsp.c.o mrdo.c.o sn76496.c.o
