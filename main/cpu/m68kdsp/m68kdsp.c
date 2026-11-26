@@ -2830,7 +2830,7 @@ static void m68_group_4(m68kd *mk, uint16_t instruction) {
                                 a[7].l += 8;  // the 68010 also stacks a format word
                                 set_flags(flags);
                             }
-                            
+                            if (mk->rte_cb) mk->rte_cb(mk->user);
                         }
                         break;
                     case 0x35:  // rts
@@ -2982,7 +2982,7 @@ static bool m68_take_irq(m68kd *mk) {
         putword(a[7].l, flags);
         putword(a[7].l + 2, ((uint16_t)((pc_).l >> 16)));
         putword(a[7].l + 4, ((uint16_t)(pc_).l));
-        
+        if (mk->irq_taken_cb) mk->irq_taken_cb(mk->user, level);
         opcode_ = false;
         uint32_t vec_addr = 0x64 + (uint32_t)((level - 1) * 4);
         if (mk->irq_ack) {

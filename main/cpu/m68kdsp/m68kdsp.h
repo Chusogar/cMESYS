@@ -26,6 +26,8 @@ typedef struct m68kd {
     int (*irq_ack)(void *user, int level);                     // a vector, or < 0: the autovector (optional)
     void (*exception_cb)(void *user, uint32_t vector, uint32_t pc);   // (optional)
     void (*cmpild)(void *user, uint8_t reg, uint32_t imm);           // CMPI.L #imm, Dn (FD1094; optional)
+    void (*rte_cb)(void *user);                                      // RTE (FD1094; optional)
+    void (*irq_taken_cb)(void *user, int level);                     // an interrupt taken (FD1094; optional)
     void *user;
     m68r d[8], a[8], pc, ppc, other_sp;
     m68flags cc;
