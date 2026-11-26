@@ -53,7 +53,7 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Commando (Capcom, 1985) | `commando` | Z80 (opcodes cifrados) + Z80 | 2 x YM2203 | dsp-cpp `commando.cpp` (su YM2203: `sound/ym2203dsp`) |
 | Ghosts'n Goblins (Capcom, 1985) | `gng` | 6809 + Z80 | 2 x YM2203 | dsp-cpp `gng.cpp` |
 | Black Tiger (Capcom, 1987) | `blktiger` | Z80 + Z80 + i8751 | 2 x YM2203 | dsp-cpp `blktiger.cpp` (su 8051: `cpu/mcs51dsp`) |
-| Bionic Commando (Capcom, 1987) | `bionicc` | 68000 + Z80 + i8751 | YM2151 | dsp-cpp `bionicc.cpp` (el 68000 con Musashi) |
+| Bionic Commando (Capcom, 1987) | `bionicc` | 68000 + Z80 + i8751 | YM2151 | dsp-cpp `bionicc.cpp` |
 | Tetris (Atari Games, 1988) | `atetris` | 6502 + SLAPSTIC | 2 x POKEY | dsp-cpp `tetris_atari_hw.cpp` |
 | Bagman (Valadon Automation, 1982) | `bagman` | Z80 + PAL16R6 | AY-3-8910 | dsp-cpp `bagman.cpp` |
 | Ambush (Nippon Amuse, 1983) | `ambush` | Z80 | 2 x AY-3-8910 | dsp-cpp `ambush.cpp` |
@@ -74,8 +74,8 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Xevious (Namco, 1982) | `xevious` | 3 x Z80, 06xx + 51xx + 50xx (MB88) | Namco WSG | dsp-cpp `galaga_hw.cpp` (salta la suma de la ROM, como dsp-cpp) |
 | Super Xevious (Namco, 1984) | `sxevious` | 3 x Z80, 06xx + 51xx + 50xx (MB88) | Namco WSG | dsp-cpp `galaga_hw.cpp` |
 | Bosconian (Namco / Midway, 1981) | `bosco` | 3 x Z80, 2 x 06xx + 51xx + 2 x 50xx (MB88) | Namco WSG | dsp-cpp `galaga_hw.cpp` |
-| Pirates (NIX, 1994) | `pirates` | 68000 | OKI M6295 | dsp-cpp `pirates.cpp` (el 68000 con Musashi; solo escritorio, web y Android) |
-| Block Out (Technos Japan, 1989) | `blockout` | 68000 + Z80 | YM2151 + OKI M6295 | dsp-cpp `blockout.cpp` (el 68000 con Musashi) |
+| Pirates (NIX, 1994) | `pirates` | 68000 | OKI M6295 | dsp-cpp `pirates.cpp` (solo escritorio, web y Android) |
+| Block Out (Technos Japan, 1989) | `blockout` | 68000 + Z80 | YM2151 + OKI M6295 | dsp-cpp `blockout.cpp` |
 | Bubble Bobble (Taito, 1986) | `bublbobl` | 3 x Z80 + HD63701 | YM2203 + YM3526 | dsp-cpp `bublbobl.cpp` (su 63701: `cpu/hd63701dsp`; su YM3812: `sound/ym3812dsp`) |
 | Renegade (Technos Japan, 1986) | `renegade` | 6502 + 6809 + 68705 | YM3526 + MSM5205 | dsp-cpp `renegade.cpp` (ADPCM como en MAME) |
 | Bank Panic (Sanritsu / Sega, 1984) | `bankp` | Z80 | 3 x SN76496 | dsp-cpp `bankpanic_hw.cpp` |
@@ -190,6 +190,9 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Stompin' (Bally/Sente, 1986) | `stompin` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
 | Name That Tune (Bally/Sente, 1986) | `nametune` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
 | Rescue Raider (Bally/Sente, 1987) | `rescraid` | 6809, Z80 | 6 x CEM3394 | dsp-cpp `balsente.cpp` |
+| Ajax (Konami, 1987) | `ajax` | 052001, 6809, Z80 | YM2151, 2 x 007232 | dsp-cpp `ajax.cpp` |
+| Aliens (Konami, 1990) | `aliens` | 052001, Z80 | YM2151, 007232 | dsp-cpp `aliens.cpp` |
+| The Simpsons (Konami, 1991) | `simpsons` | 052001, Z80 | YM2151, 053260 | dsp-cpp `simpsons.cpp` (solo escritorio, web y Android) |
 
 Las treinta y una últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
@@ -283,7 +286,7 @@ build_web.sh                 Emscripten → build/web/<id>.html
 build_windows.sh|.bat        MinGW → build/win/<id>.exe
 main/
   CMakeLists.txt             elige las fuentes de la máquina en el CYD
-  cpu/                       m68k (Musashi), m6502 (6502 / 65C02 / 6510), m6805, mc6809, m6809dsp, h6280,
+  cpu/                       m68k (Musashi), m68kdsp (el 68000 de dsp-cpp), m6502 (6502 / 65C02 / 6510), m6805, mc6809, m6809dsp, h6280,
                              mcs48, z80, z80dsp, z8002, mb88xx, lr35902, w65c816, spc700, sh2, arm7tdmi,
                              necv30 (V30MZ), upd7801, psx (R3000A + GTE)
   sound/                     ym2151, ym2413, ym2610 (YM2610/B, YM2203), ym2612, emu8950 (YM3812), pokey,
@@ -649,7 +652,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash`, `defender`, `mayday`, `colony7`, `stargate`, `robotron`, `joust`, `elevator`, `junglek`, `tron`, `shollow`, `domino`, `wacko`, `tapper`, `dotron`, `timber`, `depthch`, `safari`, `frogs`, `sspaceat`, `sspacaho`, `headon`, `headon2`, `headon2s`, `invho2`, `nsub`, `samurai`, `invinco`, `invds`, `tranqgun`, `spacetrk`, `carnival`, `brdrline`, `digger`, `pulsar`, `heiankyo`, `alphaho`, `asteroid`, `baraduke`, `metrocrs`, `punchout`, `skullxbo`, `shuuz`, `tnk3`, `aso`, `ikari`, `athena`, `actfancr`, `sentetst`, `cshift`, `hattrick`, `gghost`, `otwalls`, `snakepit`, `triviag1`, `snakjack`, `stocker`, `triviabb`, `triviag2`, `triviayp`, `triviasp`, `gimeabrk`, `minigolf`, `teamht`, `grudge`, `triviaes`, `toggle`, `nstocker`, `sfootbal`, `spiker`, `stompin`, `nametune`, `rescraid` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash`, `defender`, `mayday`, `colony7`, `stargate`, `robotron`, `joust`, `elevator`, `junglek`, `tron`, `shollow`, `domino`, `wacko`, `tapper`, `dotron`, `timber`, `depthch`, `safari`, `frogs`, `sspaceat`, `sspacaho`, `headon`, `headon2`, `headon2s`, `invho2`, `nsub`, `samurai`, `invinco`, `invds`, `tranqgun`, `spacetrk`, `carnival`, `brdrline`, `digger`, `pulsar`, `heiankyo`, `alphaho`, `asteroid`, `baraduke`, `metrocrs`, `punchout`, `skullxbo`, `shuuz`, `tnk3`, `aso`, `ikari`, `athena`, `actfancr`, `sentetst`, `cshift`, `hattrick`, `gghost`, `otwalls`, `snakepit`, `triviag1`, `snakjack`, `stocker`, `triviabb`, `triviag2`, `triviayp`, `triviasp`, `gimeabrk`, `minigolf`, `teamht`, `grudge`, `triviaes`, `toggle`, `nstocker`, `sfootbal`, `spiker`, `stompin`, `nametune`, `rescraid`, `ajax`, `aliens`, `simpsons` | el del mismo nombre | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
 | `polepos`, `polepos2` | `polepos` (World), `polepos2` | más `51xx.bin` … `54xx.bin` de `namco51.zip` … `namco54.zip` |
 | `robocop` | `robocop` (World, rev 4) | las PROM no hacen falta |

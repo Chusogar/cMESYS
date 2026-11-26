@@ -7,9 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
-#include "../../../cpu/m68k/m68k.h"
+#include "../../../cpu/m68kdsp/m68kdsp.h"
 #include "../../../machine/eeprom93c46.h"
 #include "../../../sound/okim6295dsp.h"
+
+static m68kd cpu;
 
 #define CLOCK 16000000
 #define OKI_CLOCK 1333333
@@ -76,17 +78,6 @@ static struct state {
 } *P_;
 #define P (*P_)
 
-// Musashi callbacks (m68kconf.h)
-void cpu_pulse_reset(void) {}
-void cpu_instr_callback(unsigned int pc) { (void)pc; }
-void cpu_set_fc(int fc) { (void)fc; }
-int cpu_irq_ack(int level)
-{
-    (void)level;
-    P.irq = false;                      // held: cleared when taken
-    m68k_set_irq(0);
-    return M68K_INT_ACK_AUTOVECTOR;
-}
 
 static uint16_t rd16(uint32_t a)
 {
@@ -123,29 +114,10 @@ static void wr16(uint32_t a, uint16_t v)
     else if (a == 0xa00000) okid_write(&P.oki, (uint8_t)v);
 }
 
-unsigned int m68k_read_memory_8(unsigned int a)
-{
-    const uint16_t w = rd16(a);
-    return (a & 1) ? (w & 0xff) : (w >> 8);
-}
-unsigned int m68k_read_memory_16(unsigned int a) { return rd16(a); }
-unsigned int m68k_read_memory_32(unsigned int a) { return (unsigned)rd16(a) << 16 | rd16(a + 2); }
-void m68k_write_memory_8(unsigned int a, unsigned int v)
-{
-    a &= 0xffffff;
-    // RAM: the one byte; the registers see it on both halves of the bus
-    if ((a >= 0x100000 && a <= 0x10ffff) || (a >= 0x500000 && a <= 0x500fff) || (a >= 0x800000 && a <= 0x803fff) ||
-        (a >= 0x900000 && a <= 0x907fff)) {
-        const uint16_t w = rd16(a);
-        wr16(a, (a & 1) ? (uint16_t)((w & 0xff00) | (v & 0xff)) : (uint16_t)((w & 0x00ff) | ((v & 0xff) << 8)));
-    } else wr16(a, (uint16_t)((v & 0xff) << 8 | (v & 0xff)));
-}
-void m68k_write_memory_16(unsigned int a, unsigned int v) { wr16(a, (uint16_t)v); }
-void m68k_write_memory_32(unsigned int a, unsigned int v)
-{
-    wr16(a, (uint16_t)(v >> 16));
-    wr16(a + 2, (uint16_t)v);
-}
+static void sound_cycles(int c);
+static void cpu_cyc(void *u, int c) { (void)u; sound_cycles(c); }
+static uint16_t cpu_rd(void *u_, uint32_t a) { (void)u_; return rd16(a); }
+static void cpu_wr(void *u_, uint32_t a, uint16_t v) { (void)u_; wr16(a, (uint16_t)v); }
 
 static void sound_cycles(int c)
 {
@@ -274,16 +246,17 @@ bool arc_init(void)
     okid_init(&P.oki, OKI_CLOCK, false, P.sound, 0x80000);
     eeprom93c46_init(&P.eeprom, 16);
     eeprom93c46_reset(&P.eeprom);
-    m68k_init();
-    m68k_set_cpu_type(M68K_CPU_TYPE_68000);
+    m68kd_init(&cpu, CLOCK, M68K_T_68000);
+    cpu.read_word = cpu_rd;
+    cpu.write_word = cpu_wr;
+    cpu.cycles = cpu_cyc;
     arc_reset();
     return true;
 }
 
 void arc_reset(void)
 {
-    m68k_pulse_reset();
-    m68k_set_irq(0);
+    m68kd_reset(&cpu);
     P.irq = false;
     okid_reset(&P.oki);
     P.in0 = 0x0f;
@@ -298,10 +271,10 @@ int arc_run_frame(const int16_t **audio)
     for (int line = 0; line < SCANLINES; line++) {
         if (line == VBLANK) {
             P.irq = true;
-            m68k_set_irq(1);
+            m68kd_set_irq(&cpu, 1, M68_HOLD);
             render();
         }
-        sound_cycles(m68k_execute(line_cycles));
+        m68kd_run(&cpu, line_cycles);
     }
     if (audio) *audio = P.audio;
     return P.naudio;
