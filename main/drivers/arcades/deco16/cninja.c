@@ -5,7 +5,8 @@
 // commands (machine/deco146d), two DECO 16IC tilemap chips (video/deco16icd)
 // and the DECO 52 sprites; a HuC6280 with a YM2203, a YM2151 and two OKI
 // M6295 (the second banked through the YM2151 port). Raster IRQ 3 / 4 and the
-// VBLANK IRQ 5.
+// VBLANK IRQ 5. ARC_VARIANT 1: Robocop 2 (1991) on the same board: a 68000 at
+// 14 MHz, the DECO 146, 320 pixels wide and an 8 bpp mode of the second chip.
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
@@ -17,18 +18,57 @@
 #include "../../../sound/okim6295dsp.h"
 #include "../../../video/deco16icd.h"
 
+#ifndef ARC_VARIANT
+#define ARC_VARIANT 0
+#endif
+#define ROBOCOP2 (ARC_VARIANT == 1)
+#if ROBOCOP2
+#define W 320
+#define MAIN_CLOCK 14000000
+#define ROM_END 0x100000
+#define PROT_BASE 0x18c000
+#define N_TILES1 0x2000
+#define N_TILES2 0x3000
+#define N_SPRITES 0x6000
+#else
 #define W 256
+#define MAIN_CLOCK 12000000
+#define ROM_END 0xc0000
+#define PROT_BASE 0x1bc000
+#define N_TILES1 0x1000
+#define N_TILES2 0x2000
+#define N_SPRITES 0x4000
+#endif
 #define H 240
 #define FIRST_LINE 8
 #define FPS 58.0
 #define SCANLINES 274
-#define MAIN_CLOCK 12000000
 #define SOUND_XTAL 32220000
 #define SOUND_CLOCK (SOUND_XTAL / 8)
 #define YM2151_CLOCK (SOUND_XTAL / 9)
 #define YM2203_CLOCK (SOUND_XTAL / 8)
 #define RATE 44100
 
+#if ROBOCOP2
+static const char *const kSets[] = { "robocop2", NULL };
+const arc_info arc_game = { "robocop2", "Robocop 2", "Data East", 1991, W, H, FPS, RATE, kSets,
+                            { "DISPARO", "SALTO", NULL }, ARC_JOY_8WAY };
+
+static const arc_rom kProgram[] = {{"gq-03.k1", 0x20000, 0x00000, 0xa7e90c28}, {"gq-07.k3", 0x20000, 0x00001, 0xd2287ec1},
+                                   {"gq-02.j1", 0x20000, 0x40000, 0x6777b8a0}, {"gq-06.j3", 0x20000, 0x40001, 0xe11e27b5},
+                                   {"go-01-1.h1", 0x20000, 0x80000, 0xab5356c0}, {"go-05-1.h3", 0x20000, 0x80001, 0xce21bda5},
+                                   {"go-00.f1", 0x20000, 0xc0000, 0xa93369ea}, {"go-04.f3", 0x20000, 0xc0001, 0xee2f6ad9}};
+static const arc_rom kSound[] = {{"gp-09.k13", 0x10000, 0, 0x4a4e0f8d}};
+static const arc_rom kChars[] = {{"gp11-1.z6", 0x10000, 0, 0x030ded47}, {"gp10-1.y6", 0x10000, 1, 0xd25d719c}};
+static const arc_rom kTiles1[] = {{"mah-04.z4", 0x80000, 0x00000, 0x9b6ca18c}, {"mah-03.y4", 0x80000, 0x80000, 0x37894ddc}};
+static const arc_rom kTiles2[] = {{"mah-01.z1", 0x80000, 0x000000, 0x26e0dfff}, {"mah-00.y1", 0x80000, 0x080000, 0x7bd69e41},
+                                  {"mah-02.a1", 0x80000, 0x100000, 0x328a247d}};
+static const arc_rom kSprites[] = {{"mah-05.y9", 0x80000, 0x000000, 0x6773e613}, {"mah-08.y12", 0x80000, 0x000001, 0x88d310a5},
+                                   {"mah-06.z9", 0x80000, 0x100000, 0x27a8808a}, {"mah-09.z12", 0x80000, 0x100001, 0xa58c43a7},
+                                   {"mah-07.a9", 0x80000, 0x200000, 0x526f4190}, {"mah-10.a12", 0x80000, 0x200001, 0x14b770da}};
+static const arc_rom kOki1[] = {{"gp-08.j13", 0x20000, 0, 0x365183b1}};
+static const arc_rom kOki2[] = {{"mah-11.f13", 0x80000, 0, 0x642bc692}};
+#else
 static const char *const kSets[] = { "cninja", NULL };
 const arc_info arc_game = { "cninja", "Caveman Ninja", "Data East", 1991, W, H, FPS, RATE, kSets,
                             { "ATAQUE", "SALTO", NULL }, ARC_JOY_8WAY };
@@ -44,6 +84,7 @@ static const arc_rom kSprites[] = {{"mag-03.9y", 0x80000, 0x000000, 0x2220eb9f},
                                    {"mag-04.9z", 0x80000, 0x100000, 0x144b94cc}, {"mag-06.12z", 0x80000, 0x100001, 0x82d44749}};
 static const arc_rom kOki1[] = {{"gl-06.13j", 0x20000, 0, 0xd92e519d}};
 static const arc_rom kOki2[] = {{"mag-07.13f", 0x80000, 0, 0x08eb5264}};
+#endif
 #define NROM(k) ((int)(sizeof k / sizeof k[0]))
 
 static struct state {
@@ -54,13 +95,13 @@ static struct state {
     okim6295d oki1, oki2;
     deco146d prot;
     deco16ic tilegen[2];
-    deco16_gfx chars, tiles1, tiles2, sprites;
-    uint16_t rom[0x60000];
+    deco16_gfx chars, tiles1, tiles2, tiles2_8bpp, sprites;
+    uint16_t rom[ROM_END / 2];
     uint8_t sound_rom[0x10000], oki1_rom[0x20000], oki2_rom[0x80000];
     uint16_t ram[0x2000], sprite_buf[0x400], sprite_ram[0x400], pal_ram[0x1000];
     uint16_t palette[0x800];
     uint8_t sound_ram[0x2000];
-    uint16_t in0, in1, dsw;
+    uint16_t in0, in1, dsw, dsw_b, priority;
     uint8_t irq_mask, irq_line, sound_latch;
     bool raster_irq, flip_screen;
     uint32_t frames;
@@ -99,7 +140,7 @@ static void update_palette_entry(int i)
 static uint16_t main_read(uint32_t a)
 {
     a &= 0xffffff;
-    if (a < 0xc0000) return C.rom[a >> 1];
+    if (a < ROM_END) return C.rom[a >> 1];
     if (a >= 0x144000 && a < 0x145000) return C.tilegen[0].data[0][(a & 0xfff) >> 1];
     if (a >= 0x146000 && a < 0x147000) return C.tilegen[0].data[1][(a & 0xfff) >> 1];
     if (a >= 0x14c000 && a < 0x14c800) return C.tilegen[0].rowscroll[0][(a & 0x7ff) >> 1];
@@ -108,6 +149,24 @@ static uint16_t main_read(uint32_t a)
     if (a >= 0x156000 && a < 0x157000) return C.tilegen[1].data[1][(a & 0xfff) >> 1];
     if (a >= 0x15c000 && a < 0x15c800) return C.tilegen[1].rowscroll[0][(a & 0x7ff) >> 1];
     if (a >= 0x15e000 && a < 0x15e800) return C.tilegen[1].rowscroll[1][(a & 0x7ff) >> 1];
+#if ROBOCOP2
+    if (a >= 0x180000 && a < 0x180800) return C.sprite_buf[(a & 0x7ff) >> 1];
+    if (a >= 0x18c000 && a < 0x190000) return deco146d_read(&C.prot, prot_address(a - 0x18c000));
+    if (a >= 0x1a8000 && a < 0x1aa000) return C.pal_ram[(a & 0x1fff) >> 1];
+    if (a >= 0x1b0000 && a < 0x1b0008) {
+        switch ((a >> 1) & 7) {
+        case 1: return (uint16_t)C.scanline;
+        case 2:
+            m68kd_set_irq(&C.cpu, 3, M68_CLEAR);
+            m68kd_set_irq(&C.cpu, 4, M68_CLEAR);
+            return 0;
+        default: return 0;
+        }
+    }
+    if (a >= 0x1b8000 && a < 0x1bc000) return C.ram[(a & 0x3fff) >> 1];
+    if (a >= 0x1f8000 && a < 0x1f8002) return C.dsw_b;
+    return 0xffff;
+#else
     if (a >= 0x184000 && a < 0x188000) return C.ram[(a & 0x3fff) >> 1];
     if (a >= 0x190000 && a < 0x190008) {
         switch ((a >> 1) & 7) {
@@ -123,12 +182,37 @@ static uint16_t main_read(uint32_t a)
     if (a >= 0x1a4000 && a < 0x1a4800) return C.sprite_buf[(a & 0x7ff) >> 1];
     if (a >= 0x1bc000 && a < 0x1c0000) return deco146d_read(&C.prot, prot_address(a - 0x1bc000));
     return 0xffff;
+#endif
 }
+
+static void write_irq(uint32_t a, uint16_t v)
+{
+    switch ((a >> 1) & 7) {
+    case 0: C.irq_mask = (uint8_t)v; break;
+    case 1:
+        C.irq_line = (uint8_t)v;
+        C.raster_irq = C.irq_line > 0 && C.irq_line < 240 && (C.irq_mask & 2) == 0;
+        break;
+    default: break;
+    }
+}
+
+static void write_palette(size_t i, uint16_t v)
+{
+    if (C.pal_ram[i] != v) {
+        C.pal_ram[i] = v;
+        update_palette_entry((int)(i >> 1));
+    }
+}
+
+#if ROBOCOP2
+static void apply_robocop2_priority(void);
+#endif
 
 static void main_write(uint32_t a, uint16_t v)
 {
     a &= 0xffffff;
-    if (a < 0xc0000) return;
+    if (a < ROM_END) return;
     if (a >= 0x140000 && a < 0x140010) C.tilegen[0].control[((a & 0xf) >> 1) & 7] = v;
     else if (a >= 0x144000 && a < 0x145000) C.tilegen[0].data[0][(a & 0xfff) >> 1] = v;
     else if (a >= 0x146000 && a < 0x147000) C.tilegen[0].data[1][(a & 0xfff) >> 1] = v;
@@ -141,25 +225,27 @@ static void main_write(uint32_t a, uint16_t v)
     else if (a >= 0x156000 && a < 0x157000) C.tilegen[1].data[1][(a & 0xfff) >> 1] = v;
     else if (a >= 0x15c000 && a < 0x15c800) C.tilegen[1].rowscroll[0][(a & 0x7ff) >> 1] = v;
     else if (a >= 0x15e000 && a < 0x15e800) C.tilegen[1].rowscroll[1][(a & 0x7ff) >> 1] = v;
+#if ROBOCOP2
+    else if (a >= 0x180000 && a < 0x180800) C.sprite_buf[(a & 0x7ff) >> 1] = v;
+    else if (a >= 0x18c000 && a < 0x190000) deco146d_write(&C.prot, prot_address(a - 0x18c000), v, 0xffff);
+    else if (a >= 0x198000 && a < 0x198002) memcpy(C.sprite_ram, C.sprite_buf, sizeof C.sprite_ram);
+    else if (a >= 0x1a8000 && a < 0x1aa000) write_palette((a & 0x1fff) >> 1, v);
+    else if (a >= 0x1b0000 && a < 0x1b0008) write_irq(a, v);
+    else if (a >= 0x1b8000 && a < 0x1bc000) C.ram[(a & 0x3fff) >> 1] = v;
+    else if (a >= 0x1f0000 && a < 0x1f0002) {
+        if (C.priority != v) {
+            C.priority = v;
+            apply_robocop2_priority();
+        }
+    }
+#else
     else if (a >= 0x184000 && a < 0x188000) C.ram[(a & 0x3fff) >> 1] = v;
-    else if (a >= 0x190000 && a < 0x190008) {
-        switch ((a >> 1) & 7) {
-        case 0: C.irq_mask = (uint8_t)v; break;
-        case 1:
-            C.irq_line = (uint8_t)v;
-            C.raster_irq = C.irq_line > 0 && C.irq_line < 240 && (C.irq_mask & 2) == 0;
-            break;
-        default: break;
-        }
-    } else if (a >= 0x19c000 && a < 0x19e000) {
-        const size_t i = (a & 0x1fff) >> 1;
-        if (C.pal_ram[i] != v) {
-            C.pal_ram[i] = v;
-            update_palette_entry((int)(i >> 1));
-        }
-    } else if (a >= 0x1a4000 && a < 0x1a4800) C.sprite_buf[(a & 0x7ff) >> 1] = v;
+    else if (a >= 0x190000 && a < 0x190008) write_irq(a, v);
+    else if (a >= 0x19c000 && a < 0x19e000) write_palette((a & 0x1fff) >> 1, v);
+    else if (a >= 0x1a4000 && a < 0x1a4800) C.sprite_buf[(a & 0x7ff) >> 1] = v;
     else if (a >= 0x1b4000 && a < 0x1b4002) memcpy(C.sprite_ram, C.sprite_buf, sizeof C.sprite_ram);
     else if (a >= 0x1bc000 && a < 0x1c0000) deco146d_write(&C.prot, prot_address(a - 0x1bc000), v, 0xffff);
+#endif
 }
 
 static uint16_t cpu_rd(void *u, uint32_t a) { (void)u; return main_read(a); }
@@ -174,8 +260,8 @@ static void cpu_wr8(void *u, uint32_t a, uint8_t v)
 {
     (void)u;
     const uint32_t m = a & 0xffffff;
-    if (m >= 0x1bc000 && m < 0x1c0000) {        // (no read first: the reads have side effects)
-        deco146d_write(&C.prot, prot_address(m - 0x1bc000), (uint16_t)(v << 8 | v), (a & 1) ? 0x00ff : 0xff00);
+    if (m >= PROT_BASE && m < PROT_BASE + 0x4000) {   // (no read first: the reads have side effects)
+        deco146d_write(&C.prot, prot_address(m - PROT_BASE), (uint16_t)(v << 8 | v), (a & 1) ? 0x00ff : 0xff00);
         return;
     }
     const uint16_t w = main_read(a & ~1u);
@@ -265,7 +351,7 @@ static void ym_port(void *u, uint8_t v) { (void)u; C.oki2.bank_offset = (v & 1) 
 
 static void draw_sprites(int priority)
 {
-    const int global_x = 240, color_add = 0x300;
+    const int global_x = ROBOCOP2 ? 304 : 240, color_add = 0x300;
     for (int f = 0; f < 0x100; f++) {
         const uint16_t x0 = C.sprite_ram[f * 4 + 2];
         if (((x0 >> 8) & 0xc0) != priority) continue;
@@ -310,12 +396,32 @@ static void pf(int chip, int playfield, bool transparent)
 
 static void update_video(void)
 {
+#if ROBOCOP2
+    if ((C.priority & 4) == 0) {
+        for (int i = 0; i < W * H; i++) C.screen[i] = C.palette[0];
+        pf(1, 1, false);
+    } else {
+        draw_sprites(0xc0);                     // (drawn, then covered: as dsp-cpp)
+        for (int i = 0; i < W * H; i++) C.screen[i] = C.palette[0x200];
+    }
+    draw_sprites(0x80);
+    if (C.priority & 8) {
+        pf(0, 1, true);
+        draw_sprites(0x40);
+        pf(1, 0, true);
+    } else {
+        pf(1, 0, (C.priority & 4) == 0);
+        draw_sprites(0x40);
+        pf(0, 1, true);
+    }
+#else
     for (int i = 0; i < W * H; i++) C.screen[i] = C.palette[0];
     pf(1, 1, false);
     draw_sprites(0x80);
     pf(1, 0, true);
     draw_sprites(0x40);
     pf(0, 1, true);
+#endif
     draw_sprites(0);
     pf(0, 0, true);
     if (C.flip_screen) {
@@ -352,41 +458,71 @@ static bool load_interleaved(const arc_rom *list, int n, uint8_t *dst, uint32_t 
     return ok;
 }
 
+// each 512 KB ROM split into its 256 KB halves for the plane layout
+static void rearrange(const uint8_t *src, uint8_t *dst, int roms)
+{
+    static const uint32_t two[4][2] = {{0x00000, 0x00000}, {0x80000, 0x40000}, {0x40000, 0x80000}, {0xc0000, 0xc0000}};
+    static const uint32_t three[6][2] = {{0x00000, 0x00000}, {0xc0000, 0x40000}, {0x40000, 0x80000},
+                                         {0x100000, 0xc0000}, {0x80000, 0x100000}, {0x140000, 0x140000}};
+    for (int i = 0; i < roms * 2; i++) {
+        const uint32_t *m = roms == 2 ? two[i] : three[i];
+        memcpy(dst + m[0], src + m[1], 0x40000);
+    }
+}
+
+static bool decode16(deco16_gfx *g, const uint8_t *raw, size_t size, int total, int planes, const int *offs)
+{
+    arc_layout l = {16, 16, total, planes, 64 * 8, false, false, false, {0}, kX16, kY16};
+    for (int i = 0; i < planes; i++) l.plane_offsets[i] = offs[i];
+    *g = (deco16_gfx){arc_gfx_decode(&l, raw, size), total};
+    return g->px != NULL;
+}
+
 static bool load_gfx(void)
 {
-    uint8_t *raw = (uint8_t *)calloc(1, 0x200000), *gfx = (uint8_t *)calloc(1, 0x100000);
+    uint8_t *raw = (uint8_t *)calloc(1, 0x300000), *gfx = (uint8_t *)calloc(1, 0x180000);
     bool ok = raw && gfx;
     if (ok && (ok = load_interleaved(kChars, NROM(kChars), raw, 0x20000))) {
         const arc_layout l = {8, 8, 0x1000, 4, 16 * 8, false, false, false, {0x10000 * 8 + 8, 0x10000 * 8, 8, 0}, kX8, kY8};
         C.chars = (deco16_gfx){arc_gfx_decode(&l, raw, 0x20000), 0x1000};
         ok = C.chars.px != NULL;
     }
+    static const int p1[4] = {N_TILES1 * 512 + 8, N_TILES1 * 512, 8, 0}, p2[4] = {N_TILES2 * 512 + 8, N_TILES2 * 512, 8, 0};
+#if ROBOCOP2
+    if (ok) {
+        memset(raw, 0, 0x100000);
+        if ((ok = arc_load(kTiles1, NROM(kTiles1), raw, 0x100000))) {
+            rearrange(raw, gfx, 2);
+            ok = decode16(&C.tiles1, gfx, 0x100000, N_TILES1, 4, p1);
+        }
+    }
+    if (ok) {
+        memset(raw, 0, 0x180000);
+        if ((ok = arc_load(kTiles2, NROM(kTiles2), raw, 0x180000))) {
+            rearrange(raw, gfx, 3);
+            static const int p8[8] = {0x100000 * 8 + 8, 0x100000 * 8, 0x40000 * 8 + 8, 0x40000 * 8, 0xc0000 * 8 + 8, 0xc0000 * 8, 8, 0};
+            ok = decode16(&C.tiles2, gfx, 0x180000, N_TILES2, 4, p2) && decode16(&C.tiles2_8bpp, gfx, 0x180000, 0x1000, 8, p8);
+        }
+    }
+#else
     if (ok) {
         memset(raw, 0, 0x80000);
-        if ((ok = arc_load(kTiles1, NROM(kTiles1), raw, 0x80000))) {
-            const arc_layout l = {16, 16, 0x1000, 4, 64 * 8, false, false, false, {0x40000 * 8 + 8, 0x40000 * 8, 8, 0}, kX16, kY16};
-            C.tiles1 = (deco16_gfx){arc_gfx_decode(&l, raw, 0x80000), 0x1000};
-            ok = C.tiles1.px != NULL;
-        }
+        if ((ok = arc_load(kTiles1, NROM(kTiles1), raw, 0x80000))) ok = decode16(&C.tiles1, raw, 0x80000, N_TILES1, 4, p1);
     }
     if (ok) {
         memset(raw, 0, 0x100000);
         if ((ok = arc_load(kTiles2, NROM(kTiles2), raw, 0x100000))) {
-            memcpy(gfx + 0x00000, raw + 0x00000, 0x40000);   // (each 512 KB ROM split in halves)
-            memcpy(gfx + 0x80000, raw + 0x40000, 0x40000);
-            memcpy(gfx + 0x40000, raw + 0x80000, 0x40000);
-            memcpy(gfx + 0xc0000, raw + 0xc0000, 0x40000);
-            const arc_layout l = {16, 16, 0x2000, 4, 64 * 8, false, false, false, {0x80000 * 8 + 8, 0x80000 * 8, 8, 0}, kX16, kY16};
-            C.tiles2 = (deco16_gfx){arc_gfx_decode(&l, gfx, 0x100000), 0x2000};
-            ok = C.tiles2.px != NULL;
+            rearrange(raw, gfx, 2);
+            ok = decode16(&C.tiles2, gfx, 0x100000, N_TILES2, 4, p2);
         }
     }
+#endif
     free(gfx);
     if (ok) {
-        memset(raw, 0, 0x200000);
-        if ((ok = load_interleaved(kSprites, NROM(kSprites), raw, 0x200000))) {
-            const arc_layout l = {16, 16, 0x4000, 4, 128 * 8, false, false, false, {16, 0, 24, 8}, kSprX, kSprY};
-            C.sprites = (deco16_gfx){arc_gfx_decode(&l, raw, 0x200000), 0x4000};
+        memset(raw, 0, N_SPRITES * 128);
+        if ((ok = load_interleaved(kSprites, NROM(kSprites), raw, N_SPRITES * 128))) {
+            const arc_layout l = {16, 16, N_SPRITES, 4, 128 * 8, false, false, false, {16, 0, 24, 8}, kSprX, kSprY};
+            C.sprites = (deco16_gfx){arc_gfx_decode(&l, raw, N_SPRITES * 128), N_SPRITES};
             ok = C.sprites.px != NULL;
         }
     }
@@ -394,7 +530,11 @@ static bool load_gfx(void)
     return ok;
 }
 
-static int cninja_bank(int bank) { return ((bank >> 4) & 0xf) != 0 ? 0 : 0x1000; }
+#if ROBOCOP2
+static int tile_bank(int bank) { return (bank & 0x30) << 8; }
+#else
+static int tile_bank(int bank) { return ((bank >> 4) & 0xf) != 0 ? 0 : 0x1000; }
+#endif
 
 static void configure_tilegens(void)
 {
@@ -404,26 +544,41 @@ static void configure_tilegens(void)
     l.gfx16 = &C.tiles1;
     C.tilegen[0].layers[0] = l;
     l.color_bank = 16;
+#if ROBOCOP2
+    l.bank = tile_bank;
+#endif
     C.tilegen[0].layers[1] = l;
     deco16ic_layer_defaults(&l);                // chip 1: the chars and tiles2, base 0x200, banked
     l.gfx8 = &C.chars;
     l.gfx16 = &C.tiles2;
     l.color_base16 = 0x200;
-    l.bank = cninja_bank;
+    l.bank = tile_bank;
     C.tilegen[1].layers[0] = l;
     l.color_bank = 48;
     C.tilegen[1].layers[1] = l;
 }
 
+#if ROBOCOP2
+static void apply_robocop2_priority(void)     // bit 2: the second chip's 16x16 tiles at 8 bpp
+{
+    const bool use_8bpp = (C.priority & 4) != 0;
+    for (int p = 0; p < 2; p++) {
+        deco16_layer *l = &C.tilegen[1].layers[p];
+        l->gfx16 = use_8bpp ? &C.tiles2_8bpp : &C.tiles2;
+        l->color_mask16 = use_8bpp ? 0 : 0x0f;
+    }
+}
+#endif
+
 bool arc_init(void)
 {
     if (!(C_ = (struct state *)calloc(1, sizeof(struct state)))) return false;
-    uint8_t *image = (uint8_t *)malloc(0xc0000);
+    uint8_t *image = (uint8_t *)malloc(ROM_END);
     bool ok = image != NULL;
     if (ok) {
-        memset(image, 0xff, 0xc0000);
-        if ((ok = load_interleaved(kProgram, NROM(kProgram), image, 0xc0000)))
-            for (int i = 0; i < 0x60000; i++) C.rom[i] = (uint16_t)(image[2 * i] << 8 | image[2 * i + 1]);
+        memset(image, 0xff, ROM_END);
+        if ((ok = load_interleaved(kProgram, NROM(kProgram), image, ROM_END)))
+            for (int i = 0; i < ROM_END / 2; i++) C.rom[i] = (uint16_t)(image[2 * i] << 8 | image[2 * i + 1]);
         free(image);
     }
     memset(C.sound_rom, 0xff, sizeof C.sound_rom);
@@ -447,12 +602,17 @@ bool arc_init(void)
     C.ym2151.port_handler = ym_port;
     okid_init(&C.oki1, SOUND_XTAL / 32, true, C.oki1_rom, sizeof C.oki1_rom);
     okid_init(&C.oki2, SOUND_XTAL / 16, true, C.oki2_rom, sizeof C.oki2_rom);
-    deco146d_init(&C.prot, DECO104, DECO146_MAGIC_ADDRESS_XOR);
+    deco146d_init(&C.prot, ROBOCOP2 ? DECO146 : DECO104, DECO146_MAGIC_ADDRESS_XOR);
     C.prot.port_a = port_a;
     C.prot.port_b = port_b;
     C.prot.port_c = port_c;
     C.prot.soundlatch = soundlatch;
+#if ROBOCOP2
+    C.dsw = 0x7fbf;
+    C.dsw_b = 0x00ff;
+#else
     C.dsw = 0x7fff;
+#endif
     configure_tilegens();
     arc_reset();
     return true;
@@ -472,6 +632,10 @@ void arc_reset(void)
     C.in0 = 0xffff;
     C.in1 = 0x00f7;
     C.irq_mask = C.irq_line = C.sound_latch = 0;
+    C.priority = 0;
+#if ROBOCOP2
+    apply_robocop2_priority();
+#endif
     C.raster_irq = C.flip_screen = false;
     C.scanline = 0;
     C.main_debt = C.sound_debt = 0;
