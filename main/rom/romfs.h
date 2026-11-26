@@ -86,6 +86,9 @@ void romfs_missing(const char *const *sets, const char *what);
 char *romfs_describe(char *buf, size_t n, int cols);
 // Frees the cached .zip directory (after a machine's ROMs are loaded).
 void romfs_release(void);
+// Calls fn for each file of `set` (its .zip in a ROM folder, else the folder
+// `set` of one): the number of files, 0 when there is no such set.
+int romfs_list_set(const char *set, void (*fn)(void *user, const char *name), void *user);
 
 uint32_t romfs_crc32(uint32_t crc, const void *data, size_t n);
 

@@ -416,6 +416,37 @@ static uint8_t *find_one(const char *dir, const char *set, const char *name, uin
     return NULL;
 }
 
+// The files of one set (its .zip, else its folder), for the boards whose ROM
+// names are not fixed (the NeoGeo carts): fn is called for each name.
+typedef struct { void (*fn)(void *user, const char *name); void *user; int n; } list_ctx;
+static void list_one(void *user, const char *name)
+{
+    list_ctx *c = (list_ctx *)user;
+    size_t l = strlen(name);
+    if (l > 4 && same_name(name + l - 4, ".zip")) return;
+    c->fn(c->user, name);
+    c->n++;
+}
+
+int romfs_list_set(const char *set, void (*fn)(void *user, const char *name), void *user)
+{
+    defaults();
+    for (int d = 0; d < ndirs; d++) {
+        char path[PATH_MAX_], zname[PATH_MAX_];
+        snprintf(zname, sizeof zname, "%s.zip", set);
+        join(path, dirs[d], "", zname);
+        if (zip_dir(path) && zc.n > 0) {
+            for (int i = 0; i < zc.n; i++) fn(user, zc.e[i].name);
+            return zc.n;
+        }
+        list_ctx c = {fn, user, 0};
+        join(path, dirs[d], set, "");
+        if (path[0] && path[strlen(path) - 1] == '/') path[strlen(path) - 1] = 0;
+        if (the_io()->list && the_io()->list(path, list_one, &c) && c.n > 0) return c.n;
+    }
+    return 0;
+}
+
 #ifdef ROMFS_SD
 #include "romfs_sd.h"
 #endif
