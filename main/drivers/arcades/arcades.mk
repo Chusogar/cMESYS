@@ -13,7 +13,7 @@ ARC_BIG := pirates
 # the CYD builds of these keep their ROMs and graphics in the flash (the arccache
 # partition, filled from the microSD on the first boot: partitions_arccache.csv)
 ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght chinagat ddragon ddragon2 kungfum darwin combh robowres
-ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber depthch safari frogs sspaceat sspacaho headon headon2 headon2s invho2 nsub samurai invinco invds tranqgun spacetrk carnival brdrline digger pulsar heiankyo alphaho asteroid baraduke metrocrs punchout shuuz skullxbo ikari athena tnk3 aso actfancr
+ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber depthch safari frogs sspaceat sspacaho headon headon2 headon2s invho2 nsub samurai invinco invds tranqgun spacetrk carnival brdrline digger pulsar heiankyo alphaho asteroid baraduke metrocrs punchout shuuz skullxbo ikari athena tnk3 aso actfancr sentetst cshift hattrick gghost otwalls snakepit triviag1 snakjack stocker triviabb triviag2 triviayp triviasp gimeabrk minigolf teamht grudge triviaes toggle nstocker sfootbal spiker stompin nametune rescraid
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
 ARC_SRC_calorie := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -223,6 +223,56 @@ ARC_DEFS_tnk3 := ARC_VARIANT=2
 ARC_SRC_aso := drivers/arcades/snk/snk.c cpu/z80dsp/z80dsp.c sound/ym3812dsp.c
 ARC_DEFS_aso := ARC_VARIANT=3
 ARC_SRC_actfancr := drivers/arcades/actfancr/actfancr.c cpu/hu6280dsp/hu6280dsp.c cpu/m6502/m65xx.c sound/ym3812dsp.c sound/ym2203dsp.c sound/fmopn.c sound/ay8910.c sound/okim6295dsp.c video/deco_bac06d.c
+ARC_SRC_sentetst := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_sentetst := ARC_VARIANT=0
+ARC_SRC_cshift := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_cshift := ARC_VARIANT=1
+ARC_SRC_hattrick := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_hattrick := ARC_VARIANT=2
+ARC_SRC_gghost := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_gghost := ARC_VARIANT=3
+ARC_SRC_otwalls := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_otwalls := ARC_VARIANT=4
+ARC_SRC_snakepit := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_snakepit := ARC_VARIANT=5
+ARC_SRC_triviag1 := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_triviag1 := ARC_VARIANT=6
+ARC_SRC_snakjack := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_snakjack := ARC_VARIANT=7
+ARC_SRC_stocker := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_stocker := ARC_VARIANT=8
+ARC_SRC_triviabb := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_triviabb := ARC_VARIANT=9
+ARC_SRC_triviag2 := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_triviag2 := ARC_VARIANT=10
+ARC_SRC_triviayp := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_triviayp := ARC_VARIANT=11
+ARC_SRC_triviasp := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_triviasp := ARC_VARIANT=12
+ARC_SRC_gimeabrk := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_gimeabrk := ARC_VARIANT=13
+ARC_SRC_minigolf := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_minigolf := ARC_VARIANT=14
+ARC_SRC_teamht := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_teamht := ARC_VARIANT=15
+ARC_SRC_grudge := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_grudge := ARC_VARIANT=16
+ARC_SRC_triviaes := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_triviaes := ARC_VARIANT=17
+ARC_SRC_toggle := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_toggle := ARC_VARIANT=18
+ARC_SRC_nstocker := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_nstocker := ARC_VARIANT=19
+ARC_SRC_sfootbal := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_sfootbal := ARC_VARIANT=20
+ARC_SRC_spiker := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_spiker := ARC_VARIANT=21
+ARC_SRC_stompin := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_stompin := ARC_VARIANT=22
+ARC_SRC_nametune := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_nametune := ARC_VARIANT=23
+ARC_SRC_rescraid := drivers/arcades/balsente/balsente.c cpu/m6809dsp/m6809dsp.c cpu/z80dsp/z80dsp.c sound/cem3394d.c
+ARC_DEFS_rescraid := ARC_VARIANT=24
 ARC_RAM_bombjack := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_calorie := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_mrdo := z80dsp.c.o mrdo.c.o sn76496.c.o
@@ -345,3 +395,28 @@ ARC_RAM_athena := z80dsp.c.o snk.c.o ym3812dsp.c.o
 ARC_RAM_tnk3 := z80dsp.c.o snk.c.o ym3812dsp.c.o
 ARC_RAM_aso := z80dsp.c.o snk.c.o ym3812dsp.c.o
 ARC_RAM_actfancr := hu6280dsp.c.o m65xx.c.o actfancr.c.o deco_bac06d.c.o ym3812dsp.c.o ym2203dsp.c.o fmopn.c.o okim6295dsp.c.o
+ARC_RAM_sentetst := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_cshift := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_hattrick := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_gghost := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_otwalls := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_snakepit := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_triviag1 := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_snakjack := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_stocker := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_triviabb := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_triviag2 := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_triviayp := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_triviasp := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_gimeabrk := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_minigolf := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_teamht := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_grudge := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_triviaes := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_toggle := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_nstocker := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_sfootbal := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_spiker := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_stompin := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_nametune := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
+ARC_RAM_rescraid := m6809dsp.c.o z80dsp.c.o balsente.c.o cem3394d.c.o
