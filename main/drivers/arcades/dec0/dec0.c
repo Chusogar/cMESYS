@@ -180,7 +180,7 @@ static struct state {
     int main_debt, sound_debt, mcu_debt;
     uint32_t frames;
     int64_t audio_acc;
-    int16_t audio[1024];
+    int16_t audio[4096];
     int naudio;
     uint16_t fb[W * H];
 } *D_;
@@ -223,7 +223,7 @@ static void generate_audio(int cycles, uint32_t clock)
     while (D.audio_acc >= clock) {
         D.audio_acc -= clock;
         const int32_t s = ym3812d_update(&D.ym3812) + ym2203d_update(&D.ym2203) + okid_update(&D.oki);
-        if (D.naudio < 1024) D.audio[D.naudio++] = arc_clamp16(s);
+        if (D.naudio < 4096) D.audio[D.naudio++] = arc_clamp16(s);
     }
 }
 
