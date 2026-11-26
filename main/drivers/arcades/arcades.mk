@@ -9,11 +9,11 @@
 # <set>.zip), not built in.
 # ARC_BIG: those that need more than the 4-8 MB of the VGA32 / RP2350 (desktop,
 # web and Android only)
-ARC_BIG := pirates simpsons baddudes hippodrm slyspy bouldash drgninja secretag cninja boogwing robocop2 paperboy ssprint apb 720 hangon enduror sharrier fantzone shinobi s16tetris altbeast alexkidd aliensyn wb3 goldnaxe ddux eswat passsht aurail riotcity sdi cotton bayroute sonicbom timescan
+ARC_BIG := pirates simpsons baddudes hippodrm slyspy bouldash drgninja secretag cninja boogwing robocop2 paperboy ssprint apb 720 hangon enduror sharrier fantzone shinobi s16tetris altbeast alexkidd aliensyn wb3 goldnaxe ddux eswat passsht aurail riotcity sdi cotton bayroute sonicbom timescan astorm bloxeed cltchitr ddcrew desertbr hamaway lghost mwalk shdancer wwallyj aburner2 aburner
 # the CYD builds of these keep their ROMs and graphics in the flash (the arccache
 # partition, filled from the microSD on the first boot: partitions_arccache.csv)
 ARC_FLASH := bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght chinagat ddragon ddragon2 kungfum darwin combh robowres
-ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber depthch safari frogs sspaceat sspacaho headon headon2 headon2s invho2 nsub samurai invinco invds tranqgun spacetrk carnival brdrline digger pulsar heiankyo alphaho asteroid baraduke metrocrs punchout shuuz skullxbo ikari athena tnk3 aso actfancr sentetst cshift hattrick gghost otwalls snakepit triviag1 snakjack stocker triviabb triviag2 triviayp triviasp gimeabrk minigolf teamht grudge triviaes toggle nstocker sfootbal spiker stompin nametune rescraid aliens ajax simpsons baddudes hippodrm slyspy bouldash drgninja secretag cninja boogwing robocop2 paperboy ssprint apb 720 hangon enduror sharrier fantzone shinobi s16tetris altbeast alexkidd aliensyn wb3 goldnaxe ddux eswat passsht aurail riotcity sdi cotton bayroute sonicbom timescan
+ARCADES := bombjack calorie mrdo centiped milliped arkanoid minivadr commando gng blktiger bionicc atetris bagman ambush blueprnt btime shaolins mikie galaxian galaga pirates blockout bublbobl renegade bankp citycon brkthru appoooh tehkanwc tigerh wboy pitfall2 teddybb mrviking seganinj upndown flicky gardia slapfght wwfsstar shadoww chinagat ddragon ddragon2 armedf terraf cclimbr2 legion kungfum spelunkr spelunk2 ldrun ldrun2 rtype hharry rtype2 opwolf lnc mmonkey darwin saturnzi grasspin robowres combh mooncrst scramble frogger cabal bloodbro skysmash arabian digdug xevious sxevious bosco defender mayday colony7 joust robotron stargate elevator junglek tapper tron shollow domino wacko dotron timber depthch safari frogs sspaceat sspacaho headon headon2 headon2s invho2 nsub samurai invinco invds tranqgun spacetrk carnival brdrline digger pulsar heiankyo alphaho asteroid baraduke metrocrs punchout shuuz skullxbo ikari athena tnk3 aso actfancr sentetst cshift hattrick gghost otwalls snakepit triviag1 snakjack stocker triviabb triviag2 triviayp triviasp gimeabrk minigolf teamht grudge triviaes toggle nstocker sfootbal spiker stompin nametune rescraid aliens ajax simpsons baddudes hippodrm slyspy bouldash drgninja secretag cninja boogwing robocop2 paperboy ssprint apb 720 hangon enduror sharrier fantzone shinobi s16tetris altbeast alexkidd aliensyn wb3 goldnaxe ddux eswat passsht aurail riotcity sdi cotton bayroute sonicbom timescan astorm bloxeed cltchitr ddcrew desertbr hamaway lghost mwalk shdancer wwallyj aburner2 aburner
 ARC_COMMON := drivers/arcades/common/arc_util.c rom/romfs.c machine/zx_inflate.c
 ARC_SRC_bombjack := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
 ARC_SRC_calorie := drivers/arcades/bombjack/bombjack.c cpu/z80dsp/z80dsp.c sound/ay8910.c machine/sega_decrypt.c
@@ -333,6 +333,29 @@ ARC_SRC_sonicbom := drivers/arcades/system16/system16.c cpu/m68kdsp/m68kdsp.c cp
 ARC_DEFS_sonicbom := ARC_VARIANT=16
 ARC_SRC_timescan := drivers/arcades/system16/system16.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c cpu/mcs48/mcs48.c machine/i8255dsp.c machine/fd1089d.c machine/fd1094d.c sound/ym2151.c sound/upd7759d.c video/sega16d.c
 ARC_DEFS_timescan := ARC_VARIANT=17
+ARC_SRC_astorm := drivers/arcades/system18/system18.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/fd1094d.c machine/sega5195d.c machine/sega5296d.c sound/ym2612.c sound/fmopn.c sound/rf5c68d.c sound/sn76496.c video/sega16d.c video/sega_315_5313.c
+ARC_DEFS_astorm := ARC_VARIANT=0
+ARC_SRC_bloxeed := drivers/arcades/system18/system18.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/fd1094d.c machine/sega5195d.c machine/sega5296d.c sound/ym2612.c sound/fmopn.c sound/rf5c68d.c sound/sn76496.c video/sega16d.c video/sega_315_5313.c
+ARC_DEFS_bloxeed := ARC_VARIANT=1
+ARC_SRC_cltchitr := drivers/arcades/system18/system18.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/fd1094d.c machine/sega5195d.c machine/sega5296d.c sound/ym2612.c sound/fmopn.c sound/rf5c68d.c sound/sn76496.c video/sega16d.c video/sega_315_5313.c
+ARC_DEFS_cltchitr := ARC_VARIANT=2
+ARC_SRC_ddcrew := drivers/arcades/system18/system18.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/fd1094d.c machine/sega5195d.c machine/sega5296d.c sound/ym2612.c sound/fmopn.c sound/rf5c68d.c sound/sn76496.c video/sega16d.c video/sega_315_5313.c
+ARC_DEFS_ddcrew := ARC_VARIANT=3
+ARC_SRC_desertbr := drivers/arcades/system18/system18.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/fd1094d.c machine/sega5195d.c machine/sega5296d.c sound/ym2612.c sound/fmopn.c sound/rf5c68d.c sound/sn76496.c video/sega16d.c video/sega_315_5313.c
+ARC_DEFS_desertbr := ARC_VARIANT=4
+ARC_SRC_hamaway := drivers/arcades/system18/system18.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/fd1094d.c machine/sega5195d.c machine/sega5296d.c sound/ym2612.c sound/fmopn.c sound/rf5c68d.c sound/sn76496.c video/sega16d.c video/sega_315_5313.c
+ARC_DEFS_hamaway := ARC_VARIANT=5
+ARC_SRC_lghost := drivers/arcades/system18/system18.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/fd1094d.c machine/sega5195d.c machine/sega5296d.c sound/ym2612.c sound/fmopn.c sound/rf5c68d.c sound/sn76496.c video/sega16d.c video/sega_315_5313.c
+ARC_DEFS_lghost := ARC_VARIANT=6
+ARC_SRC_mwalk := drivers/arcades/system18/system18.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/fd1094d.c machine/sega5195d.c machine/sega5296d.c sound/ym2612.c sound/fmopn.c sound/rf5c68d.c sound/sn76496.c video/sega16d.c video/sega_315_5313.c
+ARC_DEFS_mwalk := ARC_VARIANT=7
+ARC_SRC_shdancer := drivers/arcades/system18/system18.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/fd1094d.c machine/sega5195d.c machine/sega5296d.c sound/ym2612.c sound/fmopn.c sound/rf5c68d.c sound/sn76496.c video/sega16d.c video/sega_315_5313.c
+ARC_DEFS_shdancer := ARC_VARIANT=9
+ARC_SRC_wwallyj := drivers/arcades/system18/system18.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c cpu/mcs51dsp/mcs51dsp.c machine/fd1094d.c machine/sega5195d.c machine/sega5296d.c sound/ym2612.c sound/fmopn.c sound/rf5c68d.c sound/sn76496.c video/sega16d.c video/sega_315_5313.c
+ARC_DEFS_wwallyj := ARC_VARIANT=10
+ARC_SRC_aburner2 := drivers/arcades/xboard/xboard.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c sound/ym2151.c sound/segapcmd.c video/sega16d.c
+ARC_SRC_aburner := drivers/arcades/xboard/xboard.c cpu/m68kdsp/m68kdsp.c cpu/z80dsp/z80dsp.c sound/ym2151.c sound/segapcmd.c video/sega16d.c
+ARC_DEFS_aburner := ARC_VARIANT=1
 ARC_RAM_bombjack := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_calorie := z80dsp.c.o bombjack.c.o ay8910.c.o
 ARC_RAM_mrdo := z80dsp.c.o mrdo.c.o sn76496.c.o

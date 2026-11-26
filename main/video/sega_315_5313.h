@@ -21,6 +21,7 @@ typedef struct {
     void (*vint)(void *user, bool on);
     void (*z80_irq)(void *user, bool on);
     uint16_t (*dma_read)(void *user, uint32_t addr);
+    void (*cram_write)(void *user, int index, uint16_t value);   // (optional: System 18's shared palette)
     void *user;
     sn76496 psg;
     bool pal, vblank_flag, sprite_collision, sprite_overflow, command_pending;
@@ -36,6 +37,7 @@ typedef struct {
     uint32_t palette[64];            // 0xRRGGBB
     uint16_t line[MD_VDP_W];         // RGB565
     uint8_t line_backdrop[MD_VDP_W]; // 1: backdrop (the 32X shows through)
+    uint16_t line_raw[MD_VDP_W];     // bit 8: not backdrop, bits 0-5: the colour index
 } md_vdp;
 
 void md_vdp_init(md_vdp *v, bool pal, int psg_rate);   // (callbacks set first)

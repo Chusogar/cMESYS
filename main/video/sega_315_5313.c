@@ -94,6 +94,7 @@ static void write_cram_word(md_vdp *v, uint16_t value) {
     int i = (v->vdp_address >> 1) & 0x3f;
     v->cram[i] = value & 0x0eee;
     v->palette[i] = cram_to_rgb(v->cram[i]);
+    if (v->cram_write) v->cram_write(v->user, i, v->cram[i]);
     increment_address(v);
 }
 
@@ -436,6 +437,7 @@ static void render_line(md_vdp *v, int line) {
     uint16_t bd = to565(v->palette[backdrop]);
     for (int x = 0; x < MD_VDP_W; x++) v->line[x] = bd;
     memset(v->line_backdrop, 1, sizeof v->line_backdrop);
+    memset(v->line_raw, 0, sizeof v->line_raw);
     for (int x = 0; x < width; x++) {
         uint8_t color = backdrop, layer_pri = 0;
         bool is_sprite = false, drawn = false;
@@ -467,6 +469,7 @@ static void render_line(md_vdp *v, int line) {
         }
         v->line[left + x] = to565(palette_rgb(v, color, shadow, highlight));
         v->line_backdrop[left + x] = drawn ? 0 : 1;
+        v->line_raw[left + x] = drawn ? (uint16_t)(0x100 | (color & 0x3f)) : 0;   // (MAME's render_line_raw)
     }
 }
 
