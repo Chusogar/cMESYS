@@ -8,10 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
-#include "../../../cpu/m68k/m68k.h"
+#include "../../../cpu/m68kdsp/m68kdsp.h"
 #include "../../../cpu/z80dsp/z80dsp.h"
 #include "../../../sound/ym2151.h"
 #include "../../../sound/okim6295dsp.h"
+
+static m68kd cpu;
 
 #define MAIN_CLOCK 10000000
 #define SOUND_CLOCK 3579545
@@ -60,20 +62,18 @@ static struct state {
     uint8_t soundlatch, dsw_a, dsw_b, p1, p2, coins;
     bool vblank, flip;
     uint8_t irq_pending;                 // bit n: 68000 IRQ level n asserted
-    double main_debt, sound_debt;
-    int64_t audio_acc, oki_acc;
-    int32_t last_oki;
+    int64_t audio_acc;
     int16_t audio[1024];
     int naudio;
 } *S_;
 #define S (*S_)
 
-static void update_irq(void) { m68k_set_irq((S.irq_pending & 0x40) ? 6 : (S.irq_pending & 0x20) ? 5 : 0); }
+static void update_irq(void)
+{
+    m68kd_set_irq(&cpu, 6, (S.irq_pending & 0x40) ? M68_ASSERT : M68_CLEAR);
+    m68kd_set_irq(&cpu, 5, (S.irq_pending & 0x20) ? M68_ASSERT : M68_CLEAR);
+}
 
-void cpu_pulse_reset(void) {}
-void cpu_instr_callback(unsigned int pc) { (void)pc; }
-void cpu_set_fc(int fc) { (void)fc; }
-int cpu_irq_ack(int level) { (void)level; return M68K_INT_ACK_AUTOVECTOR; }
 
 static uint16_t read16(uint32_t a)
 {
@@ -125,20 +125,8 @@ static void write16(uint32_t a, uint16_t v)
 }
 
 // (the byte accesses as dsp-cpp's word bus: a word read, a word write)
-unsigned int m68k_read_memory_8(unsigned int a) { const uint16_t w = read16(a & ~1u); return (a & 1) ? w & 0xff : w >> 8; }
-unsigned int m68k_read_memory_16(unsigned int a) { return read16(a); }
-unsigned int m68k_read_memory_32(unsigned int a) { return (unsigned)read16(a) << 16 | read16(a + 2); }
-void m68k_write_memory_8(unsigned int a, unsigned int v)
-{
-    const uint16_t w = read16(a & ~1u);
-    write16(a & ~1u, (a & 1) ? (uint16_t)((w & 0xff00) | (v & 0xff)) : (uint16_t)((w & 0xff) | (v & 0xff) << 8));
-}
-void m68k_write_memory_16(unsigned int a, unsigned int v) { write16(a, (uint16_t)v); }
-void m68k_write_memory_32(unsigned int a, unsigned int v)
-{
-    write16(a, (uint16_t)(v >> 16));
-    write16(a + 2, (uint16_t)v);
-}
+static uint16_t cpu_rd(void *u_, uint32_t a) { (void)u_; return read16(a); }
+static void cpu_wr(void *u_, uint32_t a, uint16_t v) { (void)u_; write16(a, (uint16_t)v); }
 
 static uint8_t sound_read(void *u, uint16_t a)
 {
@@ -164,21 +152,6 @@ static uint8_t in_ff(void *u, uint16_t p) { (void)u, (void)p; return 0xff; }
 static void out_nop(void *u, uint16_t p, uint8_t v) { (void)u, (void)p, (void)v; }
 static void ym_irq(void *u, bool on) { (void)u; zd_set_irq(&S.sound, on ? ZD_ASSERT : ZD_CLEAR, 0xff); }
 
-static void sound_cycles(int c)
-{
-    ym2151_run_timers(&S.ym, c);
-    S.oki_acc += (int64_t)c * okid_sample_frequency(&S.oki);
-    while (S.oki_acc >= SOUND_CLOCK) {
-        S.oki_acc -= SOUND_CLOCK;
-        S.last_oki = okid_update(&S.oki);
-    }
-    S.audio_acc += (int64_t)c * RATE;
-    while (S.audio_acc >= SOUND_CLOCK) {
-        S.audio_acc -= SOUND_CLOCK;
-        const int32_t s = ym2151_update(&S.ym) + S.last_oki / 2;
-        if (S.naudio < 1024) S.audio[S.naudio++] = arc_clamp16(s);
-    }
-}
 
 // an element straight from its ROM onto the picture
 static void blit(const arc_layout *l, const uint8_t *rom, size_t len, int code, int base, int dx, int dy, bool fx,
@@ -278,8 +251,9 @@ bool arc_init(void)
     ym2151_init(&S.ym, SOUND_CLOCK, RATE);
     S.ym.irq_handler = ym_irq;
     okid_init(&S.oki, OKI_CLOCK, true, S.oki_rom, 0x40000);
-    m68k_init();
-    m68k_set_cpu_type(M68K_CPU_TYPE_68000);
+    m68kd_init(&cpu, MAIN_CLOCK, M68K_T_68000);
+    cpu.read_word = cpu_rd;
+    cpu.write_word = cpu_wr;
     S.dsw_a = S.dsw_b = 0xff;
     arc_reset();
     return true;
@@ -300,11 +274,8 @@ void arc_reset(void)
     S.p1 = S.p2 = 0xff;
     S.coins = 0xfe;
     S.irq_pending = 0;
-    S.main_debt = S.sound_debt = 0;
-    S.audio_acc = S.oki_acc = 0;
-    S.last_oki = 0;
-    m68k_pulse_reset();
-    m68k_set_irq(0);
+    S.audio_acc = 0;
+    m68kd_reset(&cpu);
     zd_reset(&S.sound);
     ym2151_reset(&S.ym);
     okid_reset(&S.oki);
@@ -312,7 +283,7 @@ void arc_reset(void)
 
 int arc_run_frame(const int16_t **audio)
 {
-    const double mc = MAIN_CLOCK / FPS / SCANLINES, sc = SOUND_CLOCK / FPS / SCANLINES;
+    const int mc = (int)((double)MAIN_CLOCK / FPS / SCANLINES), sc = (int)((double)SOUND_CLOCK / FPS / SCANLINES);
     S.naudio = 0;
     for (int line = 0; line < SCANLINES; line++) {
         if (line == 0) S.vblank = false;
@@ -325,12 +296,14 @@ int arc_run_frame(const int16_t **audio)
             S.irq_pending |= 0x20;
             update_irq();
         }
-        S.main_debt += mc;
-        if ((int)S.main_debt > 0) S.main_debt -= m68k_execute((int)S.main_debt);
-        S.sound_debt += sc;
-        const int done = zd_run(&S.sound, (int)S.sound_debt);
-        S.sound_debt -= done;
-        sound_cycles(done);
+        m68kd_run(&cpu, mc);                        // (as dsp-cpp: whole lines, no carry)
+        zd_run(&S.sound, sc);
+        ym2151_run_timers(&S.ym, sc);
+        S.audio_acc += (int64_t)sc * RATE;
+        while (S.audio_acc >= SOUND_CLOCK) {
+            S.audio_acc -= SOUND_CLOCK;
+            if (S.naudio < 1024) S.audio[S.naudio++] = arc_clamp16(ym2151_update(&S.ym) + okid_update(&S.oki) / 2);
+        }
     }
     if (audio) *audio = S.audio;
     return S.naudio;

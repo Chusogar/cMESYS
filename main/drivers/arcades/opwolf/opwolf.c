@@ -10,10 +10,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
-#include "../../../cpu/m68k/m68k.h"
+#include "../../../cpu/m68kdsp/m68kdsp.h"
 #include "../../../cpu/z80dsp/z80dsp.h"
 #include "../../../sound/ym2151.h"
 #include "../../../sound/msm5205dsp.h"
+
+static m68kd cpu;
 
 #define MAIN_CLOCK 8000000
 #define SOUND_CLOCK 4000000
@@ -515,10 +517,6 @@ static void cc_update(void)
 // ---------------------------------------------------------------------------
 // The 68000
 
-void cpu_pulse_reset(void) {}
-void cpu_instr_callback(unsigned int pc) { (void)pc; }
-void cpu_set_fc(int fc) { (void)fc; }
-int cpu_irq_ack(int level) { (void)level; m68k_set_irq(0); return M68K_INT_ACK_AUTOVECTOR; }   // (held for one)
 
 static uint8_t pal5(unsigned v) { v &= 0x1f; return (uint8_t)((v << 3) | (v >> 2)); }
 static void set_color(int i, uint16_t v)
@@ -588,28 +586,24 @@ static void write16(uint32_t a, uint16_t v)
 }
 
 // (the TC0140SYT's bytes alone: a read-modify-write would take a nibble)
-unsigned int m68k_read_memory_8(unsigned int a)
+static uint8_t cpu_rd8(void *u_, uint32_t a)
 {
+    (void)u_;
     if ((a & 0xfffffe) == 0x3e0002) return (a & 1) ? 0 : syt_comm_r();
     const uint16_t w = read16(a & ~1u);
     return (a & 1) ? w & 0xff : w >> 8;
 }
-unsigned int m68k_read_memory_16(unsigned int a) { return read16(a); }
-unsigned int m68k_read_memory_32(unsigned int a) { return (unsigned)read16(a) << 16 | read16(a + 2); }
-void m68k_write_memory_8(unsigned int a, unsigned int v)
+static uint16_t cpu_rd(void *u_, uint32_t a) { (void)u_; return read16(a); }
+static void cpu_wr8(void *u_, uint32_t a, uint8_t v)
 {
+    (void)u_;
     a &= 0xffffff;
     if ((a & ~1u) == 0x3e0000) { if (!(a & 1)) O.syt.main_mode = v & 0x0f; return; }
     if ((a & ~1u) == 0x3e0002) { if (!(a & 1)) syt_comm_w((uint8_t)v); return; }
     const uint16_t w = read16(a & ~1u);
     write16(a & ~1u, (a & 1) ? (uint16_t)((w & 0xff00) | (v & 0xff)) : (uint16_t)((w & 0xff) | (v & 0xff) << 8));
 }
-void m68k_write_memory_16(unsigned int a, unsigned int v) { write16(a, (uint16_t)v); }
-void m68k_write_memory_32(unsigned int a, unsigned int v)
-{
-    write16(a, (uint16_t)(v >> 16));
-    write16(a + 2, (uint16_t)v);
-}
+static void cpu_wr(void *u_, uint32_t a, uint16_t v) { (void)u_; write16(a, (uint16_t)v); }
 
 // ---------------------------------------------------------------------------
 // Sound
@@ -795,8 +789,11 @@ bool arc_init(void)
     msm5205d_init(&O.msm1, MSM_CLOCK, 48, 4);
     O.msm0.rom = O.msm1.rom = O.adpcm;
     O.msm0.rom_size = O.msm1.rom_size = 0x80000;
-    m68k_init();
-    m68k_set_cpu_type(M68K_CPU_TYPE_68000);
+    m68kd_init(&cpu, MAIN_CLOCK, M68K_T_68000);
+    cpu.read_word = cpu_rd;
+    cpu.write_word = cpu_wr;
+    cpu.read_byte = cpu_rd8;
+    cpu.write_byte = cpu_wr8;
     O.dsw_a = 0xff;
     O.dsw_b = 0x7f;
     arc_reset();
@@ -807,8 +804,7 @@ void arc_reset(void)
 {
     memset(O.pal_ram, 0, sizeof O.pal_ram);
     for (int i = 0; i < 0x800; i++) set_color(i, 0);
-    m68k_pulse_reset();
-    m68k_set_irq(0);
+    m68kd_reset(&cpu);
     memset(&O.syt, 0, sizeof O.syt);
     reset_sound();
     cc_reset();
@@ -827,12 +823,12 @@ int arc_run_frame(const int16_t **audio)
     for (int line = 0; line < SCANLINES; line++) {
         if (line == 248) {
             update_video();
-            m68k_set_irq(5);
+            m68kd_set_irq(&cpu, 5, M68_HOLD);
             O.cc.ram[0x04] = O.in0;
             O.cc.ram[0x05] = O.in1;
             cc_update();
         }
-        m68k_execute(mc);
+        m68kd_run(&cpu, mc);
         cc_run(mc);
         zd_run(&O.sound, sc);
     }

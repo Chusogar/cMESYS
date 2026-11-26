@@ -8,10 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
-#include "../../../cpu/m68k/m68k.h"
+#include "../../../cpu/m68kdsp/m68kdsp.h"
 #include "../../../cpu/z80dsp/z80dsp.h"
 #include "../../../cpu/mcs51dsp/mcs51dsp.h"
 #include "../../../sound/ym2151.h"
+
+static m68kd cpu;
 
 #define MAIN_CLOCK 12000000
 #define SOUND_CLOCK 3579545
@@ -64,9 +66,8 @@ static struct state {
     uint16_t palette[0x400];
     uint16_t scroll[4];
     uint16_t *screen, *fb;
-    bool flip, halted;
+    bool flip;
     uint8_t audiocpu_to_mcu, mcu_to_audiocpu, mcu_p1, mcu_p3;
-    uint8_t irq_pending;                // bit n: 68000 IRQ level n held
     uint16_t inputs, dsw;
     double main_debt, sound_debt, mcu_debt;
     int64_t audio_acc;
@@ -75,24 +76,7 @@ static struct state {
 } *G_;
 #define G (*G_)
 
-static void update_m68k_irq(void)
-{
-    int level = 0;
-    for (int l = 7; l > 0; l--)
-        if (G.irq_pending & (1 << l)) { level = l; break; }
-    m68k_set_irq((unsigned)level);
-}
 
-// Musashi callbacks (m68kconf.h)
-void cpu_pulse_reset(void) {}
-void cpu_instr_callback(unsigned int pc) { (void)pc; }
-void cpu_set_fc(int fc) { (void)fc; }
-int cpu_irq_ack(int level)
-{
-    G.irq_pending &= (uint8_t)~(1 << level);  // held lines clear when taken
-    update_m68k_irq();
-    return M68K_INT_ACK_AUTOVECTOR;
-}
 
 static uint8_t read8(uint32_t a)
 {
@@ -144,8 +128,7 @@ static void write8(uint32_t a, uint8_t v)
     } else if (a == 0xe801a || a == 0xe801b) {
         // DMA on: the MCU's INT0 copies data while the 68000 is held
         mcs51_set_irq0_line(&G.mcu, MCS51_ASSERT);
-        G.halted = true;
-        m68k_end_timeslice();
+        m68kd_set_halt_line(&cpu, M68_ASSERT);
     } else if (a >= 0xec000 && a < 0xf0000) G.tx_ram[a & 0xfff] = v;
     else if (a >= 0xf0000 && a < 0xf4000) G.fg_ram[a & 0x3fff] = v;
     else if (a >= 0xf4000 && a < 0xf8000) G.bg_ram[a & 0x3fff] = v;
@@ -155,26 +138,22 @@ static void write8(uint32_t a, uint8_t v)
     } else if (a >= 0xfc000) G.wram[a & 0x3fff] = v;
 }
 
-unsigned int m68k_read_memory_8(unsigned int a) { return read8(a); }
-unsigned int m68k_read_memory_16(unsigned int a)
+static uint8_t cpu_rd8(void *u_, uint32_t a) { (void)u_; return read8(a); }
+static uint16_t cpu_rd(void *u_, uint32_t a)
 {
+    (void)u_;
     a &= 0xffffe;
     if (a < 0x40000) return (unsigned)(G.rom[a] << 8 | G.rom[a + 1]);
     return (unsigned)(read8(a) << 8 | read8(a + 1));
 }
-unsigned int m68k_read_memory_32(unsigned int a) { return m68k_read_memory_16(a) << 16 | m68k_read_memory_16(a + 2); }
-void m68k_write_memory_8(unsigned int a, unsigned int v) { write8(a, (uint8_t)v); }
-void m68k_write_memory_16(unsigned int a, unsigned int v)
+static void cpu_wr8(void *u_, uint32_t a, uint8_t v) { (void)u_; write8(a, (uint8_t)v); }
+static void cpu_wr(void *u_, uint32_t a, uint16_t v)
 {
+    (void)u_;
     a &= 0xffffe;
     write8(a, (uint8_t)(v >> 8));
     if (a == 0xe8018 || a == 0xe801a) return;  // one strobe per word access
     write8(a + 1, (uint8_t)v);
-}
-void m68k_write_memory_32(unsigned int a, unsigned int v)
-{
-    m68k_write_memory_16(a, v >> 16);
-    m68k_write_memory_16(a + 2, v & 0xffff);
 }
 
 static uint8_t sound_read(void *u, uint16_t a)
@@ -219,7 +198,7 @@ static void mcu_p3_write(void *u, uint8_t v)
     // 7 read strobe, 6 write strobe, 5 dma, 4 int1 ack, 0 int0 ack
     if ((G.mcu_p3 & 0x01) && !(v & 0x01)) {
         mcs51_set_irq0_line(&G.mcu, MCS51_CLEAR);
-        G.halted = false;
+        m68kd_set_halt_line(&cpu, M68_CLEAR);
     }
     if ((G.mcu_p3 & 0x10) && !(v & 0x10)) mcs51_set_irq1_line(&G.mcu, MCS51_CLEAR);
     if ((G.mcu_p3 & 0x40) && !(v & 0x40)) G.mcu_to_audiocpu = G.mcu_p1;
@@ -361,8 +340,12 @@ bool arc_init(void)
     G.mcu.read_external = mcu_ext_read;
     G.mcu.write_external = mcu_ext_write;
     ym2151_init(&G.ym, SOUND_CLOCK, RATE);
-    m68k_init();
-    m68k_set_cpu_type(M68K_CPU_TYPE_68000);
+    m68kd_init(&cpu, MAIN_CLOCK, M68K_T_68000);
+    cpu.read_word = cpu_rd;
+    cpu.write_word = cpu_wr;
+    cpu.read_byte = cpu_rd8;
+    cpu.write_byte = cpu_wr8;
+    m68kd_set_address_mask(&cpu, 0xfffff);
     G.dsw = 0xdfff;
     G.inputs = 0xffff;
     arc_reset();
@@ -381,13 +364,11 @@ void arc_reset(void)
     memset(G.sprite_buf, 0, sizeof G.sprite_buf);
     memset(G.scroll, 0, sizeof G.scroll);
     for (int i = 0; i < 0x400; i++) G.palette[i] = 0;
-    G.flip = G.halted = false;
+    G.flip = false;
     G.audiocpu_to_mcu = G.mcu_to_audiocpu = G.mcu_p1 = G.mcu_p3 = 0;
-    G.irq_pending = 0;
     G.main_debt = G.sound_debt = G.mcu_debt = 0;
     G.audio_acc = 0;
-    m68k_pulse_reset();
-    m68k_set_irq(0);
+    m68kd_reset(&cpu);
     zd_reset(&G.sound);
     mcs51_reset(&G.mcu);
     ym2151_reset(&G.ym);
@@ -400,16 +381,14 @@ int arc_run_frame(const int16_t **audio)
     const double mcu_cycles = MCU_CLOCK / FPS / SCANLINES / SLICES;
     G.naudio = 0;
     for (int line = 0; line < SCANLINES; line++) {
-        if (line == 128) { G.irq_pending |= 1 << 4; update_m68k_irq(); }   // inputs
+        if (line == 128) m68kd_set_irq(&cpu, 4, M68_HOLD);   // inputs
         if (line == 240) {                                                  // vblank
-            G.irq_pending |= 1 << 2;
-            update_m68k_irq();
+            m68kd_set_irq(&cpu, 2, M68_HOLD);
             update_video();
         }
         for (int s = 0; s < SLICES; s++) {
             G.main_debt += main_cycles;
-            if (G.halted) G.main_debt -= (int)G.main_debt;
-            else if ((int)G.main_debt > 0) G.main_debt -= m68k_execute((int)G.main_debt);
+            G.main_debt -= m68kd_run(&cpu, (int)G.main_debt);
             G.sound_debt += sound_cycles_;
             G.sound_debt -= zd_run(&G.sound, (int)G.sound_debt);
             G.mcu_debt += mcu_cycles;

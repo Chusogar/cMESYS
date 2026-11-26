@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
-#include "../../../cpu/m68k/m68k.h"
+#include "../../../cpu/m68kdsp/m68kdsp.h"
 #include "../../../sound/okim6295dsp.h"
 #include "../../../video/atari_mo.h"
 
@@ -65,7 +65,6 @@ static struct state {
     int scanline, irq_scanline, line_clip0, line_clip1;
     bool hblank, eeprom_unlocked, irq_armed, service;
     uint32_t pf0_xscroll, pf1_xscroll, pf0_yscroll, mo_xscroll, mo_yscroll;
-    unsigned irq_lines;
     uint16_t system_port, buttons_port;
     int16_t leta[2];
     int8_t dx, dy;
@@ -78,25 +77,11 @@ static struct state {
 #define S (*S_)
 
 // ---------------------------------------------------------------------------
-// The 68000 (Musashi)
+// The 68000 (dsp-cpp's core)
 
-static void set_irq(int level, bool on)
-{
-    if (on) S.irq_lines |= 1u << level;
-    else S.irq_lines &= ~(1u << level);
-    int l = 0;
-    for (int i = 7; i > 0; i--)
-        if (S.irq_lines & (1u << i)) {
-            l = i;
-            break;
-        }
-    m68k_set_irq(l);
-}
+static m68kd cpu;
 
-void cpu_pulse_reset(void) {}
-void cpu_instr_callback(unsigned int pc) { (void)pc; }
-void cpu_set_fc(int fc) { (void)fc; }
-int cpu_irq_ack(int level) { (void)level; return M68K_INT_ACK_AUTOVECTOR; }   // (held until cleared)
+static void set_irq(int level, bool on) { m68kd_set_irq(&cpu, level, on ? M68_ASSERT : M68_CLEAR); }
 
 static uint8_t pal6(uint8_t b) { b &= 0x3f; return (uint8_t)((b << 2) | (b >> 4)); }
 
@@ -199,24 +184,10 @@ static void write16(uint32_t a, uint16_t v)
     else if (a >= 0x3f8000 && a <= 0x3fffff) S.ram[(a - 0x3f8000) >> 1] = v;
 }
 
-unsigned int m68k_read_memory_8(unsigned int a)
-{
-    const uint16_t w = read16(a & ~1u);
-    return (a & 1) ? w & 0xff : w >> 8;
-}
-unsigned int m68k_read_memory_16(unsigned int a) { return read16(a); }
-unsigned int m68k_read_memory_32(unsigned int a) { return (unsigned)read16(a) << 16 | read16(a + 2); }
-void m68k_write_memory_8(unsigned int a, unsigned int v)
-{
-    const uint16_t w = read16(a & ~1u);
-    write16(a & ~1u, (a & 1) ? (uint16_t)((w & 0xff00) | (v & 0xff)) : (uint16_t)((w & 0xff) | (v & 0xff) << 8));
-}
-void m68k_write_memory_16(unsigned int a, unsigned int v) { write16(a, (uint16_t)v); }
-void m68k_write_memory_32(unsigned int a, unsigned int v)
-{
-    write16(a, (uint16_t)(v >> 16));
-    write16(a + 2, (uint16_t)v);
-}
+static uint16_t cpu_rd(void *u, uint32_t a) { (void)u; return read16(a); }
+static void cpu_wr(void *u, uint32_t a, uint16_t v) { (void)u; write16(a, v); }
+static void on_cycles(int c);
+static void cpu_cyc(void *u, int c) { (void)u; on_cycles(c); }
 
 static void on_cycles(int c)
 {
@@ -320,8 +291,10 @@ bool arc_init(void)
     memset(S.eeprom, 0xff, sizeof S.eeprom);
     okid_init(&S.oki, OKI_CLOCK, true, S.oki_rom, 0x40000);
     atari_mo_init(&S.mo, &kMoCfg, W + 8, H + 8);
-    m68k_init();
-    m68k_set_cpu_type(M68K_CPU_TYPE_68000);
+    m68kd_init(&cpu, MAIN_CLOCK, M68K_T_68000);
+    cpu.read_word = cpu_rd;
+    cpu.write_word = cpu_wr;
+    cpu.cycles = cpu_cyc;
     arc_reset();
     return true;
 }
@@ -349,9 +322,7 @@ void arc_reset(void)
     S.dx = S.dy = 0;
     S.audio_acc = S.oki_acc = 0;
     S.last_oki = 0;
-    S.irq_lines = 0;
-    m68k_pulse_reset();
-    m68k_set_irq(0);
+    m68kd_reset(&cpu);
 }
 
 int arc_run_frame(const int16_t **audio)
@@ -368,7 +339,7 @@ int arc_run_frame(const int16_t **audio)
         }
         for (int step = 0; step < CPU_SYNC; step++) {
             S.hblank = step == CPU_SYNC - 1;
-            on_cycles(m68k_execute(cycles));
+            m68kd_run(&cpu, cycles);
         }
         S.hblank = false;
         if (line < H) {

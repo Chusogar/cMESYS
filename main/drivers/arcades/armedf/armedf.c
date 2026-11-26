@@ -11,9 +11,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
-#include "../../../cpu/m68k/m68k.h"
+#include "../../../cpu/m68kdsp/m68kdsp.h"
 #include "../../../cpu/z80dsp/z80dsp.h"
 #include "../../../sound/ym3812dsp.h"
+
+static m68kd cpu;
 
 #ifndef ARC_VARIANT
 #define ARC_VARIANT 0
@@ -173,10 +175,6 @@ static struct state {
 } *A_;
 #define A (*A_)
 
-void cpu_pulse_reset(void) {}
-void cpu_instr_callback(unsigned int pc) { (void)pc; }
-void cpu_set_fc(int fc) { (void)fc; }
-int cpu_irq_ack(int level) { (void)level; return M68K_INT_ACK_AUTOVECTOR; }
 
 static void set_color(int i, uint16_t v)
 {
@@ -239,7 +237,7 @@ static void write16(uint32_t a, uint16_t v)
     else if (a == 0x6d006) A.scroll_fg_x = v;
     else if (a == 0x6d008) A.scroll_fg_y = v;
     else if (a == 0x6d00a) A.soundlatch = (uint8_t)(((v & 0x7f) << 1) | 1);
-    else if (a == 0x6d00e) m68k_set_irq(0);
+    else if (a == 0x6d00e) m68kd_set_irq(&cpu, IRQ_LEVEL, M68_CLEAR);
 #else
     if (a >= 0x60000 && a <= 0x603ff) A.ram_sprites[(a & 0xfff) >> 1] = v;
     else if ((a >= 0x60400 && a <= 0x63fff) || (a >= 0x6a000 && a <= 0x6a9ff)) A.ram[(a - 0x60000) >> 1] = v;
@@ -254,24 +252,12 @@ static void write16(uint32_t a, uint16_t v)
     } else if (a == 0x7c002) A.scroll_bg_x = v;
     else if (a == 0x7c004) A.scroll_bg_y = v;
     else if (a == 0x7c00a) A.soundlatch = (uint8_t)(((v & 0x7f) << 1) | 1);
-    else if (a == 0x7c00e) m68k_set_irq(0);
+    else if (a == 0x7c00e) m68kd_set_irq(&cpu, IRQ_LEVEL, M68_CLEAR);
 #endif
 }
 
-unsigned int m68k_read_memory_8(unsigned int a) { const uint16_t w = read16(a & ~1u); return (a & 1) ? w & 0xff : w >> 8; }
-unsigned int m68k_read_memory_16(unsigned int a) { return read16(a); }
-unsigned int m68k_read_memory_32(unsigned int a) { return (unsigned)read16(a) << 16 | read16(a + 2); }
-void m68k_write_memory_8(unsigned int a, unsigned int v)
-{
-    const uint16_t w = read16(a & ~1u);
-    write16(a & ~1u, (a & 1) ? (uint16_t)((w & 0xff00) | (v & 0xff)) : (uint16_t)((w & 0xff) | (v & 0xff) << 8));
-}
-void m68k_write_memory_16(unsigned int a, unsigned int v) { write16(a, (uint16_t)v); }
-void m68k_write_memory_32(unsigned int a, unsigned int v)
-{
-    write16(a, (uint16_t)(v >> 16));
-    write16(a + 2, (uint16_t)v);
-}
+static uint16_t cpu_rd(void *u_, uint32_t a) { (void)u_; return read16(a); }
+static void cpu_wr(void *u_, uint32_t a, uint16_t v) { (void)u_; write16(a, (uint16_t)v); }
 
 #if NB1414
 // ---------------------------------------------------------------------------
@@ -628,8 +614,9 @@ bool arc_init(void)
     A.sound.cycles = sound_cycles;
     zd_init(&A.sound);
     ym3812d_init(&A.ym, SOUND_CLOCK, ARC_VARIANT != 0, 0.4f);
-    m68k_init();
-    m68k_set_cpu_type(M68K_CPU_TYPE_68000);
+    m68kd_init(&cpu, MAIN_CLOCK, M68K_T_68000);
+    cpu.read_word = cpu_rd;
+    cpu.write_word = cpu_wr;
     A.dsw_a = A.dsw_b = 0xff;
     arc_reset();
     return true;
@@ -637,8 +624,7 @@ bool arc_init(void)
 
 void arc_reset(void)
 {
-    m68k_pulse_reset();
-    m68k_set_irq(0);
+    m68kd_reset(&cpu);
     zd_reset(&A.sound);
     ym3812d_reset(&A.ym);
     A.dac0 = A.dac1 = 0;
@@ -655,10 +641,10 @@ int arc_run_frame(const int16_t **audio)
     A.naudio = 0;
     for (int line = 0; line < SCANLINES; line++) {
         if (line == 248) {
-            m68k_set_irq(IRQ_LEVEL);
+            m68kd_set_irq(&cpu, IRQ_LEVEL, M68_ASSERT);
             render_frame();
         }
-        m68k_execute(mc);
+        m68kd_run(&cpu, mc);
         zd_run(&A.sound, mc / 2);
     }
     if (audio) *audio = A.audio;

@@ -8,10 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../common/arc.h"
-#include "../../../cpu/m68k/m68k.h"
+#include "../../../cpu/m68kdsp/m68kdsp.h"
 #include "../../../cpu/z80dsp/z80dsp.h"
 #include "../../../sound/ym2203dsp.h"
 #include "../../../sound/okim6295dsp.h"
+
+static m68kd cpu;
 
 #define MAIN_CLOCK (18432000 / 2)
 #define SOUND_CLOCK 4000000
@@ -65,7 +67,6 @@ static struct state {
     uint8_t sy_txt_off, sy_bg_off, sy_fg_off, soundlatch, in0;
     uint16_t in1, dsw;
     bool flip;
-    double main_debt, sound_debt;
     int64_t audio_acc, oki_acc;
     int32_t last_oki;
     int16_t audio[1024];
@@ -73,11 +74,7 @@ static struct state {
 } *S_;
 #define S (*S_)
 
-void cpu_pulse_reset(void) {}
-void cpu_instr_callback(unsigned int pc) { (void)pc; }
-void cpu_set_fc(int fc) { (void)fc; }
 // IRQ 5 held for a single acknowledge (dsp-cpp's HOLD)
-int cpu_irq_ack(int level) { (void)level; m68k_set_irq(0); return M68K_INT_ACK_AUTOVECTOR; }
 
 static uint16_t read16(uint32_t a)
 {
@@ -127,26 +124,14 @@ static void write16(uint32_t a, uint16_t v)
         S.soundlatch = (uint8_t)v;
         zd_set_nmi(&S.sound, ZD_ASSERT);
         break;
-    case 0x7a806: m68k_set_irq(0); break;
+    case 0x7a806: m68kd_set_irq(&cpu, 5, M68_CLEAR); break;
     case 0x7a808: S.flip = v & 1; break;
     default: break;
     }
 }
 
-unsigned int m68k_read_memory_8(unsigned int a) { const uint16_t w = read16(a & ~1u); return (a & 1) ? w & 0xff : w >> 8; }
-unsigned int m68k_read_memory_16(unsigned int a) { return read16(a); }
-unsigned int m68k_read_memory_32(unsigned int a) { return (unsigned)read16(a) << 16 | read16(a + 2); }
-void m68k_write_memory_8(unsigned int a, unsigned int v)
-{
-    const uint16_t w = read16(a & ~1u);
-    write16(a & ~1u, (a & 1) ? (uint16_t)((w & 0xff00) | (v & 0xff)) : (uint16_t)((w & 0xff) | (v & 0xff) << 8));
-}
-void m68k_write_memory_16(unsigned int a, unsigned int v) { write16(a, (uint16_t)v); }
-void m68k_write_memory_32(unsigned int a, unsigned int v)
-{
-    write16(a, (uint16_t)(v >> 16));
-    write16(a + 2, (uint16_t)v);
-}
+static uint16_t cpu_rd(void *u_, uint32_t a) { (void)u_; return read16(a); }
+static void cpu_wr(void *u_, uint32_t a, uint16_t v) { (void)u_; write16(a, (uint16_t)v); }
 
 static uint8_t sound_read(void *u, uint16_t a)
 {
@@ -348,8 +333,9 @@ bool arc_init(void)
     ym2203d_init(&S.ym1, SOUND_CLOCK, 1.0f, 1.0f);
     S.ym0.irq = ym_irq;
     okid_init(&S.oki, OKI_CLOCK, true, S.oki_rom, 0x20000);
-    m68k_init();
-    m68k_set_cpu_type(M68K_CPU_TYPE_68000);
+    m68kd_init(&cpu, MAIN_CLOCK, M68K_T_68000);
+    cpu.read_word = cpu_rd;
+    cpu.write_word = cpu_wr;
     arc_reset();
     return true;
 }
@@ -371,11 +357,9 @@ void arc_reset(void)
     S.in0 = 0xff;
     S.in1 = 0xffff;
     S.dsw = 0xffff;
-    S.main_debt = S.sound_debt = 0;
     S.audio_acc = S.oki_acc = 0;
     S.last_oki = 0;
-    m68k_pulse_reset();
-    m68k_set_irq(0);
+    m68kd_reset(&cpu);
     zd_reset(&S.sound);
     ym2203d_reset(&S.ym0);
     ym2203d_reset(&S.ym1);
@@ -384,17 +368,15 @@ void arc_reset(void)
 
 int arc_run_frame(const int16_t **audio)
 {
-    const double mc = MAIN_CLOCK / FPS / SCANLINES, sc = SOUND_CLOCK / FPS / SCANLINES;
+    const int mc = (int)((double)MAIN_CLOCK / FPS / SCANLINES + 0.5), sc = (int)((double)SOUND_CLOCK / FPS / SCANLINES + 0.5);
     S.naudio = 0;
     for (int line = 0; line < SCANLINES; line++) {
         if (line == 240) {
             update_video();
-            m68k_set_irq(5);
+            m68kd_set_irq(&cpu, 5, M68_HOLD);
         }
-        S.main_debt += mc;
-        if ((int)S.main_debt > 0) S.main_debt -= m68k_execute((int)S.main_debt);
-        S.sound_debt += sc;
-        S.sound_debt -= zd_run(&S.sound, (int)S.sound_debt);
+        m68kd_run(&cpu, mc);
+        zd_run(&S.sound, sc);
     }
     if (audio) *audio = S.audio;
     return S.naudio;
