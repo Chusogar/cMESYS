@@ -665,12 +665,8 @@ static uint8_t read_rtc(unsigned reg)
     const time_t now = time(NULL);
     if (now != rtc_time) {
         rtc_time = now;
-#if defined(_WIN32)
-        struct tm *lt = localtime(&now);
+        const struct tm *lt = localtime(&now);
         if (lt) t = *lt;
-#else
-        localtime_r(&now, &t);
-#endif
     }
     switch (reg & 0xf) {
     case 0: return (uint8_t)((t.tm_sec % 10) & 0xf);
