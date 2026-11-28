@@ -219,8 +219,8 @@ static bool load_roms(void)
     static const char *const kLo[] = { "317053-01.u25", "317053-01", NULL };
     static const char *const kHi[] = { "317054-01.u26", "317054-01", NULL };
     static const uint32_t kLoCrc[] = { 0x4fd1d8cb }, kHiCrc[] = { 0x109de2fc };
-    p = first_of(sets, kLo, 0x4000);
-    if (!p) p = by_crc(sets, kLoCrc, 1, 0x4000);
+    p = C16 ? NULL : first_of(sets, kLo, 0x4000);   // the C16 has no function ROMs
+    if (!p && !C16) p = by_crc(sets, kLoCrc, 1, 0x4000);
     if (p) {
         memcpy(S.function, p, 0x4000);
         free(p);
