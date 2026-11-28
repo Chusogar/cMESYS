@@ -75,6 +75,7 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | Super Xevious (Namco, 1984) | `sxevious` | 3 x Z80, 06xx + 51xx + 50xx (MB88) | Namco WSG | dsp-cpp `galaga_hw.cpp` |
 | Bosconian (Namco / Midway, 1981) | `bosco` | 3 x Z80, 2 x 06xx + 51xx + 2 x 50xx (MB88) | Namco WSG | dsp-cpp `galaga_hw.cpp` |
 | Pirates (NIX, 1994) | `pirates` | 68000 | OKI M6295 | dsp-cpp `pirates.cpp` (solo escritorio, web y Android) |
+| Genix Family (NIX, 1994) | `genix` | 68000 | OKI M6295 | dsp-cpp `pirates.cpp` (solo escritorio, web y Android) |
 | Block Out (Technos Japan, 1989) | `blockout` | 68000 + Z80 | YM2151 + OKI M6295 | dsp-cpp `blockout.cpp` |
 | Bubble Bobble (Taito, 1986) | `bublbobl` | 3 x Z80 + HD63701 | YM2203 + YM3526 | dsp-cpp `bublbobl.cpp` (su 63701: `cpu/hd63701dsp`; su YM3812: `sound/ym3812dsp`) |
 | Renegade (Technos Japan, 1986) | `renegade` | 6502 + 6809 + 68705 | YM3526 + MSM5205 | dsp-cpp `renegade.cpp` (ADPCM como en MAME) |
@@ -262,7 +263,7 @@ El identificador `GAME` es el que se pasa a `make`, `idf.py`, CMake, `build_*.sh
 | The King of Fighters '94 (SNK, 1994) | `kof94` | 68000, Z80 | YM2610 | dsp-cpp `neogeo.cpp` (con `neogeo.zip`; solo escritorio, web y Android) |
 | Star Wars Trilogy Arcade (Sega / LucasArts, 1998) | `swtrilgy` | PowerPC 603r, 2 × 68000 | 2 × SCSP, MPEG (DSB2) | dsp-cpp `model3.cpp` (Sega Model 3, Real3D; solo escritorio, web y Android) |
 
-Las treinta y cinco últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
+Las treinta y seis últimas usan la base común de recreativas (`arcades/common/arc.h`), como las consolas la suya: cada juego es un núcleo con `arc_init` / `arc_run_frame` / `arc_frame` / `arc_input` y su tabla de ROMs (las de dsp-cpp, con nombres alternativos y búsqueda por CRC), y los frontends son compartidos: `arc_sdl.c` (escritorio, web y Android), `arc_pico.c` (RP2350) y `arc_cyd.c` (CYD y VGA32). La lista y las fuentes de cada juego están en `arcades/arcades.mk`. Sus ROMs se leen siempre de fuera (`roms/<set>/` o el `.zip` de MAME), nunca van compiladas.
 
 ### Ordenadores (`main/drivers/computers/`)
 
@@ -291,6 +292,12 @@ Las treinta y cinco últimas usan la base común de recreativas (`arcades/common
 | ZX Spectrum Next (TBBlue 3.02) | `specnext` | Z80N | 3 AY (TurboSound) + DAC | `specnext/specnext_core.c` |
 | SAM Coupé (512 KB) | `samcoupe` | Z80 (6 MHz) | SAA1099 | `samcoupe/samcoupe_core.c` |
 | Exelvision EXL 100 / EXELTEL | `exl100`, `exeltel` | TMS7020 / TMS7040 + TMS7041 | TMS5220 (voz) | `exelv/exelv_core.c` |
+| Sinclair ZX81 / ZX80 | `zx81`, `zx80` | Z80 (ULA en software) | — | `zx81/zx81_core.c` (capa `dspc`) |
+| Commodore VIC-20 (PAL / NTSC) | `vic20`, `vic20n` | 6502 + 2 x 6522 | VIC 6560/6561 | `vic20/vic20_core.c` + `sound/mos6560d.c` |
+| Commodore Plus/4, C16 | `plus4`, `c16` | 7501 | TED 7360 | `plus4/plus4_core.c` + `sound/mos7360d.c` |
+| Commodore 128 (modo C128, 40 columnas) | `c128` | 8502 (MMU 8722) | SID 6581 | `c128/c128_core.c` (VIC-II, CIA y SID del C64) |
+| Atari 800, 800XL, 800XE | `a800`, `a800xl`, `a800xe` | 6502B | POKEY | `atari8/atari8_core.c` + `video/antic_gtia.c` |
+| Amstrad PCW 8256 / 8512 | `pcw8256`, `pcw8512` | Z80 | beeper | `pcw/pcw_core.c` (uPD765 de `zx_nec765`) |
 
 ### Consolas (`main/drivers/consoles/`)
 
@@ -335,6 +342,7 @@ Las 19 primeras usan la API común de consolas (`common/cons.h`). La Lynx es un 
 | ZX Spectrum Next | sí | sí | sí | — (2 MB de RAM) | — | sí, con PSRAM² |
 | SAM Coupé | sí | sí | sí | — (512 KB de RAM + disco) | — | sí, con PSRAM |
 | Exelvision EXL 100, EXELTEL | sí | sí | sí, en una app | — | — | sí |
+| ZX80/81, VIC-20, Plus/4, C16, C128, Atari 800/XL/XE, PCW (capa `dspc`) | sí | sí | pendiente | — | — | pendiente |
 | Las 19 consolas de la API común | sí | sí | sí | sí¹ | sí¹ | sí¹ |
 
 ¹ Se compilan todas, pero las que no caben avisan en pantalla con «OUT OF MEMORY FOR THIS CONSOLE». Mega Drive, SNES, 32X, GBA y PlayStation guardan su estado en el heap; en la RP2350 va a la PSRAM. La PlayStation (unos 10 MB) no cabe en ninguna placa.
@@ -720,7 +728,7 @@ tools/regen.sh --stub <id>
 | `gauntlet` | `gauntlet` (rev 14) | las PROM no hacen falta |
 | `outrun` | `outrun` (rev B) | |
 | `retofinv` | `retofinv` | incluye la MC68705P5 y las PROM |
-| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash`, `defender`, `mayday`, `colony7`, `stargate`, `robotron`, `joust`, `elevator`, `junglek`, `tron`, `shollow`, `domino`, `wacko`, `tapper`, `dotron`, `timber`, `depthch`, `safari`, `frogs`, `sspaceat`, `sspacaho`, `headon`, `headon2`, `headon2s`, `invho2`, `nsub`, `samurai`, `invinco`, `invds`, `tranqgun`, `spacetrk`, `carnival`, `brdrline`, `digger`, `pulsar`, `heiankyo`, `alphaho`, `asteroid`, `baraduke`, `metrocrs`, `punchout`, `skullxbo`, `shuuz`, `tnk3`, `aso`, `ikari`, `athena`, `actfancr`, `sentetst`, `cshift`, `hattrick`, `gghost`, `otwalls`, `snakepit`, `triviag1`, `snakjack`, `stocker`, `triviabb`, `triviag2`, `triviayp`, `triviasp`, `gimeabrk`, `minigolf`, `teamht`, `grudge`, `triviaes`, `toggle`, `nstocker`, `sfootbal`, `spiker`, `stompin`, `nametune`, `rescraid`, `ajax`, `aliens`, `simpsons`, `baddudes`, `drgninja`, `hippodrm`, `slyspy`, `secretag`, `bouldash`, `cninja`, `boogwing`, `robocop2`, `paperboy`, `720`, `ssprint`, `apb`, `hangon`, `enduror`, `sharrier`, `fantzone`, `shinobi`, `altbeast`, `alexkidd`, `aliensyn`, `wb3`, `goldnaxe`, `ddux`, `eswat`, `passsht`, `aurail`, `riotcity`, `sdi`, `cotton`, `bayroute`, `sonicbom`, `timescan`, `astorm`, `bloxeed`, `cltchitr`, `ddcrew`, `desertbr`, `hamaway`, `lghost`, `mwalk`, `shdancer`, `wwallyj`, `aburner2`, `aburner`, `rastan`, `badlands`, `ghouls`, `ffight`, `kod`, `sf2`, `strider`, `3wonders`, `captcomm`, `knights`, `sf2ce`, `dino`, `punisher`, `willow`, `1941`, `nemo`, `mslug`, `mslug2`, `kof94`, `swtrilgy` | el del mismo nombre (los Neo Geo, con `neogeo.zip` al lado) | el `.zip` de MAME tal cual (por nombre o por CRC) |
+| `bombjack`, `calorie`, `mrdo`, `centiped`, `milliped`, `arkanoid`, `minivadr`, `commando`, `gng`, `blktiger`, `bionicc`, `atetris`, `bagman`, `ambush`, `blueprnt`, `btime`, `shaolins`, `mikie`, `galaxian`, `galaga`, `pirates`, `genix`, `blockout`, `bublbobl`, `renegade`, `bankp`, `citycon`, `brkthru`, `appoooh`, `tehkanwc`, `tigerh`, `wboy`, `slapfght`, `pitfall2`, `teddybb`, `mrviking`, `seganinj`, `upndown`, `flicky`, `gardia`, `wwfsstar`, `shadoww`, `chinagat`, `ddragon`, `ddragon2`, `armedf`, `terraf`, `cclimbr2`, `legion`, `kungfum`, `spelunkr`, `spelunk2`, `ldrun`, `ldrun2`, `rtype`, `hharry`, `rtype2`, `opwolf`, `lnc`, `mmonkey`, `darwin`, `saturnzi`, `grasspin`, `robowres`, `combh`, `mooncrst`, `scramble`, `frogger`, `digdug`, `xevious`, `sxevious`, `bosco`, `arabian`, `cabal`, `bloodbro`, `skysmash`, `defender`, `mayday`, `colony7`, `stargate`, `robotron`, `joust`, `elevator`, `junglek`, `tron`, `shollow`, `domino`, `wacko`, `tapper`, `dotron`, `timber`, `depthch`, `safari`, `frogs`, `sspaceat`, `sspacaho`, `headon`, `headon2`, `headon2s`, `invho2`, `nsub`, `samurai`, `invinco`, `invds`, `tranqgun`, `spacetrk`, `carnival`, `brdrline`, `digger`, `pulsar`, `heiankyo`, `alphaho`, `asteroid`, `baraduke`, `metrocrs`, `punchout`, `skullxbo`, `shuuz`, `tnk3`, `aso`, `ikari`, `athena`, `actfancr`, `sentetst`, `cshift`, `hattrick`, `gghost`, `otwalls`, `snakepit`, `triviag1`, `snakjack`, `stocker`, `triviabb`, `triviag2`, `triviayp`, `triviasp`, `gimeabrk`, `minigolf`, `teamht`, `grudge`, `triviaes`, `toggle`, `nstocker`, `sfootbal`, `spiker`, `stompin`, `nametune`, `rescraid`, `ajax`, `aliens`, `simpsons`, `baddudes`, `drgninja`, `hippodrm`, `slyspy`, `secretag`, `bouldash`, `cninja`, `boogwing`, `robocop2`, `paperboy`, `720`, `ssprint`, `apb`, `hangon`, `enduror`, `sharrier`, `fantzone`, `shinobi`, `altbeast`, `alexkidd`, `aliensyn`, `wb3`, `goldnaxe`, `ddux`, `eswat`, `passsht`, `aurail`, `riotcity`, `sdi`, `cotton`, `bayroute`, `sonicbom`, `timescan`, `astorm`, `bloxeed`, `cltchitr`, `ddcrew`, `desertbr`, `hamaway`, `lghost`, `mwalk`, `shdancer`, `wwallyj`, `aburner2`, `aburner`, `rastan`, `badlands`, `ghouls`, `ffight`, `kod`, `sf2`, `strider`, `3wonders`, `captcomm`, `knights`, `sf2ce`, `dino`, `punisher`, `willow`, `1941`, `nemo`, `mslug`, `mslug2`, `kof94`, `swtrilgy` | el del mismo nombre (los Neo Geo, con `neogeo.zip` al lado) | el `.zip` de MAME tal cual (por nombre o por CRC) |
 | `s16tetris` | `tetris` (Sega, System 16A: el FD1094 317-0093 con su `.key`, o el descifrado `tetrisd`) | `roms/s16tetris/tetris.zip` (para no confundirse con `atetris`) |
 | `marble`, `peterpak` | el del mismo nombre | con la BIOS de System 1 (`136032.*`) dentro del zip, o `atarisy1.zip` en la misma carpeta |
 | `starwars` | `starwars` y `esb` | `roms/starwars/` y `roms/esb/` (o `starwars.zip`, `esb.zip`); basta con uno de los dos juegos. F4 (escritorio / web / RP2350) o BOOT pulsado 2 s (CYD) cambia de juego; en Android son dos entradas de la lista |
@@ -753,6 +761,12 @@ tools/regen.sh --stub <id>
 | `samcoupe` | set `samcoupe` de MAME: `rom30.z5` (ROM 3.0; vale cualquier otra versión del set, 32 KB) |
 | `exl100` | set `exl100` de MAME: `exl100in.bin` (TMS7020) y `exl100_7041.bin` (la CPU de E/S) |
 | `exeltel` | set `exeltel` de MAME: `exeltel_7040.bin`, `exeltel_7042.bin` (su BAD_DUMP se corrige al cargarla, como en dsp-cpp) y `exeltel14.bin` (la ROM de sistema de 64 KB) |
+| `zx81`, `zx80` | `zx81.zip` / `zx80.zip` de MAME (o `zx81.rom`, `zx80.rom`) |
+| `vic20`, `vic20n` | `vic20.zip` / `vic20n.zip` de MAME: `901486-01.ue11` (BASIC), `901486-07.ue12` / `901486-06.ue12` (KERNAL), `901460-03.ud7` (caracteres) |
+| `plus4`, `c16` | `plus4.zip` / `c16.zip` de MAME: `318006-01` (BASIC), `318004-05` / `318005-05` (KERNAL), `317053-01` + `317054-01` (3-plus-1, opcionales) |
+| `c128` | `c128.zip` de MAME: `318018-04.u33`, `318019-04.u34`, `318020-05.u35`, `251913-01.u32`, `390059-01.u18` |
+| `a800`, `a800xl`, `a800xe` | `a800.zip` (`co12399b`, `co12499b`, `co14599b`), `a800xl.zip` (`co61598b.rom`, `co60302a.rom`), `a800xe.zip` (`c300717.rom`, `co24947a.rom`) |
+| `pcw8256`, `pcw8512` | `pcw8256.zip` de MAME: `40026.ic701` (el programa de arranque está en la MCU de la impresora) |
 
 Cada modelo Spectrum lee solo su directorio y genera su propio `rom_data_<modelo>.c`, así que regenerar uno no pisa otro.
 

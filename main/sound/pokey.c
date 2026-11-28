@@ -366,11 +366,13 @@ static void step_one_clock(pokey *p)
         if (p->audctl & CH12_JOINED) reset_counter(&p->ch[CHAN1]);
         reset_counter(&p->ch[CHAN2]);
         process_channel(p, CHAN2);
+        if ((p->irqst & IRQ_TIMER2) && p->irq) p->irq(p->user, IRQ_TIMER2);
     }
     if (check_borrow(&p->ch[CHAN1])) {
         if (p->audctl & CH12_JOINED) inc_chan(p, &p->ch[CHAN2]);
         else reset_counter(&p->ch[CHAN1]);
         process_channel(p, CHAN1);
+        if ((p->irqst & IRQ_TIMER1) && p->irq) p->irq(p->user, IRQ_TIMER1);
     }
     if (check_borrow(&p->ch[CHAN4])) {
         if (p->audctl & CH34_JOINED) reset_counter(&p->ch[CHAN3]);
@@ -378,6 +380,7 @@ static void step_one_clock(pokey *p)
         process_channel(p, CHAN4);
         if (p->audctl & CH2_FILTER) p->ch[CHAN2].filter_sample = p->ch[CHAN2].output;
         else p->ch[CHAN2].filter_sample = 1;
+        if ((p->irqst & IRQ_TIMER4) && p->irq) p->irq(p->user, IRQ_TIMER4);
     }
     if (check_borrow(&p->ch[CHAN3])) {
         if (p->audctl & CH34_JOINED) inc_chan(p, &p->ch[CHAN4]);
@@ -699,4 +702,30 @@ int32_t POKEY_HOT pokey_update(pokey *p)
     // (at amplitude 1 the float product is the integer itself)
     out = p->amplitude == 1.0f ? out * DEFAULT_GAIN : (int32_t)((float)(out * DEFAULT_GAIN) * p->amplitude);
     return out < 0x7fff ? out : 0x7fff;
+}
+
+// The keyboard scanner (dsp-cpp's set_key / press_break): the Atari KBCODE
+// (scan code, shift in bit 6, control in bit 7) and whether it is down.
+void pokey_set_key(pokey *p, uint8_t code, bool pressed, bool shift_held)
+{
+    if (pressed) {
+        p->kbcode = code;
+        p->skstat |= 0x04;
+        if (p->irqen & 0x40) {
+            p->irqst |= 0x40;
+            if (p->irq) p->irq(p->user, 0x40);
+        }
+    } else {
+        p->skstat &= (uint8_t)~0x04;
+    }
+    if (shift_held) p->skstat |= 0x08;
+    else p->skstat &= (uint8_t)~0x08;
+}
+
+void pokey_press_break(pokey *p)
+{
+    if (p->irqen & 0x80) {
+        p->irqst |= 0x80;
+        if (p->irq) p->irq(p->user, 0x80);
+    }
 }
