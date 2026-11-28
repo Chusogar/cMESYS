@@ -116,6 +116,8 @@ final class Game {
         // one library for both (sw_core.c), the flight yoke of the cabinet
         new Game("pirates", "Pirates", "NIX", 1994, JOY_8WAY,
                 new String[] {"DISPARO", "SALTO", "B3"}, new int[] {B1, B2, B3}, 0xff8a5a2a),
+        new Game("genix", "Genix Family", "NIX", 1994, JOY_8WAY,
+                new String[] {"B1", "B2", "B3"}, new int[] {B1, B2, B3}, 0xff5a8a2a),
         new Game("renegade", "Renegade", "Technos Japan", 1986, JOY_8WAY,
                 new String[] {"ATAQUE IZQ.", "SALTO", "ATAQUE DER."}, new int[] {B1, B2, B3}, 0xff7a3a3a),
         new Game("shaolins", "Shao-lin's Road", "Konami", 1985, JOY_8WAY,

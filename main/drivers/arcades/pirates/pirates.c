@@ -1,4 +1,4 @@
-// pirates.c - Pirates (NIX, 1994) for the common arcade frontends (arc.h):
+// pirates.c - Pirates and Genix Family (NIX, 1994) for the common arcade frontends (arc.h):
 // C port of dsp-cpp's drivers/arcade/pirates (from dsp-emulator's
 // pirates_hw.pas). A 68000 at 16 MHz (Musashi here) with its program, tiles,
 // sprites and samples scrambled, an OKI M6295 with two 256 KB banks, a 93C46
@@ -23,6 +23,12 @@ static m68kd cpu;
 #define H 224
 #define PLANE 0x80000
 
+#ifndef ARC_VARIANT
+#define ARC_VARIANT 0
+#endif
+#define GENIX (ARC_VARIANT == 1)   // ARC_VARIANT: 0 pirates, 1 genix
+
+#if !GENIX
 static const char *const kSets[] = { "pirates", NULL };
 static const arc_rom kProgLow[] = {{"r_449b.bin", 0x80000, 0, 0x224aeeda}};
 static const arc_rom kProgHigh[] = {{"l_5c1e.bin", 0x80000, 0, 0x46740204}};
@@ -36,6 +42,21 @@ static const arc_rom kOki[] = {{"s89_49d4.bin", 0x80000, 0, 0x63a739ec}};
 
 const arc_info arc_game = { "pirates", "Pirates", "NIX", 1994, W, H, FPS, RATE, kSets,
                             { "FIRE", "JUMP", "B3", NULL }, ARC_JOY_8WAY };
+#else
+static const char *const kSets[] = { "genix", NULL };
+static const arc_rom kProgLow[] = {{"11.u15.15c", 0x80000, 0, 0xd26abfb0}};
+static const arc_rom kProgHigh[] = {{"12.u16.16c", 0x80000, 0, 0xa14a25b4}};
+static const arc_rom kGfx[] = {   // (256 KB per plane, still at $80000 spacing)
+    {"17.u34.12g", 0x40000, 0 * PLANE, 0x58da8aac}, {"19.u35.12h", 0x40000, 1 * PLANE, 0x96bad9a8},
+    {"18.u48.13g", 0x40000, 2 * PLANE, 0x0ddc58b6}, {"20.u49.13h", 0x40000, 3 * PLANE, 0x2be308c5}};
+static const arc_rom kSprites[] = {
+    {"16.u69.6g", 0x40000, 0 * PLANE, 0xb8422af7}, {"15.u70.4g", 0x40000, 1 * PLANE, 0xe46125c5},
+    {"14.u71.3g", 0x40000, 2 * PLANE, 0x7a8ed21b}, {"13.u72.1g", 0x40000, 3 * PLANE, 0xf78bd6ca}};
+static const arc_rom kOki[] = {{"10.u31.1b", 0x80000, 0, 0x80d087bc}};
+
+const arc_info arc_game = { "genix", "Genix Family", "NIX", 1994, W, H, FPS, RATE, kSets,
+                            { "B1", "B2", "B3", NULL }, ARC_JOY_8WAY };
+#endif
 
 // bit permutations: the source bit of each destination bit, MSB first
 static uint32_t bitswap(uint32_t v, const int *bits, int n)
@@ -83,9 +104,19 @@ static uint16_t rd16(uint32_t a)
 {
     a &= 0xfffffe;
     if (a <= 0xfffff) return P.rom[a >> 1];
-    if (a >= 0x100000 && a <= 0x10ffff) return P.work_ram[(a & 0xffff) >> 1];
+    if (a >= 0x100000 && a <= 0x10ffff) {
+#if GENIX
+        if ((a & 0xffff) == 0x9e98) return 4;   // (the protection, as dsp-cpp)
+        if ((a & 0xffff) == 0x9e9a) return 0;
+#endif
+        return P.work_ram[(a & 0xffff) >> 1];
+    }
     if (a == 0x300000) return P.in1;
+#if GENIX
+    if (a == 0x400000) return P.in0;
+#else
     if (a == 0x400000) return (uint16_t)(P.in0 | (eeprom93c46_do_read(&P.eeprom) << 4));
+#endif
     if (a >= 0x500000 && a <= 0x500fff) return P.sprite_ram[(a & 0xfff) >> 1];
     if (a >= 0x800000 && a <= 0x803fff) return P.palette_ram[(a & 0x3fff) >> 1];
     if (a >= 0x900000 && a <= 0x907fff) return P.tile_ram[(a & 0x7fff) >> 1];
@@ -221,7 +252,9 @@ bool arc_init(void)
         const uint8_t vl = sw_b(raw[0x80000 + al]), vr = sw_c(raw[ah]);
         P.rom[f] = (uint16_t)(vr << 8 | vl);
     }
+#if !GENIX
     P.rom[0x62c0 / 2] = 0x6006;         // the protection patch of pirates_hw.pas
+#endif
     if (!ARC_LOAD(kOki, raw, 0x80000)) return false;
     for (uint32_t f = 0; f < 0x80000; f++)
         P.sound[SW24(f, 23, 22, 21, 20, 19, 10, 16, 13, 8, 4, 7, 11, 14, 17, 12, 6, 2, 0, 5, 18, 15, 3, 1, 9)] = sw_a(raw[f]);
