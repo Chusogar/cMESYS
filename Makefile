@@ -5,6 +5,7 @@
 #                             | spectrum48 | spectrum128 | plus3 | pentagon | pentagon1024 | scorpion
 #                             | cpc6128 | c64 | lynx | msx1 | msx2 | amiga | atarist
 #                             | apple2 | apple2p | apple2e | apple2ee | apple2gs | macplus | macii | specnext | samcoupe | exl100 | exeltel
+#                             | a computer of main/drivers/computers/dspc.mk (zx81, vic20, plus4, c128, a800xl, pcw8256...)
 #                             | an arcade of main/drivers/arcades/arcades.mk (bombjack, mrdo, ...)
 #                             | a console of main/drivers/consoles/consoles.mk)  -> build/sdl/<game>
 #                             (ql / spectrum*: computers in main/drivers/computers/)
@@ -32,6 +33,7 @@ EXELV_MODEL_exl100 := 0
 EXELV_MODEL_exeltel := 1
 include $(M)/drivers/consoles/consoles.mk
 include $(M)/drivers/arcades/arcades.mk
+include $(M)/drivers/computers/dspc.mk
 ifeq ($(GAME),ql)
   D     := $(M)/drivers/computers/$(GAME)
 else ifeq ($(GAME),cpc6128)
@@ -54,6 +56,8 @@ else ifneq ($(filter $(GAME),apple2gs macplus macii specnext samcoupe),)
   D     := $(M)/drivers/computers/$(GAME)
 else ifneq ($(filter $(GAME),$(ZX_GAMES)),)
   D     := $(M)/drivers/computers/zxspec
+else ifneq ($(filter $(GAME),$(DSPC_GAMES)),)
+  D     := $(M)/drivers/computers/common
 else
   D     := $(M)/drivers/arcades/$(GAME)
 endif
@@ -239,6 +243,10 @@ else ifeq ($(GAME),pentagon1024)
 else ifeq ($(GAME),scorpion)
   SRC  := $(ZX_SRC)
   DEFS := -DZX_MODEL=ZX_SCORPION
+else ifneq ($(filter $(GAME),$(DSPC_GAMES)),)
+  # the computers on the dspc interface (drivers/computers/dspc.mk)
+  SRC  := $(D)/dspc_sdl.c $(addprefix $(M)/,$(DSPC_COMMON) $(DSPC_SRC_$(GAME)))
+  DEFS := $(addprefix -D,$(DSPC_DEFS_$(GAME)))
 else ifneq ($(filter $(GAME),$(ARCADES)),)
   # the arcades on the common frontend (drivers/arcades/arcades.mk)
   D    := $(M)/drivers/arcades/common
@@ -271,7 +279,7 @@ ifeq ($(PORT),picohost)
   PORTSRC := tools/pico_host.c
   CFLAGS += -I$(M)/ports/rp2040-pizero -I$(M)/drivers/computers/ql -DPICO_BAND=4
   # microSD is board-only; stub the API so ql / zxspec *_pico.c link on the host.
-  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2 amiga atarist $(A2_GAMES) apple2gs macplus macii specnext samcoupe $(EXELV_GAMES) $(CONSOLES)),)
+  ifneq ($(filter $(GAME),ql $(ZX_GAMES) cpc6128 c64 lynx msx1 msx2 amiga atarist $(A2_GAMES) apple2gs macplus macii specnext samcoupe $(EXELV_GAMES) $(DSPC_GAMES) $(CONSOLES)),)
     PORTSRC += tools/ql_sd_host_stub.c
   endif
   SDL_CFLAGS :=

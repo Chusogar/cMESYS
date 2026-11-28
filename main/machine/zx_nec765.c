@@ -724,3 +724,19 @@ uint8_t nec_read_status(zx_nec765 *f)
     else f->status_register = 0x80;
     return f->status_register;
 }
+
+// Terminal count (the PCW's system control 5/6; dsp-cpp's tc_w): a rising edge
+// ends a transfer in its execution phase normally.
+void nec_tc_w(zx_nec765 *f, bool asserted)
+{
+    if (asserted && !f->tc) {
+        f->tc_done = true;
+        if (f->exec_cmd_phase && !f->result_phase) {
+            finish_transfer(f, false);
+        } else if (f->result_phase && f->result_pointer == 0 && (f->result[0] & 0x40)) {
+            f->result[0] = (uint8_t)(f->result[0] & ~0x40);
+            f->result[1] = (uint8_t)(f->result[1] & ~0x80);
+        }
+    }
+    f->tc = asserted;
+}

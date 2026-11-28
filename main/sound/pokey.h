@@ -51,6 +51,7 @@ typedef struct pokey {
     uint8_t (*allpot_read)(void *user);
     uint8_t (*serin_read)(void *user);
     void *user;
+    void (*irq)(void *user, uint8_t mask);     // an interrupt raised (dsp-cpp's irq handler; optional)
 } pokey;
 
 void pokey_init(pokey *p);
@@ -59,5 +60,8 @@ uint8_t pokey_read(pokey *p, uint16_t offset);
 void pokey_write(pokey *p, uint16_t offset, uint8_t data);
 void pokey_run(pokey *p, int cycles);
 int32_t pokey_update(pokey *p);
+// The keyboard scanner (Atari 8-bit computers)
+void pokey_set_key(pokey *p, uint8_t code, bool pressed, bool shift_held);
+void pokey_press_break(pokey *p);
 
 #endif

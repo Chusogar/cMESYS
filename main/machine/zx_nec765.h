@@ -70,5 +70,8 @@ void nec_write_motor(zx_nec765 *f, uint8_t value);
 void nec_write_data(zx_nec765 *f, uint8_t value);
 uint8_t nec_read_status(zx_nec765 *f);
 uint8_t nec_read_data(zx_nec765 *f);
+void nec_tc_w(zx_nec765 *f, bool asserted);
+// The FDC wants attention (seek complete or result phase)
+static inline bool nec_irq_pending(const zx_nec765 *f) { return f->seek_track_flag || f->result_phase; }
 
 #endif
