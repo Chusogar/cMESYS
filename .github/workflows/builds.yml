@@ -6,7 +6,7 @@ name: builds
 
 on:
   push:
-    branches: [ci-builds]
+    branches: [ci-builds, ci-builds-29]
   workflow_dispatch:
 
 jobs:
@@ -83,6 +83,8 @@ jobs:
         shell: bash
         run: |
           games=$(sed -n '/^GAMES   := /,/[^\\]$/p' main/ports/web/Makefile | sed 's/^GAMES   := //; s/\\//; s/\$(CONSOLES)//; s/\$(ARCADES)//')
+          games=$(echo "$games" | sed 's/\$(DSPC_GAMES)//')
+          games="$games $(sed -n 's/^DSPC_GAMES [:+]= //p' main/drivers/computers/dspc.mk | tr '\n' ' ')"
           games="$games $(sed -n 's/^CONSOLES := //p' main/drivers/consoles/consoles.mk)"
           games="$games $(sed -n 's/^ARCADES := //p' main/drivers/arcades/arcades.mk)"
           failed=""
@@ -94,5 +96,26 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: web
+          name: cMESYS-web
           path: build/web-noroms
+
+  # One zip per platform: every game's binaries together.
+  cyd-zip:
+    needs: cyd
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/upload-artifact/merge@v4
+        with:
+          name: cMESYS-cyd
+          pattern: cyd-*
+
+  vga32-zip:
+    needs: vga32
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/upload-artifact/merge@v4
+        with:
+          name: cMESYS-vga32
+          pattern: vga32-*
