@@ -472,6 +472,8 @@ final class Game {
                 new String[] {"DISPARO", "SALTO", "GRANADA"}, new int[] {B1, B2, B3}, 0xff7a5a2a),
         new Game("kof94", "The King of Fighters '94", "SNK", 1994, JOY_8WAY,
                 new String[] {"PUÑO D.", "PATADA D.", "PUÑO F.", "PATADA F."}, new int[] {B1, B2, B3, B4}, 0xffaa2a2a),
+        new Game("swtrilgy", "Star Wars Trilogy Arcade", "Sega / LucasArts", 1998, JOY_8WAY,
+                new String[] {"GATILLO", "PULGAR", "EVENTO 1", "EVENTO 2"}, new int[] {B1, B2, B3, B4}, 0xff2a3a6a),
         new Game("esb", "starwars", new String[] {"esb"}, "The Empire Strikes Back", "Atari", 1985, JOY_YOKE,
                 new String[] {"GATILLO", "PULGAR"}, new int[] {B1, B2}, 0xff3a5a9a),
         new Game("gauntlet", "Gauntlet", "Atari Games", 1985, JOY_8WAY,
